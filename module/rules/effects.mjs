@@ -1,3 +1,14 @@
+/** An effect's changes (Foundry 14 keeps them under system). */
+export function effectChanges(effect) {
+  return effect?.system?.changes ?? [];
+}
+
+/** A change as display text: "vitals.hp.bonus 2". */
+export function describeChange(change) {
+  const key = String(change.key ?? "").replace(/^system\./, "");
+  return `${key} ${change.value}`;
+}
+
 /**
  * Whether an owned item's effects are switched off on its owner.
  *

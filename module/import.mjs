@@ -44,11 +44,9 @@ async function folderFor(names, cache) {
 async function createFiled(list) {
   const cache = new Map();
   const data = [];
-  for ( const { folder, effects, ...d } of list ) {
+  for ( const { folder, ...d } of list ) {
     const f = await folderFor(folder, cache);
-    const item = { ...d, folder: f.id };
-    if ( effects ) item.effects = effects.map(e => game.irop.compat.effectData(e));
-    data.push(item);
+    data.push({ ...d, folder: f.id });
   }
   let created = 0;
   for ( let i = 0; i < data.length; i += 100 ) {

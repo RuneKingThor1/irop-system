@@ -2,7 +2,7 @@
 
 The game system for **Insurrection: Retake Our Planet** on Foundry Virtual Tabletop. Built from scratch for this game: its own data models, sheets, d100 combat, DYNOSRS skill dice, chat cards, stores, concealment checkpoints and the Strategy Layer.
 
-System id `irop`. Foundry 13 and 14 (verified on 14.368). Some features need 14: detached sheet windows, and placing blast and mortar markers on the map.
+System id `irop`. Foundry 14 and up (verified on 14.368).
 
 ## Install
 
@@ -43,5 +43,5 @@ The working copy lives outside this repository and is mirrored into it with `syn
 
 - `python install-local.py` copies the system into the local Foundry data folder for testing (a copy, not a link, so Foundry's Uninstall cannot reach the working copy). JavaScript, template and style changes need only F5 in Foundry; a `system.json` change needs a restart.
 - `python pack.py` builds `irop.zip` by hand, the same way the release workflow does.
-- Tests, run with Node: `node test/rules.test.mjs`, `node test/models.test.mjs`, `node test/strategy.test.mjs`, `node test/compat.test.mjs`, and `node test/sheets.test.mjs <node_modules with handlebars and jsdom>`. The models and sheets tests load Foundry's own data layer from a local install.
+- Tests, run with Node: `node test/rules.test.mjs`, `node test/models.test.mjs`, `node test/strategy.test.mjs`, and `node test/sheets.test.mjs <node_modules with handlebars and jsdom>`. The models and sheets tests load Foundry's own data layer from a local install.
 - `module/config.mjs` is the rules' assumptions block: each value marked as ruled, taken from the live campaign, or assumed.

@@ -4,7 +4,6 @@ import { COVER, MODIFIERS, ENGAGED_BY_HANDLING, SCATTER, collectModifiers } from
 import { DynosrsRoll } from "./dice/dynosrs-roll.mjs";
 import { D100Roll, DamageRoll } from "./dice/d100-roll.mjs";
 import { adjustGmBanks, getSquad, setSquad } from "./settings.mjs";
-import { messageModeChoices, messageOptions } from "./compat.mjs";
 import { placeBlast, removeBlast, scatterBlast } from "./canvas/blast.mjs";
 
 const { DialogV2 } = foundry.applications.api;
@@ -17,6 +16,23 @@ const TEMPLATES = "systems/irop/templates/dialog";
 
 function speakerFor(actor) {
   return ChatMessage.implementation.getSpeaker({ actor });
+}
+
+/** Who sees a roll: Foundry's message modes, and the one this user last picked. */
+export function messageModeChoices() {
+  const entries = CONFIG.ChatMessage.modes;
+  let current;
+  try { current = game.settings.get("core", "messageMode"); }
+  catch { current = Object.keys(entries)[0]; }
+  const options = Object.entries(entries).map(([value, v]) => ({
+    value, label: game.i18n.localize(typeof v === "string" ? v : (v.label ?? value))
+  }));
+  return { options, current };
+}
+
+/** Options for Roll#toMessage that apply a chosen message mode. */
+export function messageOptions(mode) {
+  return mode ? { messageMode: mode } : {};
 }
 
 /**

@@ -252,14 +252,15 @@ check("feeds: fuel defaults to a full tank of 100, 10 a burn, 5 burns",
   check("sandbox abilities: filed under Abilities, by role and tree",
     list.every(d => d.folder[0] === "Abilities") && list.some(d => d.folder.join("/") === "Abilities/Legionary/Pointman")
       && list.find(d => d.name === "Clear the Room")?.system.tree === "Pointman" && list.find(d => d.name === "Rally")?.system.tree === "Primary");
-  const keys = new Set(list.flatMap(d => (d.effects ?? []).flatMap(e => e.changes.map(c => c.key))));
+  // Foundry 14's shape: the changes under system (2026-10-11).
+  const keys = new Set(list.flatMap(d => (d.effects ?? []).flatMap(e => e.system.changes.map(c => c.key))));
   const actorSource = new OperativeData({}).toObject();
   check("sandbox abilities: their effects touch real operative fields (HP, Energy, carry)",
     keys.size === 3 && [...keys].every(k => foundry.utils.getProperty({ system: actorSource }, k) !== undefined), [...keys].join());
   const res2 = list.find(d => d.name === "Resilience (2)");
   check("sandbox abilities: Resilience (2) is a passive rank 2 Generalist perk worth +2 HP, needing Resilience (1)",
     res2.system.kind === "passive" && res2.system.rank === 2 && res2.system.source === "generalist"
-      && res2.effects?.[0].changes[0].value === "2" && /^Resilience \(1\)/.test(res2.system.prerequisites));
+      && res2.effects?.[0].system.changes[0].value === "2" && (res2.effects[0].system.changes[0].type === "add") && /^Resilience \(1\)/.test(res2.system.prerequisites));
   check("sandbox abilities: Sandbox templates are left behind", !list.some(d => /template/i.test(d.name)));
   check("sandbox abilities: no Google Sheets wrappers left in the text", !list.some(d => /data-sheets-/.test(d.system.description)));
 
@@ -275,7 +276,6 @@ check("feeds: fuel defaults to a full tank of 100, 10 a burn, 5 burns",
   game.user = { isGM: true };
   game.folders = folders;
   game.items = new Map([[list[0]._id, {}]]);
-  game.irop = { compat: { effectData: e => e } };
   const result = await importAbilities({ confirm: false });
   const made = createdItems.flatMap(c => c.data);
   check("importer: skips what is already there, keeps the Sandbox ids",

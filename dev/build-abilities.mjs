@@ -152,10 +152,11 @@ function effectsOf(i, img) {
       value = Number(clean(i.system.description).match(/by (\d+)/i)?.[1]);
       effectNotes.push(`${i.name}: ${attribute} value missing in Sandbox, read ${value} from its text`);
     }
-    if ( Number.isFinite(value) && value ) changes.push({ key, mode: 2, value: String(value) });
+    if ( Number.isFinite(value) && value ) changes.push({ key, type: "add", value: String(value) });
   }
   if ( !changes.length ) return undefined;
-  return [{ name: i.name, img, transfer: true, changes }];
+  // Foundry 14's shape: the changes under system, each with a string type.
+  return [{ name: i.name, img, transfer: true, system: { changes } }];
 }
 
 /* -------------------------------------------- */

@@ -185,9 +185,7 @@ export function supportCardContext(support = {}) {
     declined: status === "declined",
     left: support.left ?? 0,
     canFire: mortar && (status === "approved") && !support.fired,
-    fired: mortar && !!support.fired,
-    // Foundry 14 sets the strikes down on the map as blast markers (2026-10-10); 13 marks them by hand.
-    markers: (game.release?.generation ?? 0) >= 14
+    fired: mortar && !!support.fired
   };
 }
 
@@ -340,7 +338,7 @@ function markerCircle(marker) {
  * so one set down over another is taken up again to be placed anew. Backing out of any calls
  * the whole strike off, and takes up those already down.
  * @returns {Promise<(RegionDocument|null)[]|null>}  A marker per strike (null where none can be
- *   placed, as on Foundry 13); null if the strike was called off.
+ *   placed, with no scene on screen); null if the strike was called off.
  */
 export async function placeMortarStrikes(count = IROP.mortarStrike.strikes) {
   const m = IROP.mortarStrike;
@@ -367,8 +365,8 @@ export async function placeMortarStrikes(count = IROP.mortarStrike.strikes) {
 /**
  * Fire an approved Mortar Strike (doc): three d100s, and any of 75 or more scatters
  * 1d4 tiles, in a direction from the canon 1d8. Each strike gets its own Damage button.
- * On Foundry 14 the strikes are set down on the map first, and a strike that scatters moves
- * its marker where it lands (2026-10-10).
+ * The strikes are set down on the map first, and a strike that scatters moves its marker
+ * where it lands (2026-10-10).
  */
 export async function fireMortar(message) {
   const support = message.getFlag("irop", "support");

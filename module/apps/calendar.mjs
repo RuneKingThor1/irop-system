@@ -493,7 +493,7 @@ export class DateBar extends HandlebarsApplicationMixin(ApplicationV2) {
 
 /* -------------------------------------------- */
 
-/** A Calendar button among the Journal Notes tools, for everyone (Foundry 13 and 14). */
+/** A Calendar button among the Journal Notes tools, for everyone. */
 export function addCalendarControl(controls) {
   const notes = controls?.notes;
   if ( !notes?.tools || Array.isArray(controls) ) return;

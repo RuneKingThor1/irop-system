@@ -1,5 +1,5 @@
 import { IROP } from "../config.mjs";
-import { effectChanges, describeChange } from "../compat.mjs";
+import { effectChanges, describeChange } from "../rules/effects.mjs";
 import { defaultNodeCost, moveNode, moveTier, removeNode, removeTier } from "../rules/skill-trees.mjs";
 import { linkNeighbors } from "../rules/strategy.mjs";
 import { getStrategyRules, temperatureUnit } from "../settings.mjs";

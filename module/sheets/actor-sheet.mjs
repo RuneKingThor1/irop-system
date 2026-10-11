@@ -7,7 +7,7 @@ import { ownedPerks, nodeStates, treesFor, specializationLock, canCrossTrain, or
 import { specializationRules, isLedgerOpen, setLedgerOpen } from "../settings.mjs";
 import { parseRequirements, unmetRequirements } from "../rules/requirements.mjs";
 import { nodeSource } from "./item-sheet.mjs";
-import { effectChanges, describeChange } from "../compat.mjs";
+import { effectChanges, describeChange } from "../rules/effects.mjs";
 import { canReset, confirmReset } from "../reset.mjs";
 import { isCountedWeapon, stackFor } from "../rules/stacks.mjs";
 import { isLinked, linkActor, syncActor, unlinkActor } from "../artemis/link.mjs";
@@ -1751,7 +1751,7 @@ export class OperativeSheet extends IropActorSheet {
   }
 
   /**
-   * Detached into a window of its own (Foundry 14). That window ends at the sheet's edges, where
+   * Detached into a window of its own. That window ends at the sheet's edges, where
    * the record, off the sheet's left edge, was cut off (bug fix, Johnald, 2026-10-10). There the
    * record makes its room in the window instead (#roomInWindow).
    */

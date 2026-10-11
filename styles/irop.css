@@ -1289,7 +1289,7 @@
 }
 .irop .record-body { flex: 1; overflow-y: auto; padding: 0 14px 18px; display: flex; flex-direction: column; gap: 12px; }
 
-/* Detached into a window of its own (Foundry 14, bug fix, Johnald, 2026-10-10). The window
+/* Detached into a window of its own (bug fix, Johnald, 2026-10-10). The window
    ends at the sheet's edges, so off the left edge the drawer was cut off. There the sheet makes
    room in its window and the record opens out as usual (#roomInWindow); only when no room can be
    made (record-inside) does it open inside the sheet: from the gutter, over the sheet's left

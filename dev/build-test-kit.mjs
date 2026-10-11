@@ -235,7 +235,7 @@ function convertGear(i) {
   // LIVE: the Backpack added 5 to carry. Here that is an effect while carried.
   if ( i.name === "Backpack" ) {
     data.effects = [{ name: "Backpack", img: "icons/svg/item-bag.svg", transfer: true,
-      changes: [{ key: "system.bonuses.carry", mode: 2, value: "5" }] }];
+      system: { changes: [{ key: "system.bonuses.carry", type: "add", value: "5" }] } }];
   }
   return data;
 }
@@ -348,7 +348,7 @@ function abilities() {
   out.push({ name: "Resilience (1)", type: "ability",
     system: { description: "<p>Pre-Requisites: None</p><p>Gain +2 HP</p>", kind: "passive", source: "generalist" },
     effects: [{ name: "Resilience (1)", img: "icons/svg/regen.svg", transfer: true,
-      changes: [{ key: "system.vitals.hp.bonus", mode: 2, value: "2" }] }] });
+      system: { changes: [{ key: "system.vitals.hp.bonus", type: "add", value: "2" }] } }] });
   return out;
 }
 
@@ -362,7 +362,7 @@ function testMods() {
     { name: "Ceramic Insert (test)", type: "mod", system: { target: "armor", weight: 1,
       description: "<p>Test mod. +2 armor HP while fitted.</p>" },
       effects: [{ name: "Ceramic Insert", img: "icons/svg/shield.svg", transfer: true,
-        changes: [{ key: "system.vitals.armor.bonus", mode: 2, value: "2" }] }] }
+        system: { changes: [{ key: "system.vitals.armor.bonus", type: "add", value: "2" }] } }] }
   ];
 }
 

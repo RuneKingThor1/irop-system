@@ -7,16 +7,15 @@ import { scatterOffset } from "../rules/combat.mjs";
  * radius before the attack window opens; if the attack misses, Scatter moves the circle where
  * the blast lands, so nobody has to count squares.
  *
- * The marker is a Region, placed with Foundry 14's own placement: the circle follows the
- * cursor, a left click sets it down, a right click or Escape backs out. Foundry 13 has no such
- * placement (and its templates are on their way out), so there the attack goes ahead without a
- * marker, as before.
+ * The marker is a Region, placed with Foundry's own placement: the circle follows the cursor, a
+ * left click sets it down, a right click or Escape backs out. With no scene on screen the attack
+ * goes ahead without a marker.
  */
 
-/** Whether a blast marker can be set down now: a scene on screen, and Foundry's Region placement. */
+/** Whether a blast marker can be set down now: a scene on screen. */
 export function canPlaceBlast() {
   const c = globalThis.canvas;
-  return !!(c?.ready && c.scene && (typeof c.regions?.placeRegion === "function"));
+  return !!(c?.ready && c.scene && c.regions);
 }
 
 /**

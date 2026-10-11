@@ -19,7 +19,6 @@ import * as rolls from "./rolls.mjs";
 import * as dynosrs from "./rules/dynosrs.mjs";
 import * as combat from "./rules/combat.mjs";
 import * as startingSkills from "./rules/starting-skills.mjs";
-import * as compat from "./compat.mjs";
 import { squadSightToken, onTokenDisposition } from "./canvas/squad-sight.mjs";
 import { vitalBarsToken, onVitalsChanged, refreshAllTokenBars } from "./canvas/token-bars.mjs";
 import { importAbilities, importTrees, importTerritories, importProjects } from "./import.mjs";
@@ -124,7 +123,7 @@ Hooks.once("init", () => {
   // Status effects, replacing core's set.
   CONFIG.statusEffects = IROP.statusEffects.map(s => ({ id: s.id, name: s.name, img: s.img, description: s.text }));
 
-  // Sheets. Core v13 registers no Actor or Item sheet, so there is nothing to unregister.
+  // Sheets. Core registers no Actor or Item sheet of its own, so there is nothing to unregister.
   const { DocumentSheetConfig } = foundry.applications.apps;
   DocumentSheetConfig.registerSheet(Actor, "irop", OperativeSheet, {
     types: ["operative"], makeDefault: true, label: "Insurrection Operative"
@@ -195,8 +194,7 @@ Hooks.once("init", () => {
     // The calendar (2026-10-08): today in words, and the GM's ways to move it.
     calendar: { open: () => CalendarApp.open(), settings: () => CalendarEditor.open(), get: getCalendar, today: dateInfo,
       setDate, advanceDays, setTime: setWorldTime, rules: calendarRules },
-    importEventCards,
-    compat
+    importEventCards
   };
 });
 

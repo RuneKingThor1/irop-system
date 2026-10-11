@@ -179,7 +179,7 @@ function makeActor(type, Model, source, specs) {
     items: list, statuses: new Set(["bleeding"]),
     *allApplicableEffects() {
       yield { id: "e1", name: "Resilience", img: "x.svg", disabled: false, parent: list[0], statuses: new Set(),
-        changes: [{ key: "system.vitals.hp.bonus", value: "2" }] };
+        system: { changes: [{ key: "system.vitals.hp.bonus", type: "add", value: "2" }] } };
     }
   });
   specs.forEach((spec, i) => {
@@ -2696,8 +2696,8 @@ check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t =
   // What the attack window reads for its roll visibility list.
   const oldConfig = globalThis.CONFIG;
   const oldSettingsBlast = game.settings;
-  globalThis.CONFIG = { ...(oldConfig ?? {}), Dice: { rollModes: { publicroll: "Public" } } };
-  game.settings = { get(scope, key) { if ( key === "rollMode" ) return "publicroll"; throw new Error("no settings in tests"); } };
+  globalThis.CONFIG = { ...(oldConfig ?? {}), ChatMessage: { modes: { public: { label: "Public" } } } };
+  game.settings = { get(scope, key) { if ( key === "messageMode" ) return "public"; throw new Error("no settings in tests"); } };
   const grenade = new FakeDoc({});
   Object.assign(grenade, { type: "weapon", name: "Frag Grenade", uuid: "Item.g", img: "g.svg", updates: [], actor: null });
   grenade.system = new itemModels.WeaponData({ category: "thrown", weaponClass: "grenade", quantity: 2, blast: 2, damage: { formula: "3d6", type: "explosive" } },
@@ -2929,7 +2929,6 @@ check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t =
   const realRoll = foundry.dice.Roll;
   const realRender = foundry.applications.handlebars.renderTemplate;
   const oldUser = game.user;
-  const oldRelease = game.release;
   const oldUi = globalThis.ui;
   const oldCanvas = globalThis.canvas;
   const oldChat = globalThis.ChatMessage;
@@ -3015,8 +3014,8 @@ check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t =
     (calledOff === null) && (allMarkers.length === 2) && allMarkers.every(mk => mk.deleted) && !created.length && !msg.updates.length
       && !msg.flags.irop.support.fired && notes.some(n => /Mortar Strike called off: nothing fired/.test(n)));
 
-  // No placement here (Foundry 13): it fires as before, with no markers.
-  globalThis.canvas = { ready: true, scene: { id: "s1" }, regions: {} };
+  // No scene on screen to set markers down on: it fires as before, with no markers.
+  globalThis.canvas = { ready: true, scene: null, regions: {} };
   totals = [10, 20, 30];
   msg = supportMessage();
   await res.fireMortar(msg);
@@ -3032,20 +3031,16 @@ check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t =
   check("mortar markers: a strike that could not move its marker says to place that blast by hand",
     /The blast markers are on the map\. Strike 2 could not move its marker: place that blast by hand\./.test(stuck.querySelector(".scatter-note")?.textContent ?? ""));
 
-  // The support card's hint follows the Foundry version.
-  const hint = generation => {
-    game.release = { generation };
-    const ctx = res.supportCardContext({ key: "mortarStrike", status: "approved", cost: 30, by: "Wraith", left: 0 });
-    return new JSDOM(tpl("templates/chat/support-card.hbs")(ctx)).window.document.querySelector(".support-hint")?.textContent ?? "";
-  };
-  check("mortar markers: on Foundry 14 the card says to set the strikes down after firing; on 13, to mark them first",
-    /Fire, then set the three strikes down on the map/.test(hint(14)) && /Mark three areas on the map that do not overlap, then fire/.test(hint(13)));
+  // The support card says to set the strikes down after firing.
+  const hintCtx = res.supportCardContext({ key: "mortarStrike", status: "approved", cost: 30, by: "Wraith", left: 0 });
+  const hint = new JSDOM(tpl("templates/chat/support-card.hbs")(hintCtx)).window.document.querySelector(".support-hint")?.textContent ?? "";
+  check("mortar markers: the card says to fire, then set the strikes down on the map",
+    /Fire, then set the three strikes down on the map/.test(hint) && !/Mark three areas/.test(hint) && !("markers" in hintCtx));
 
   foundry.utils = realUtils;
   foundry.dice.Roll = realRoll;
   foundry.applications.handlebars.renderTemplate = realRender;
   game.user = oldUser;
-  game.release = oldRelease;
   globalThis.ui = oldUi;
   globalThis.canvas = oldCanvas;
   globalThis.ChatMessage = oldChat;
@@ -6142,6 +6137,40 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   globalThis.ui = saved.ui;
   globalThis.ChatMessage = saved.chat;
   foundry.utils = saved.utils;
+}
+
+// Foundry 14 alone (2026-10-11): rolls post with its message modes, effects keep their changes under system.
+{
+  const rollsMod = await import("../module/rolls.mjs");
+  const effects = await import("../module/rules/effects.mjs");
+  const savedConfig = globalThis.CONFIG;
+  const savedSettings = game.settings;
+  globalThis.CONFIG = { ...(savedConfig ?? {}), ChatMessage: { modes: { public: { label: "Public" }, gm: { label: "Private GM" }, blind: { label: "Blind GM" }, self: { label: "Self" } } } };
+  game.settings = { get: (scope, key) => { if ( (scope === "core") && (key === "messageMode") ) return "gm"; throw new Error("no such setting"); } };
+  const modes = rollsMod.messageModeChoices();
+  check("rolls: the roll window offers Foundry's message modes, the user's last one picked",
+    (modes.options.map(o => o.value).join() === "public,gm,blind,self") && (modes.options[1].label === "Private GM") && (modes.current === "gm"));
+  game.settings = { get: () => { throw new Error("no such setting"); } };
+  check("rolls: with no message mode saved yet, the first", rollsMod.messageModeChoices().current === "public");
+  check("rolls: a chosen mode goes to the message as messageMode; none chosen, nothing",
+    (JSON.stringify(rollsMod.messageOptions("gm")) === '{"messageMode":"gm"}') && (JSON.stringify(rollsMod.messageOptions("")) === "{}"));
+  check("effects: changes are read from under system, and none is an empty list",
+    (effects.effectChanges({ system: { changes: [{ key: "system.vitals.hp.bonus", type: "add", value: "2" }] } }).length === 1)
+      && (effects.effectChanges({ changes: [{ key: "k" }] }).length === 0) && (effects.effectChanges(null).length === 0));
+  check("effects: a change reads as its key without system, then its value",
+    effects.describeChange({ key: "system.vitals.hp.bonus", type: "add", value: 2 }) === "vitals.hp.bonus 2");
+  // The data the system carries is all in Foundry 14's shape: the imported abilities and the test kit.
+  const abilityData = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/sandbox-abilities.json"), "utf8"));
+  const kitLine = fs.readFileSync(path.join(ROOT, "dev/test-kit-macro.js"), "utf8").split("\n").find(l => l.startsWith("const KIT = "));
+  const kit = JSON.parse(kitLine.slice("const KIT = ".length).replace(/;\s*$/, ""));
+  const allEffects = [...abilityData.flatMap(a => a.effects ?? []), ...Object.values(kit).flat().flatMap(i => i?.effects ?? [])];
+  check("effects: every effect the system ships has its changes under system, each with a type, none with an old numeric mode",
+    (allEffects.length >= 36) && allEffects.every(e => !("changes" in e) && Array.isArray(e.system?.changes) && e.system.changes.length
+      && e.system.changes.every(c => (typeof c.type === "string") && !("mode" in c))), String(allEffects.length));
+  check("system: Foundry 14 and up", JSON.parse(fs.readFileSync(path.join(ROOT, "system.json"), "utf8")).compatibility.minimum === "14"
+    && !fs.existsSync(path.join(ROOT, "module/compat.mjs")));
+  globalThis.CONFIG = savedConfig;
+  game.settings = savedSettings;
 }
 
 console.log(`${pass} passed, ${fail} failed`);

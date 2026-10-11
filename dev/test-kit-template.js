@@ -27,16 +27,13 @@ if ( existing || oldActors.length ) {
   if ( oldActors.length ) await Actor.deleteDocuments(oldActors.map(a => a.id));
 }
 
-/** Effects in the shape this Foundry expects (v14 moved changes under system). */
-const fit = d => (d.effects ? { ...d, effects: d.effects.map(e => game.irop.compat.effectData(e)) } : d);
-
 // Items, one subfolder per kind.
 const root = await Folder.create({ name: ROOT_NAME, type: "Item", color: "#42abf2" });
 const made = {};
 let total = 0;
 for ( const [name, list] of Object.entries(KIT) ) {
   const folder = await Folder.create({ name, type: "Item", folder: root.id });
-  const docs = await Item.createDocuments(list.map(d => ({ ...fit(d), folder: folder.id, flags: FLAG })));
+  const docs = await Item.createDocuments(list.map(d => ({ ...d, folder: folder.id, flags: FLAG })));
   for ( const d of docs ) made[d.name] = d;
   total += docs.length;
 }

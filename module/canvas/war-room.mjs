@@ -194,7 +194,7 @@ function syncScene() {
 
 /** Add the Strategy Layer box to a scene's settings: War Room map, and what it shows. */
 export function onRenderSceneConfig(app, html) {
-  // An element (Foundry 13 and 14), or a jQuery wrapper from an older sheet.
+  // An element, or a jQuery wrapper from an older sheet.
   const root = html?.querySelector ? html : html?.[0];
   if ( !root || root.querySelector(".irop-war-room-config") ) return;
   const tab = root.querySelector('.tab[data-tab="basics"], .tab[data-tab="basic"]') ?? root.querySelector("form") ?? root;
@@ -221,7 +221,7 @@ export function onRenderSceneConfig(app, html) {
 
 /** A War Room button atop the Scenes sidebar: go to the War Room map. */
 export function onRenderSceneDirectory(app, html) {
-  // An element (Foundry 13 and 14), or a jQuery wrapper from an older sheet.
+  // An element, or a jQuery wrapper from an older sheet.
   const root = html?.querySelector ? html : html?.[0];
   const actions = root?.querySelector(".header-actions");
   if ( !actions || actions.querySelector(".irop-war-room-button") ) return;

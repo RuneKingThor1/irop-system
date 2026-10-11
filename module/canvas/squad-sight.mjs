@@ -38,7 +38,7 @@ export function sharesSquadSight(token, { enabled = squadSightOn(), user = game.
   if ( !canvas?.visibility?.tokenVision || !token?.hasSight ) return false;
   const doc = token.document;
   if ( !doc || doc.hidden ) return false;
-  // Foundry 14: only tokens on the level being viewed can see.
+  // Only tokens on the level being viewed can see.
   if ( canvas.level && ("level" in doc) && (doc.level !== canvas.level.id) ) return false;
   return doc.disposition === CONST.TOKEN_DISPOSITIONS.FRIENDLY;
 }
