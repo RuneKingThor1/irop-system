@@ -1,13 +1,21 @@
-<div class="irop-record-dock {{#if record.open}}open{{/if}}"
+<div class="irop-record-dock page-{{record.page}} {{#if record.open}}open{{/if}}"
      {{#if record.roleColor}}style="--record-role: {{record.roleColor}}"{{/if}}>
 {{#unless record.only}}
 <div class="record-gutter">
-  <button type="button" class="record-bar" data-action="toggleRecord"
-          aria-expanded="{{#if record.open}}true{{else}}false{{/if}}"
-          data-tooltip="{{#if record.open}}Close the Personnel Record{{else}}Open the Personnel Record{{/if}}">
+  <button type="button" class="record-bar record-tab {{#if record.recordActive}}active{{/if}}" data-action="toggleRecord"
+          aria-expanded="{{#if record.recordActive}}true{{else}}false{{/if}}"
+          data-tooltip="{{#if record.recordActive}}Close the Personnel Record{{else}}Open the Personnel Record{{/if}}">
     <i class="fa-solid {{record.barIcon}}" inert></i>
     <span class="bar-label">Record</span>
     <i class="fa-solid {{record.barIcon}}" inert></i>
+  </button>
+  {{!-- The owner's Notes, off the tab bar and onto a side tab of their own (Johnald, 2026-10-11). --}}
+  <button type="button" class="record-bar notes-tab {{#if record.notesActive}}active{{/if}}" data-action="toggleNotes"
+          aria-expanded="{{#if record.notesActive}}true{{else}}false{{/if}}"
+          data-tooltip="{{#if record.notesActive}}Close your Notes{{else}}Open your Notes{{/if}}">
+    <i class="fa-solid {{record.notesBarIcon}}" inert></i>
+    <span class="bar-label">Notes</span>
+    <i class="fa-solid {{record.notesBarIcon}}" inert></i>
   </button>
 </div>
 {{/unless}}
@@ -110,5 +118,15 @@
     </section>
 
   </div>
+  {{#unless record.only}}
+  {{!-- The owner's Notes: theirs and the GM's alone, since anyone else sees the record by itself. --}}
+  <section class="drawer-notes">
+    <header class="drawer-notes-head">
+      <span class="drawer-notes-title">Notes</span>
+      <span class="drawer-notes-sub">Private: owners and the GM</span>
+    </header>
+    <prose-mirror class="drawer-notes-editor" name="system.details.notes" value="{{system.details.notes}}" toggled>{{{notes}}}</prose-mirror>
+  </section>
+  {{/unless}}
 </aside>
 </div>

@@ -97,7 +97,7 @@
    pieces (the War Room bar, the project strip, the date bar) and its chat cards never got the
    accent above, and everything drawn in it was invisible: the project strip's bars filled with no
    colour (bug, 2026-10-08). They take the same accent here. */
-.irop-war-room-bar, .irop-project-strip, .irop-date-bar, .irop-card { --irop-accent: var(--irop-sky); }
+.irop-war-room-bar, .irop-project-strip, .irop-date-bar, .irop-turn-ribbon, .irop-card { --irop-accent: var(--irop-sky); }
 
 /* Scrollbars wear the role colour (Johnald, 2026-10-08). Core sets scrollbar-color on every
    element inside a cascade layer, so this plain rule wins; --irop-accent is set per sheet
@@ -493,6 +493,10 @@
 .irop :where(.window-content) .mod-chip:hover button.icon,
 .irop :where(.window-content) .mod-chip:focus-within button.icon { opacity: 1; }
 .irop .mod-slot { border: 1px dashed var(--irop-line-bright); background: transparent; color: var(--irop-faint); font-size: 12px; }
+/* An empty slot is a button now, opening a picker of the loose mods that fit (Johnald, 2026-10-11).
+   Core gives every button a fixed height and padding; the square keeps its own. */
+.irop .mod-slot { margin: 0; padding: 0; min-height: 0; line-height: 1; box-shadow: none; cursor: pointer; }
+.irop .mod-slot:hover, .irop .mod-slot:focus-visible { border-color: var(--irop-orange); color: var(--irop-orange); background: transparent; }
 
 /* Special ammo, ranged weapons only (Johnald, 2026-10-08): one gold rectangle after the mod
    squares, so it never reads as a mod. Empty, it is a dashed button that opens a picker. */
@@ -1147,7 +1151,6 @@
 .irop .xp-meter-fill { display: block; height: 100%; background: color-mix(in srgb, var(--irop-accent) 70%, transparent); }
 /* A pip that can be bought with XP right now. */
 .irop :where(.window-content) .pip.buyable { border-color: var(--irop-accent); box-shadow: 0 0 6px color-mix(in srgb, var(--irop-accent) 45%, transparent); cursor: pointer; }
-.irop .notes-panel prose-mirror { min-height: 420px; }
 .irop-banks .bank-actions button { flex: 1; height: 30px; display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
 /* Banks and Support share a row in the Actors sidebar (step 3, 2026-10-08). */
 .irop-banks-button, .irop-support-button { flex: 1 1 calc(50% - 4px); }
@@ -1244,7 +1247,7 @@
   cursor: pointer;
 }
 .irop .irop-record-dock .record-bar:hover,
-.irop .irop-record-dock.open .record-bar { background-color: color-mix(in srgb, var(--rec-band) 70%, var(--rec-line)); border-color: var(--rec-line); color: #fff; box-shadow: 0 0 10px rgba(163, 216, 232, 0.35); }
+.irop .irop-record-dock.open .record-bar.active { background-color: color-mix(in srgb, var(--rec-band) 70%, var(--rec-line)); border-color: var(--rec-line); color: #fff; box-shadow: 0 0 10px rgba(163, 216, 232, 0.35); }
 .irop .irop-record-dock .record-bar i { font-size: 14px; line-height: 1; }
 .irop .irop-record-dock .record-bar .bar-label {
   writing-mode: vertical-rl;
@@ -1255,6 +1258,39 @@
   text-transform: uppercase;
   opacity: 0.9;
 }
+
+/* Two side tabs in the gutter: Record, and under it the owner's Notes (Johnald, 2026-10-11).
+   The drawer shows the page of the tab that opened it; the other tab turns it to its own. */
+.irop .record-gutter { flex-direction: column; gap: 12px; }
+.irop .irop-record-dock .record-bar.notes-tab { height: 112px; }
+.irop .irop-record-dock.page-notes .record-body { display: none; }
+.irop .drawer-notes { display: none; }
+.irop .irop-record-dock.page-notes .drawer-notes { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 0 14px 14px; }
+.irop .drawer-notes-head {
+  margin: 0 -14px;
+  padding: 16px 14px 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--rec-plus) 0 0 / 46px 46px, var(--rec-band);
+  border-bottom: 1.5px solid var(--rec-line);
+}
+.irop .drawer-notes-title { font-size: 20px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--rec-label); line-height: 1; }
+.irop .drawer-notes-sub { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--rec-value); }
+.irop .irop-record prose-mirror.drawer-notes-editor {
+  flex: 1;
+  min-height: 0;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--rec-line-dim);
+  border-radius: 3px;
+  color: var(--rec-value);
+  font-family: "Jura", var(--irop-display);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.irop .irop-record prose-mirror.drawer-notes-editor .editor-content { color: var(--rec-value); }
+.irop .irop-record prose-mirror.drawer-notes-editor.active { border-color: var(--rec-line); }
 
 /* The drawer, off the sheet's left edge. Closed, it is clipped away against
    the sheet; opening slides it out from behind it. */
@@ -2562,3 +2598,201 @@
 .irop-card.store-card .deal-undone { font-family: var(--irop-mono); font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-muted); }
 .irop-card .store-deal { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; line-height: 1.4; }
 .irop-card .store-deal img { width: 38px; height: 38px; object-fit: cover; border: 1px solid var(--irop-line-bright); border-radius: 3px; flex: none; }
+
+/* --------------------------------------------------------------------------
+   The turn order ribbon (Johnald, 2026-10-11): the combat as a slanted strip of
+   cards in Foundry's top area. Wide, tall cards; the acting one opens out with a
+   large portrait on its left. Operatives wear their doctrine's color along the
+   top edge, hostiles the GENESIS red with black behind the portrait.
+   -------------------------------------------------------------------------- */
+.irop-turn-ribbon {
+  --rb-h: 146px;
+  --rb-slant: 12px;
+  flex: none;
+  max-width: 100%;
+  margin: 10px 0 0;
+  padding: 0;
+  pointer-events: none;
+  font-family: var(--irop-display);
+  color: var(--irop-ink);
+}
+.irop-turn-ribbon .rb-strip { display: flex; align-items: stretch; max-width: 100%; pointer-events: auto; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6)); }
+.irop-turn-ribbon .rb-card { clip-path: polygon(var(--rb-slant) 0, 100% 0, calc(100% - var(--rb-slant)) 100%, 0 100%); }
+
+/* The round, at the left end. */
+.irop-turn-ribbon .rb-round {
+  flex: none;
+  width: 112px;
+  height: var(--rb-h);
+  box-sizing: border-box;
+  padding: 8px 16px 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: color-mix(in srgb, var(--odr-navy) 96%, transparent);
+  border-top: 3px solid var(--irop-sky);
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--rb-slant)) 100%, 0 100%);
+}
+.irop-turn-ribbon .rb-round-label, .irop-turn-ribbon .rb-count { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-label-ink); }
+.irop-turn-ribbon .rb-round-n { font-family: var(--irop-mono); font-size: 34px; font-weight: 400; line-height: 1; color: var(--irop-sky); }
+.irop-turn-ribbon .rb-gm { display: flex; gap: 4px; margin-top: 4px; }
+.irop-turn-ribbon .rb-round .rb-end-combat { margin-top: 4px; padding: 3px 6px; letter-spacing: 0.03em; --rb-edge: var(--irop-bad); }
+
+/* The line of cards scrolls sideways when the fight outgrows the screen. */
+.irop-turn-ribbon .rb-line { position: relative; display: flex; align-items: stretch; min-width: 0; margin-left: calc(var(--rb-slant) / -2); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.irop-turn-ribbon .rb-line::-webkit-scrollbar { display: none; }
+.irop-turn-ribbon .rb-line > * + * { margin-left: calc(var(--rb-slant) / -2); }
+
+/* A waiting card. */
+.irop-turn-ribbon .rb-card {
+  position: relative;
+  flex: 0 1 170px;
+  min-width: 124px;
+  height: var(--rb-h);
+  box-sizing: border-box;
+  padding: 10px calc(var(--rb-slant) + 8px) 9px calc(var(--rb-slant) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  background: color-mix(in srgb, var(--irop-panel) 95%, transparent);
+  border-top: 3px solid var(--rb-edge, var(--irop-sky));
+  cursor: pointer;
+}
+.irop-turn-ribbon .rb-card:hover { background: color-mix(in srgb, var(--irop-panel-2) 97%, transparent); }
+.irop-turn-ribbon .rb-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.irop-turn-ribbon .rb-face { flex: none; width: 48px; height: 48px; box-sizing: border-box; border: 2px solid var(--rb-edge, var(--irop-sky)); border-radius: 50%; object-fit: cover; object-position: top center; background: var(--irop-sunk); }
+.irop-turn-ribbon .rb-who { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.irop-turn-ribbon .rb-name { max-width: 100%; font-size: 16px; font-weight: 600; line-height: 1.05; color: var(--irop-ink-bright); white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* A long name wrapped onto two lines was squeezed shorter than its text and cut off (Johnald, 2026-10-11):
+   the lines of a card keep their height, and the ribbon is tall enough for them all. */
+.irop-turn-ribbon .rb-card:not(.active) > *, .irop-turn-ribbon .rb-body > *, .irop-turn-ribbon .rb-who > * { flex-shrink: 0; }
+.irop-turn-ribbon .rb-init { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-label-ink); }
+.irop-turn-ribbon .rb-card.next .rb-init { color: var(--irop-sky); }
+.irop-turn-ribbon .rb-card.next { border-top-width: 4px; }
+
+/* Health, Armor and Barrier, in the sheet's own colors. */
+.irop-turn-ribbon .rb-bar { flex: none; height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 2px; overflow: hidden; }
+.irop-turn-ribbon .rb-bar i { display: block; height: 100%; background: var(--rb-fill, #d64f4f); transition: width 300ms; }
+.irop-turn-ribbon .rb-bar.hp { --rb-fill: linear-gradient(90deg, #7a1f24, #d64f4f); }
+.irop-turn-ribbon .rb-bar.armor { --rb-fill: linear-gradient(90deg, #4a4f57, #a7b0bd); }
+.irop-turn-ribbon .rb-bar.barrier { --rb-fill: linear-gradient(90deg, #1d5f95, #42abf2); }
+
+/* What players read of a hostile instead of its numbers. */
+.irop-turn-ribbon .rb-condition { font-family: var(--irop-mono); font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--genesis-gold); }
+
+/* Dodges left, and status effects with their X. */
+.irop-turn-ribbon .rb-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 20px; margin-top: auto; }
+.irop-turn-ribbon .rb-pips { display: flex; align-items: center; flex: none; }
+.irop-turn-ribbon .rb-pip { display: inline-block; width: 9px; height: 9px; box-sizing: border-box; margin-right: 3px; border: 1.5px solid var(--rb-edge, var(--irop-sky)); border-radius: 50%; }
+.irop-turn-ribbon .rb-pip.full { background: var(--rb-edge, var(--irop-sky)); }
+.irop-turn-ribbon .rb-dodge-count { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-label-ink); }
+.irop-turn-ribbon .rb-statuses { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.irop-turn-ribbon .rb-status { position: relative; flex: none; width: 20px; height: 20px; }
+.irop-turn-ribbon .rb-status img { display: block; width: 100%; height: 100%; border: none; object-fit: contain; }
+.irop-turn-ribbon .rb-status b { position: absolute; right: -4px; bottom: -5px; min-width: 13px; padding: 0 2px; box-sizing: border-box; border-radius: 6px; background: var(--irop-bg); font-family: var(--irop-mono); font-size: 12px; font-weight: 400; line-height: 13px; text-align: center; color: var(--irop-orange); }
+
+/* The acting card opens out: a large portrait on its left, the numbers in full. */
+.irop-turn-ribbon .rb-card.active {
+  flex: none;
+  width: 372px;
+  min-width: 0;
+  padding: 0 calc(var(--rb-slant) + 10px) 0 0;
+  flex-direction: row;
+  gap: 12px;
+  background: color-mix(in srgb, var(--rb-edge, var(--irop-sky)) 14%, var(--irop-panel));
+  border-top-width: 4px;
+}
+.irop-turn-ribbon .rb-portrait {
+  flex: none;
+  width: 132px;
+  align-self: stretch;
+  padding-right: 3px;
+  background: var(--rb-edge, var(--irop-sky));
+  clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
+}
+.irop-turn-ribbon .rb-portrait img { display: block; width: 100%; height: 100%; border: none; object-fit: cover; object-position: top center; background: var(--irop-sunk); clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%); }
+.irop-turn-ribbon .rb-body { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 8px 0 9px; }
+.irop-turn-ribbon .rb-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.irop-turn-ribbon .rb-tag { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.12em; text-transform: uppercase; color: var(--rb-edge, var(--irop-sky)); }
+.irop-turn-ribbon .rb-card.active .rb-name { font-size: 20px; }
+.irop-turn-ribbon .rb-label { font-size: 14px; font-weight: 600; line-height: 1; color: var(--rb-edge, var(--irop-sky)); }
+.irop-turn-ribbon .rb-vitals { display: flex; gap: 8px; margin: 4px 0 2px; }
+.irop-turn-ribbon .rb-vital { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.irop-turn-ribbon .rb-vl { display: flex; justify-content: space-between; font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-label-ink); }
+.irop-turn-ribbon .rb-card.active .rb-condition { margin: 4px 0 2px; font-size: 16px; }
+.irop-turn-ribbon .rb-card.active .rb-status { width: 22px; height: 22px; }
+
+/* The ribbon's buttons: End turn, Roll, and the GM's. Core gives every button a fixed height. */
+.irop-turn-ribbon button {
+  flex: none;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 3px 7px;
+  line-height: 1;
+  font-family: var(--irop-mono);
+  font-size: var(--irop-small-size);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--irop-ink-bright);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--rb-edge, var(--irop-sky));
+  border-radius: 3px;
+  cursor: pointer;
+}
+.irop-turn-ribbon button:hover { background: color-mix(in srgb, var(--rb-edge, var(--irop-sky)) 30%, transparent); }
+.irop-turn-ribbon .rb-gm button { padding: 3px 8px; }
+/* Roll stands out, in the card's bottom right: a player's call to act (Johnald, 2026-10-11). The status
+   icons sit beside it, pushed right; the dodge pips keep the left. */
+.irop-turn-ribbon .rb-foot .rb-statuses { flex: 1 1 auto; justify-content: flex-end; }
+.irop-turn-ribbon .rb-roll { padding: 2px 7px; display: inline-flex; align-items: center; gap: 4px; background: color-mix(in srgb, var(--rb-edge, var(--irop-sky)) 28%, rgba(0, 0, 0, 0.35)); }
+.irop-turn-ribbon .rb-roll i { font-size: 12px; }
+
+/* Hostiles: GENESIS black behind the portrait, a red cast on the card. */
+.irop-turn-ribbon .rb-card.side-hostile { background: color-mix(in srgb, var(--genesis-red) 7%, var(--genesis-black)); }
+.irop-turn-ribbon .rb-card.side-hostile .rb-face, .irop-turn-ribbon .rb-card.side-hostile .rb-portrait img { background: var(--genesis-black); }
+.irop-turn-ribbon .rb-card.active.side-hostile { background: color-mix(in srgb, var(--genesis-red) 16%, var(--genesis-black)); }
+
+/* Acted this round (fixed order): dimmed. Hidden from players: the GM sees it faded, marked. */
+.irop-turn-ribbon .rb-card.acted { background: color-mix(in srgb, var(--irop-sunk) 96%, transparent); border-top-color: var(--irop-line-bright); }
+.irop-turn-ribbon .rb-card.acted .rb-name { color: var(--irop-label-ink); }
+.irop-turn-ribbon .rb-card.acted .rb-face { filter: grayscale(0.7) brightness(0.8); border-color: var(--irop-line-bright); }
+.irop-turn-ribbon .rb-card.rb-hidden { opacity: 0.6; }
+.irop-turn-ribbon .rb-hidden-mark { position: absolute; top: 6px; right: calc(var(--rb-slant) + 6px); font-size: 12px; color: var(--irop-label-ink); }
+
+/* The defeated shrink to a stub. */
+.irop-turn-ribbon .rb-card.down { flex: none; width: 74px; min-width: 0; padding: 10px calc(var(--rb-slant) + 2px); align-items: center; justify-content: center; gap: 6px; background: color-mix(in srgb, var(--irop-bg) 92%, transparent); border-top-color: var(--irop-line); }
+.irop-turn-ribbon .rb-card.down .rb-face { width: 34px; height: 34px; filter: grayscale(1) brightness(0.6); border-color: var(--irop-line-bright); }
+.irop-turn-ribbon .rb-down { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-faint); }
+
+/* Cards out of sight past either end of a long line: a tab with how many, which scrolls to them,
+   and the line's edge fading there (Johnald, 2026-10-11). */
+.irop-turn-ribbon .rb-strip > .rb-more {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 38px;
+  padding: 0;
+  margin: 0 0 0 calc(var(--rb-slant) / -2);
+  font-size: 14px;
+  color: var(--irop-sky);
+  background: color-mix(in srgb, var(--odr-navy) 96%, transparent);
+  border: none;
+  border-top: 3px solid var(--irop-sky);
+  border-radius: 0;
+  clip-path: polygon(var(--rb-slant) 0, 100% 0, calc(100% - var(--rb-slant)) 100%, 0 100%);
+}
+.irop-turn-ribbon .rb-strip > .rb-more:hover { background: color-mix(in srgb, var(--irop-sky) 22%, var(--odr-navy)); }
+.irop-turn-ribbon .rb-more-n { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0; }
+.irop-turn-ribbon .rb-line.fade-right { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); }
+.irop-turn-ribbon .rb-line.fade-left { -webkit-mask-image: linear-gradient(90deg, transparent, #000 48px); mask-image: linear-gradient(90deg, transparent, #000 48px); }
+.irop-turn-ribbon .rb-line.fade-left.fade-right { -webkit-mask-image: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 48px), transparent); }
+
+/* Where the next round begins, in a turning line. */
+.irop-turn-ribbon .rb-marker { flex: none; width: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--irop-faint); }

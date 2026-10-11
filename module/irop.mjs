@@ -21,6 +21,7 @@ import * as combat from "./rules/combat.mjs";
 import * as startingSkills from "./rules/starting-skills.mjs";
 import { squadSightToken, onTokenDisposition } from "./canvas/squad-sight.mjs";
 import { vitalBarsToken, onVitalsChanged, refreshAllTokenBars } from "./canvas/token-bars.mjs";
+import { watchTurnMarkers, syncTurnMarkerTints, markerTint } from "./canvas/turn-marker.mjs";
 import { importAbilities, importTrees, importTerritories, importProjects } from "./import.mjs";
 import { StrategyRulesConfig } from "./apps/strategy-rules.mjs";
 import { registerWarRoom, openWarRoom, buildTestMap, neighboursFromMap, drawOverlay, isWarRoom } from "./canvas/war-room.mjs";
@@ -43,6 +44,7 @@ import { confirmLiberation, liberate, incursions, breakIncursion } from "./strat
 import { installCalendar, forgetCalendar, startCalendar, getCalendar, dateInfo, setDate, advanceDays, setWorldTime } from "./calendar.mjs";
 import { CalendarApp, CalendarEditor, DateBar, addCalendarControl } from "./apps/calendar.mjs";
 import * as calendarRules from "./rules/calendar.mjs";
+import { TurnRibbon } from "./apps/turn-ribbon.mjs";
 
 Hooks.once("init", () => {
   console.log("irop | Insurrection: Retake Our Planet | initializing");
@@ -117,6 +119,14 @@ Hooks.once("init", () => {
   // Initiative, LIVE: 1d20 + AGI mod + LCK mod.
   CONFIG.Combat.initiative = { formula: "1d20 + @agi.mod + @lck.mod + @initiativeBonus", decimals: 0 };
 
+  // The turn marker, and the sides' colors it is tinted with, the ribbon's own (2026-10-11): ODR sky for
+  // the cell and its friends, silver for neutrals, GENESIS red for hostiles. Token outlines take them too.
+  CONFIG.Combat.fallbackTurnMarker = IROP.turnMarker;
+  const sideColor = key => Number.parseInt(IROP.turnOrder.sides[key].color.slice(1), 16);
+  if ( CONFIG.Canvas?.dispositionColors ) Object.assign(CONFIG.Canvas.dispositionColors, {
+    PARTY: sideColor("operative"), FRIENDLY: sideColor("ally"), NEUTRAL: sideColor("neutral"), HOSTILE: sideColor("hostile")
+  });
+
   // Dice: the roll classes must be registered to rebuild from chat messages.
   CONFIG.Dice.rolls.push(DynosrsRoll, D100Roll, DamageRoll);
 
@@ -171,6 +181,8 @@ Hooks.once("init", () => {
     rollPool: rolls.rollFreePool,
     scatter: rolls.rollScatter,
     openBanks: () => BanksApp.open(),
+    // The turn marker's side colors, for the check macro (dev/turn-marker-check-macro.js, 2026-10-11).
+    turnMarker: { sync: syncTurnMarkerTints, tint: markerTint },
     // Concealment checkpoints (2026-10-10).
     concealment: { openCheckpoint, postCheckpoint, checkFor },
     // Content from the old Sandbox world (2026-10-08).
@@ -289,6 +301,17 @@ Hooks.on("updateActor", (actor, changed) => {
   if ( ["system.banks", "name", "img"].some(k => foundry.utils.hasProperty(changed, k)) ) BanksApp.refresh();
 });
 
+// The turn order ribbon (Johnald, 2026-10-11): it follows the combat in view, its turns, and what
+// its cards show (health, dodges, status effects, a token's side). Redraws are gathered up.
+for ( const hook of ["createCombat", "updateCombat", "deleteCombat", "createCombatant", "updateCombatant",
+  "deleteCombatant", "canvasReady", "irop.turnRibbonChanged"] ) Hooks.on(hook, () => TurnRibbon.refresh());
+for ( const hook of ["updateActor", "updateToken", "createActiveEffect", "updateActiveEffect", "deleteActiveEffect",
+  "createItem", "updateItem", "deleteItem"] ) Hooks.on(hook, () => { if ( game.combat ) TurnRibbon.refresh(); });
+// The date bar steps down out of its way while it shows.
+Hooks.on("irop.turnRibbonShown", () => DateBar.refresh());
+// The turn marker in its side's exact color while Disposition Tint is on (2026-10-11).
+Hooks.on("canvasReady", watchTurnMarkers);
+
 /** Dodges come back at the start of each round. The GM's client does it once. */
 Hooks.on("updateCombat", (combat, changed) => {
   if ( !game.user.isGM || !("round" in changed) ) return;
@@ -307,6 +330,7 @@ Hooks.once("ready", () => {
   // A new world opens on the campaign's date, once; the date bar shows even with no scene.
   startCalendar().catch(err => console.warn("irop | The calendar could not be put on the campaign's date", err));
   if ( !globalThis.canvas?.ready ) DateBar.sync(false);
+  TurnRibbon.sync();
   // A one time check that the canon dice tables are intact.
   const problems = dynosrs.testTotals();
   if ( problems.length ) console.error("irop | DYNOSRS dice tables do not match canon:", problems);

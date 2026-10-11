@@ -191,6 +191,29 @@ export function registerSettings() {
     onChange: () => Hooks.callAll("irop.tokenBarsChanged")
   });
 
+  // The turn order ribbon across the top in combat (Johnald, 2026-10-11): each person shows it or not,
+  // and the GM picks whether the line turns so whoever acts leads it, or keeps initiative order.
+  const ribbonChanged = () => Hooks.callAll("irop.turnRibbonChanged");
+  game.settings.register(SYSTEM, "turnRibbonShown", {
+    name: "Turn order ribbon",
+    hint: "Show the turn order as a strip of cards across the top of the screen during combat. Each person chooses their own.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: ribbonChanged
+  });
+  game.settings.register(SYSTEM, "turnRibbonOrder", {
+    name: "Turn order ribbon: order",
+    hint: "Acting first turns the line each turn so whoever acts leads it, with those who have acted behind them. Fixed keeps initiative order and dims those who have acted this round.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: { actingFirst: "Acting first", fixed: "Fixed initiative order" },
+    default: "actingFirst",
+    onChange: ribbonChanged
+  });
+
   // Celsius or Fahrenheit for the weather (Johnald, 2026-10-08): each user's own choice.
   game.settings.register(SYSTEM, "temperatureUnit", {
     name: "Temperature",

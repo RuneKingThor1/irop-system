@@ -67,7 +67,7 @@
           {{!-- Square slots: a fitted mod shows its icon, an empty slot a dashed square (Johnald, 2026-10-08). --}}
           {{#each w.mods as |m|}}<span class="mod-chip" data-tooltip="{{m.name}}"><img src="{{m.img}}" alt="{{m.name}}">
             <button type="button" class="icon" data-action="unfitMod" data-mod-id="{{m.id}}" data-tooltip="Unfit {{m.name}}"><i class="fa-solid fa-xmark"></i></button></span>{{/each}}
-          {{#iropTimes w.freeSlots}}<span class="mod-slot" data-tooltip="Empty slot: drag a mod here"><i class="fa-solid fa-plus"></i></span>{{/iropTimes}}
+          {{#iropTimes w.freeSlots}}<button type="button" class="mod-slot" data-action="chooseMod" data-tooltip="Empty slot: click to fit a loose mod, or drag one here"><i class="fa-solid fa-plus"></i></button>{{/iropTimes}}
           {{!-- Ranged weapons only: one special ammo slot, a rectangle to tell it from the mods (Johnald, 2026-10-08). --}}
           {{#if w.takesAmmo}}
           {{#if w.specialAmmo}}
@@ -167,7 +167,7 @@
         <div class="mod-tray" data-mod-host="{{a.id}}">
           {{#each a.mods as |m|}}<span class="mod-chip" data-tooltip="{{m.name}}"><img src="{{m.img}}" alt="{{m.name}}">
             <button type="button" class="icon" data-action="unfitMod" data-mod-id="{{m.id}}" data-tooltip="Unfit {{m.name}}"><i class="fa-solid fa-xmark"></i></button></span>{{/each}}
-          {{#iropTimes a.freeSlots}}<span class="mod-slot" data-tooltip="Empty slot: drag a mod here"><i class="fa-solid fa-plus"></i></span>{{/iropTimes}}
+          {{#iropTimes a.freeSlots}}<button type="button" class="mod-slot" data-action="chooseMod" data-tooltip="Empty slot: click to fit a loose mod, or drag one here"><i class="fa-solid fa-plus"></i></button>{{/iropTimes}}
         </div>
         {{/if}}
       </li>

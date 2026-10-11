@@ -419,6 +419,16 @@ export class DateBar extends HandlebarsApplicationMixin(ApplicationV2) {
     return { width: this.element?.offsetWidth || 200, height: this.element?.offsetHeight || 34 };
   }
 
+  /**
+   * The bar's home height along the top: 70px down, or just under the turn order ribbon while a
+   * combat shows it (2026-10-11), which would otherwise cover it.
+   */
+  static get homeTop() {
+    const ribbon = globalThis.document?.getElementById?.("irop-turn-ribbon");
+    const bottom = ribbon?.getBoundingClientRect?.().bottom ?? 0;
+    return (bottom > 0) ? Math.max(70, Math.round(bottom + 8)) : 70;
+  }
+
   /** The screen's size. */
   static get screen() {
     return { width: globalThis.window?.innerWidth || 1920, height: globalThis.window?.innerHeight || 1080 };
@@ -430,7 +440,7 @@ export class DateBar extends HandlebarsApplicationMixin(ApplicationV2) {
     const saved = savedBarPosition();
     const { width } = this.size;
     this.setPosition(saved ? clampToScreen(saved, this.size, DateBar.screen)
-      : { left: Math.max(10, Math.round((DateBar.screen.width - width) / 2)), top: 70 });
+      : { left: Math.max(10, Math.round((DateBar.screen.width - width) / 2)), top: DateBar.homeTop });
     const bar = this.element.querySelector(".date-bar");
     if ( !bar ) return;
     bar.addEventListener("pointerdown", event => {
@@ -481,7 +491,7 @@ export class DateBar extends HandlebarsApplicationMixin(ApplicationV2) {
   async putBack() {
     try { await game.settings.set("irop", "dateBarPosition", {}); }
     catch { /* settings not ready */ }
-    this.setPosition({ left: Math.max(10, Math.round((DateBar.screen.width - this.size.width) / 2)), top: 70 });
+    this.setPosition({ left: Math.max(10, Math.round((DateBar.screen.width - this.size.width) / 2)), top: DateBar.homeTop });
   }
 
   /** A click opens the calendar, unless it ended a drag. */

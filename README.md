@@ -18,6 +18,8 @@ Then **Create World** with Insurrection: Retake Our Planet as its system. A worl
 
 Each version is a release on this repository. When a newer one is out, Foundry's Setup shows **Update** beside the system under Game Systems. Press it, then relaunch the world. Players need only refresh.
 
+**On Sqyre**, which has no Setup screen of its own: open the game's page, **MANAGE GAME**, **Manage Modules**, and install by manifest URL again with the same link above. It always points at the newest release, so installing it again brings the update. The world's data is untouched. The world's Game Settings sidebar shows the version running.
+
 How a release is made: the version in `system.json` goes up, the change is pushed to `main`, and the release workflow (`.github/workflows/release.yml`) builds `irop.zip` and publishes release `v<version>` with the zip and `system.json` attached. A push that does not change the version publishes nothing.
 
 ## What it does

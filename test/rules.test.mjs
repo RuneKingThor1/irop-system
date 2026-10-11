@@ -1071,5 +1071,59 @@ check("disorientated both ways",
       && (rifles.items[0] !== rifles.items[1]));
 }
 
+// The turn order ribbon (Johnald, 2026-10-11): who shows where, and what a viewer reads of each.
+{
+  const to = await import("../module/rules/turn-order.mjs");
+  check("ribbon: condition words by health left, ASSUMED bands",
+    eq([[30, 30], [20, 30], [15, 30], [10, 30], [7, 30], [1, 30], [0, 30]].map(([v, m]) => to.conditionWord(v, m)),
+      ["Unhurt", "Hurt", "Wounded", "Wounded", "Critical", "Critical", "Down"]) && (to.conditionWord(5, 0) === null)
+      && (to.conditionWord(40, 30) === "Unhurt"));
+  check("ribbon: an operative is an operative whatever its token; the rest by disposition, secret as neutral",
+    (to.sideOf({ type: "operative", disposition: -1 }) === "operative") && (to.sideOf({ type: "npc", disposition: 1 }) === "ally")
+      && (to.sideOf({ type: "npc", disposition: -1 }) === "hostile") && (to.sideOf({ type: "npc", disposition: 0 }) === "neutral")
+      && (to.sideOf({ type: "npc", disposition: -2 }) === "neutral") && (to.sideOf({}) === "neutral"));
+  check("ribbon: the GM, anyone for an operative, and an observer read the numbers; a player does not for an NPC",
+    to.seesNumbers({ isGM: true, type: "npc" }) && to.seesNumbers({ type: "operative" }) && to.seesNumbers({ type: "npc", observer: true })
+      && !to.seesNumbers({ type: "npc" }));
+  const bars = to.vitalBars({ hp: { value: 14, max: 18 }, armor: { value: 6, max: 8 }, barrier: { value: 0, max: 0 }, energy: { value: 5, max: 9 } });
+  check("ribbon: Health always, Armor when there is any, no Barrier at none, never Energy",
+    eq(bars.map(b => [b.key, b.value, b.max, b.pct]), [["hp", 14, 18, 78], ["armor", 6, 8, 75]])
+      && eq(to.vitalBars({ hp: { value: 0, max: 0 } }).map(b => b.key), ["hp"]) && (to.percent(9, 4) === 100) && (to.percent(-2, 4) === 0));
+  check("ribbon: dodge pips filled for those left; past six, a count instead; none at no dodges",
+    eq(to.dodgePips({ value: 1, max: 2 }), { pips: [true, false], value: 1, max: 2 }) && eq(to.dodgePips({ value: 5, max: 8 }).pips, [])
+      && (to.dodgePips({ value: 0, max: 0 }) === null) && eq(to.dodgePips({ value: 9, max: 2 }).pips, [true, true]));
+
+  // Wraith acts; Enforcer, Bastion, Cipher and Tether follow; a drone is down; a sniper hides.
+  const E = (id, more = {}) => ({ id, defeated: false, visible: true, ...more });
+  const fight = [E("wraith"), E("enforcer"), E("sniper", { visible: false }), E("bastion"), E("drone", { defeated: true }), E("cipher"), E("tether")];
+  const ids = r => r.cards.map(c => c.marker ? `|${c.round}` : `${c.id}${c.active ? "*" : ""}${c.next ? ">" : ""}${c.acted ? "~" : ""}${c.down ? "x" : ""}`).join(" ");
+  let r = to.ribbonOrder(fight, { activeId: "bastion", nextId: "cipher", mode: "fixed", round: 2 });
+  check("ribbon, fixed: initiative order, those who acted dimmed, the defeated in place, the hidden left out",
+    ids(r) === "wraith~ enforcer~ bastion* dronex cipher> tether" && (r.position === 3) && (r.count === 5), ids(r));
+  r = to.ribbonOrder(fight, { activeId: "bastion", nextId: "cipher", mode: "actingFirst", round: 2 });
+  check("ribbon, acting first: the acting card leads, the next round's marker, those who acted behind it, the defeated last",
+    ids(r) === "bastion* cipher> tether |3 wraith enforcer dronex" && (r.position === 1) && (r.count === 5), ids(r));
+  r = to.ribbonOrder(fight, { activeId: "tether", nextId: "wraith", mode: "actingFirst", round: 2 });
+  check("ribbon, acting first: the last to act leads, the first of the next round is next",
+    ids(r) === "tether* |3 wraith> enforcer bastion cipher dronex", ids(r));
+  r = to.ribbonOrder(fight, { activeId: "enforcer", nextId: "sniper", mode: "fixed" });
+  check("ribbon: a hidden combatant next is not shown, and no visible card claims next", ids(r) === "wraith~ enforcer* bastion dronex cipher tether", ids(r));
+  r = to.ribbonOrder(fight, { activeId: "sniper", nextId: "bastion", mode: "actingFirst", round: 1 });
+  check("ribbon: a hidden combatant acting shows no acting card and no place in the count",
+    !r.cards.some(c => c.active) && (r.position === null) && (r.count === 5) && r.cards[0].id === "bastion" && r.cards[0].next, ids(r));
+  r = to.ribbonOrder(fight, { activeId: "wraith", nextId: "enforcer", mode: "actingFirst", round: 1 });
+  check("ribbon, acting first: at the top of a round, no marker", !r.cards.some(c => c.marker), ids(r));
+  r = to.ribbonOrder([E("a"), E("b", { visible: false })], { activeId: "b", nextId: "a", mode: "actingFirst", round: 4 });
+  check("ribbon: the marker shows only with a visible card behind it", ids(r) === "|5 a>", ids(r));
+  r = to.ribbonOrder(fight, { activeId: null, nextId: "wraith", mode: "actingFirst" });
+  // A line longer than the screen (Johnald, 2026-10-11): how many cards are out of sight each way.
+  const boxes = [0, 160, 320, 480, 640, 800].map(left => ({ left, width: 160 }));
+  check("ribbon: cards more than half past an edge count as out of sight that way",
+    eq(to.offscreen(boxes, { scrollLeft: 0, width: 500 }), { left: 0, right: 3 }) && eq(to.offscreen(boxes, { scrollLeft: 300, width: 500 }), { left: 2, right: 1 })
+      && eq(to.offscreen(boxes, { scrollLeft: 0, width: 960 }), { left: 0, right: 0 }) && eq(to.offscreen([], {}), { left: 0, right: 0 }));
+  check("ribbon: before the fight starts, initiative order with the first up marked next",
+    ids(r) === "wraith> enforcer bastion cipher tether dronex" && (r.position === null), ids(r));
+}
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

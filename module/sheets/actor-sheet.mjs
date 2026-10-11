@@ -175,6 +175,12 @@ export function ammoSummary(a) {
   return parts.join(", ");
 }
 
+/** The kind of mod a weapon or armor takes: "ranged", "melee" or "armor" (IROP.modTargets). */
+export function modKindFor(host) {
+  if ( host.type === "armor" ) return "armor";
+  return (host.system.category === "melee") ? "melee" : "ranged";
+}
+
 /**
  * A launcher's slots for the template (RULED 2026-10-08): each loaded grenade or
  * rocket, then the empty slots left.
@@ -324,6 +330,7 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       unfitMod: IropActorSheet.#onUnfitMod,
       unloadAmmo: IropActorSheet.#onUnloadAmmo,
       chooseAmmo: IropActorSheet.#onChooseAmmo,
+      chooseMod: IropActorSheet.#onChooseMod,
       fireProjectile: IropActorSheet.#onFireProjectile,
       awardXp: IropActorSheet.#onAwardXp,
       pickStartingSkills: IropActorSheet.#onPickStartingSkills,
@@ -1241,7 +1248,7 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   async #fitMod(mod, hostId, own) {
     const host = this.actor.items.get(hostId);
     if ( !host ) return null;
-    const kind = host.type === "armor" ? "armor" : (host.system.category === "melee" ? "melee" : "ranged");
+    const kind = modKindFor(host);
     if ( mod.system.target !== kind ) {
       ui.notifications.warn(`${mod.name} fits a ${IROP.modTargets[mod.system.target].toLowerCase()}, not ${host.name}.`);
       return null;
@@ -1482,6 +1489,35 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     return null;
   }
 
+  /**
+   * Click an empty mod slot: pick from the loose mods the character carries that fit (Johnald,
+   * 2026-10-11: a loose mod on the Gear tab could not be dragged to a weapon on the Combat tab).
+   * Loose means as the Gear tab's Loose mods box lists them: fitted to nothing, and not stowed.
+   */
+  static async #onChooseMod(event, target) {
+    const host = IropActorSheet.#itemFrom.call(this, target);
+    if ( !host ) return null;
+    const kind = modKindFor(host);
+    const fitted = new Set(host.system.mods.map(m => m.name));
+    const loose = this.actor.items.filter(i => (i.type === "mod") && !i.system.host && !i.system.stowed);
+    const fits = loose.filter(m => (m.system.target === kind) && !fitted.has(m.name));
+    if ( !fits.length ) {
+      const takes = IROP.modTargets[kind].toLowerCase();
+      return ui.notifications.info(loose.length
+        ? `None of ${this.actor.name}'s loose mods fit ${host.name}, which takes ${takes} mods.`
+        : `${this.actor.name} carries no loose mods. They wait on the Gear tab until fitted.`);
+    }
+    const options = fits.map(m => `<option value="${m.id}">${escapeText(m.name)}</option>`).join("");
+    const result = await foundry.applications.api.DialogV2.input({
+      window: { title: `Fit a mod to ${host.name}` },
+      content: `<label class="irop-choose"><span>Loose mod</span><select name="mod">${options}</select></label>`,
+      ok: { label: "Fit", icon: "fa-solid fa-check" }
+    });
+    const chosen = result && this.actor.items.get(result.mod);
+    if ( chosen ) return this.#fitMod(chosen, host.id, true);
+    return null;
+  }
+
   static #onUnfitMod(event, target) {
     const mod = this.actor.items.get(target.dataset.modId);
     return mod?.update({ "system.installedOn": "" });
@@ -1649,6 +1685,7 @@ export class OperativeSheet extends IropActorSheet {
     position: { width: 935 },
     actions: {
       toggleRecord: OperativeSheet.#onToggleRecord,
+      toggleNotes: OperativeSheet.#onToggleNotes,
       addRecordEntry: OperativeSheet.#onAddRecordEntry,
       deleteRecordEntry: OperativeSheet.#onDeleteRecordEntry,
       resetCharacter: OperativeSheet.#onResetCharacter,
@@ -1712,12 +1749,12 @@ export class OperativeSheet extends IropActorSheet {
     header: { template: `${T}/header.hbs` },
     tabs: { template: `${T}/tabs.hbs` },
     main: PART("main"),
-    combat: PART("combat"),
     abilities: PART("abilities"),
+    combat: PART("combat"),
     gear: PART("gear"),
     bio: PART("bio"),
-    notes: PART("notes"),
     effects: PART("effects"),
+    // The drawer holds the Personnel Record and, for owners, their Notes (Johnald, 2026-10-11).
     record: { template: `${T}/record.hbs`, scrollable: [".record-body"] }
   };
 
@@ -1736,8 +1773,20 @@ export class OperativeSheet extends IropActorSheet {
   /** Actors whose record drawer is open, so it stays open across re-renders. */
   static #openRecords = new Set();
 
+  /** Actors whose drawer is turned to their Notes rather than the Personnel Record. */
+  static #notesPages = new Set();
+
   get recordOpen() {
     return this.recordOnly || OperativeSheet.#openRecords.has(this.actor.uuid);
+  }
+
+  /**
+   * The drawer's page: "record", the Personnel Record, or "notes", the owner's Notes, which left
+   * the tab bar for a side tab of their own under Record (Johnald, 2026-10-11). Someone who sees
+   * the record alone never sees the Notes.
+   */
+  get drawerPage() {
+    return (!this.recordOnly && OperativeSheet.#notesPages.has(this.actor.uuid)) ? "notes" : "record";
   }
 
   /**
@@ -2060,7 +2109,12 @@ export class OperativeSheet extends IropActorSheet {
       log: IROP.record.log,
       open: this.recordOpen,
       only: this.recordOnly,
-      barIcon: recordBarIcon(this.recordOpen),
+      page: this.drawerPage,
+      // Each side tab is lit, and points in, while the drawer is open on its own page.
+      recordActive: this.recordOpen && (this.drawerPage === "record"),
+      notesActive: this.recordOpen && (this.drawerPage === "notes"),
+      barIcon: recordBarIcon(this.recordOpen && (this.drawerPage === "record")),
+      notesBarIcon: recordBarIcon(this.recordOpen && (this.drawerPage === "notes")),
       identity: IROP.record.identity.map(field),
       service: IROP.record.service.map(field),
       marks: r.marks,
@@ -2097,36 +2151,68 @@ export class OperativeSheet extends IropActorSheet {
   }
 
   /**
-   * Set the dock's open state and point the bar's arrows the way the drawer
-   * will move.
+   * Set the dock's open state and its page, and point each side tab's arrows the way the drawer
+   * will move: in, on the tab whose page is open; out, on the other.
    */
   #placeRecord() {
     const dock = this.element?.querySelector(".irop-record-dock");
     if ( !dock ) return;
     const open = this.recordOpen;
+    const page = this.drawerPage;
     dock.classList.toggle("open", open);
+    dock.classList.toggle("page-record", page === "record");
+    dock.classList.toggle("page-notes", page === "notes");
     dock.querySelector(".irop-record")?.setAttribute("aria-hidden", String(!open));
-    const bar = dock.querySelector(".record-bar");
-    if ( bar ) {
-      bar.setAttribute("aria-expanded", String(open));
-      bar.dataset.tooltip = open ? "Close the Personnel Record" : "Open the Personnel Record";
-      const icon = recordBarIcon(open);
+    const bars = [
+      [dock.querySelector(".record-bar.record-tab"), "record", "the Personnel Record"],
+      [dock.querySelector(".record-bar.notes-tab"), "notes", "your Notes"]
+    ];
+    for ( const [bar, mine, what] of bars ) {
+      if ( !bar ) continue;
+      const shown = open && (page === mine);
+      bar.classList.toggle("active", shown);
+      bar.setAttribute("aria-expanded", String(shown));
+      bar.dataset.tooltip = shown ? `Close ${what}` : `Open ${what}`;
+      const icon = recordBarIcon(shown);
       for ( const i of bar.querySelectorAll("i") ) i.className = `fa-solid ${icon}`;
     }
   }
 
   /* -------------------------------------------- */
 
-  static async #onToggleRecord() {
+  static #onToggleRecord() {
+    return this.#toggleDrawer("record");
+  }
+
+  static #onToggleNotes() {
+    return this.#toggleDrawer("notes");
+  }
+
+  /**
+   * A side tab was pressed. Shut, the drawer slides out on that tab's page; open on the other
+   * page, it turns to this one where it is; open on this page, it slides shut.
+   * @param {"record"|"notes"} page
+   */
+  async #toggleDrawer(page) {
     // A detach that failed (a blocked popup) never gets to put the drawer back.
     this.element?.classList.remove("irop-detaching");
     const set = OperativeSheet.#openRecords;
+    const turnTo = () => {
+      if ( page === "notes" ) OperativeSheet.#notesPages.add(this.actor.uuid);
+      else OperativeSheet.#notesPages.delete(this.actor.uuid);
+    };
+    if ( set.has(this.actor.uuid) && (this.drawerPage !== page) ) {
+      turnTo();
+      this.#placeRecord();
+      return;
+    }
     if ( set.has(this.actor.uuid) ) {
       set.delete(this.actor.uuid);
       this.#placeRecord();
       if ( this.inDetachedWindow ) this.#giveBackRoom();
       return;
     }
+    turnTo();
     set.add(this.actor.uuid);
     if ( this.rendered && this.inDetachedWindow ) {
       await this.#roomInWindow();
@@ -2155,13 +2241,13 @@ export class OperativeSheet extends IropActorSheet {
     primary: {
       tabs: [
         { id: "main", label: "Attributes", icon: "fa-solid fa-user" },
-        { id: "combat", label: "Combat", icon: "fa-solid fa-crosshairs" },
+        // Abilities before Combat (Johnald, 2026-10-11).
         { id: "abilities", label: "Abilities", icon: "fa-solid fa-bolt" },
+        { id: "combat", label: "Combat", icon: "fa-solid fa-crosshairs" },
         { id: "gear", label: "Gear", icon: "fa-solid fa-box-open" },
         // Renamed from Dossier (Johnald, 2026-10-08): identity, XP, perk trees and the ledger.
         { id: "bio", label: "Training", icon: "fa-solid fa-dumbbell" },
-        // RULED 2026-10-08: the player's own notes, on their own tab.
-        { id: "notes", label: "Notes", icon: "fa-solid fa-note-sticky" },
+        // The player's Notes left the tab bar for a side tab under Record (Johnald, 2026-10-11).
         { id: "effects", label: "Effects", icon: "fa-solid fa-wand-sparkles" }
       ],
       initial: "main"

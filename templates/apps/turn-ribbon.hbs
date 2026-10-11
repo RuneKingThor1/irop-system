@@ -1,0 +1,99 @@
+<div class="rb-strip {{mode}}">
+  {{!-- The turn order ribbon (Johnald, 2026-10-11): the round, then the cards. --}}
+  <div class="rb-round">
+    {{#if started}}
+    <span class="rb-round-label">Round</span>
+    <b class="rb-round-n">{{round}}</b>
+    {{#if position}}<span class="rb-count">{{position}} of {{count}}</span>{{/if}}
+    {{else}}
+    <span class="rb-round-label">Ready</span>
+    <b class="rb-round-n">{{count}}</b>
+    <span class="rb-count">in the fight</span>
+    {{/if}}
+    {{#if isGM}}
+    <div class="rb-gm">
+      {{#if started}}
+      <button type="button" data-action="previousTurn" data-tooltip="Previous turn"><i class="fa-solid fa-caret-left"></i></button>
+      <button type="button" data-action="nextTurn" data-tooltip="Next turn"><i class="fa-solid fa-caret-right"></i></button>
+      {{else}}
+      <button type="button" class="rb-begin" data-action="beginCombat">Begin</button>
+      {{/if}}
+    </div>
+    <button type="button" class="rb-end-combat" data-action="endCombat" data-tooltip="End this combat">End combat</button>
+    {{/if}}
+  </div>
+  <button type="button" class="rb-more left" data-action="scrollMore" data-dir="left" hidden><i class="fa-solid fa-chevron-left"></i><span class="rb-more-n"></span></button>
+  <div class="rb-line">
+    {{#each cards}}
+    {{#if marker}}
+    <div class="rb-marker" data-tooltip="Round {{round}} from here"><i class="fa-solid fa-rotate"></i></div>
+    {{else if down}}
+    <div class="rb-card down side-{{side}}{{#if hidden}} rb-hidden{{/if}}" data-combatant-id="{{id}}" style="--rb-edge: {{color}}" data-tooltip="{{name}}: down">
+      <img class="rb-face" src="{{img}}" alt="">
+      <span class="rb-down">Down</span>
+    </div>
+    {{else if active}}
+    <div class="rb-card active side-{{side}}{{#if hidden}} rb-hidden{{/if}}" data-combatant-id="{{id}}" style="--rb-edge: {{color}}">
+      <div class="rb-portrait"><img src="{{img}}" alt=""></div>
+      <div class="rb-body">
+        <div class="rb-top"><span class="rb-tag">Acting</span>{{#if init}}<span class="rb-init">Init {{init}}</span>{{/if}}</div>
+        <span class="rb-name" data-tooltip="{{name}}">{{name}}</span>
+        <span class="rb-label">{{label}}</span>
+        {{#if numbers}}
+        <div class="rb-vitals">
+          {{#each bars}}
+          <div class="rb-vital" data-tooltip="{{label}} {{value}} of {{max}}">
+            <span class="rb-vl"><span>{{short}}</span><span>{{value}}/{{max}}</span></span>
+            <div class="rb-bar {{key}}"><i style="width: {{pct}}%"></i></div>
+          </div>
+          {{/each}}
+        </div>
+        {{else if condition}}
+        <span class="rb-condition" data-tooltip="Condition">{{condition}}</span>
+        {{/if}}
+        <div class="rb-foot">
+          {{> rbPips}}
+          {{> rbStatuses}}
+          {{#if canRoll}}<button type="button" class="rb-roll" data-action="rollInitiative" data-tooltip="Roll initiative"><i class="fa-solid fa-dice-d20"></i> Roll</button>{{/if}}
+          {{#if canEndTurn}}<button type="button" class="rb-end" data-action="endTurn">End turn</button>{{/if}}
+        </div>
+      </div>
+      {{#if hidden}}<i class="fa-solid fa-eye-slash rb-hidden-mark" data-tooltip="Hidden from players"></i>{{/if}}
+    </div>
+    {{else}}
+    <div class="rb-card side-{{side}}{{#if next}} next{{/if}}{{#if acted}} acted{{/if}}{{#if hidden}} rb-hidden{{/if}}" data-combatant-id="{{id}}" style="--rb-edge: {{color}}">
+      <div class="rb-head">
+        <img class="rb-face" src="{{img}}" alt="">
+        <div class="rb-who">
+          <span class="rb-name" data-tooltip="{{name}}">{{name}}</span>
+          {{#if next}}<span class="rb-init">Next</span>
+          {{else if init}}<span class="rb-init">Init {{init}}</span>
+          {{/if}}
+        </div>
+      </div>
+      {{#if numbers}}
+      {{#with bars.[0]}}<div class="rb-bar {{key}}" data-tooltip="{{label}} {{value}} of {{max}}"><i style="width: {{pct}}%"></i></div>{{/with}}
+      {{else if condition}}
+      <span class="rb-condition" data-tooltip="Condition">{{condition}}</span>
+      {{/if}}
+      <div class="rb-foot">
+        {{> rbPips}}
+        {{> rbStatuses}}
+        {{!-- Roll for an owner who has not rolled, in the bottom right where nothing cuts it off (Johnald, 2026-10-11). --}}
+        {{#if canRoll}}<button type="button" class="rb-roll" data-action="rollInitiative" data-tooltip="Roll initiative"><i class="fa-solid fa-dice-d20"></i> Roll</button>{{/if}}
+      </div>
+      {{#if hidden}}<i class="fa-solid fa-eye-slash rb-hidden-mark" data-tooltip="Hidden from players"></i>{{/if}}
+    </div>
+    {{/if}}
+    {{/each}}
+  </div>
+  <button type="button" class="rb-more right" data-action="scrollMore" data-dir="right" hidden><span class="rb-more-n"></span><i class="fa-solid fa-chevron-right"></i></button>
+</div>
+
+{{#*inline "rbPips"}}
+<span class="rb-pips">{{#if dodges}}{{#if dodges.pips.length}}<span data-tooltip="Dodges {{dodges.value}} of {{dodges.max}}">{{#each dodges.pips}}<i class="rb-pip{{#if this}} full{{/if}}"></i>{{/each}}</span>{{else}}<span class="rb-dodge-count" data-tooltip="Dodges">{{dodges.value}}/{{dodges.max}}</span>{{/if}}{{/if}}</span>
+{{/inline}}
+
+{{#*inline "rbStatuses"}}
+<span class="rb-statuses">{{#each statuses}}<span class="rb-status" data-tooltip="{{name}}"><img src="{{img}}" alt="">{{#if counter}}<b>{{counter}}</b>{{/if}}</span>{{/each}}</span>
+{{/inline}}

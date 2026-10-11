@@ -145,6 +145,45 @@ IROP.concealment = {
   speciesBonus: { Human: 10 }
 };
 
+/**
+ * The turn order ribbon across the top of the screen in combat (Johnald, 2026-10-11; apps/turn-ribbon.mjs).
+ *   RULED: the tactical ribbon he picked from the mockups; wide, tall cards; the acting card opens out
+ *     with a large portrait on its left; hostiles wear the GENESIS livery, as the opposition's dice do.
+ *   ASSUMED, until he rules: the condition words and where each starts; that players see a hostile's
+ *     condition and its status effects but not its numbers or dodges; that everyone sees operatives'
+ *     numbers (squadmates), and anyone who may observe an actor sees its numbers too.
+ */
+IROP.turnOrder = {
+  // Health left, as a share of the maximum: full is Unhurt; above each share, its word; nothing left, Down.
+  condition: {
+    full: "Unhurt",
+    bands: [
+      { above: 0.5, label: "Hurt" },
+      { above: 0.25, label: "Wounded" },
+      { above: 0, label: "Critical" }
+    ],
+    none: "Down"
+  },
+  // Players see the status effects on combatants whose numbers they cannot see.
+  statusesShown: true,
+  // The edge color of each side. Operatives wear their doctrine's color, or ODR sky without one.
+  sides: {
+    operative: { label: "Operative", color: "#42abf2" },
+    ally: { label: "Ally", color: "#42abf2" },
+    neutral: { label: "Neutral", color: "#b9c4c8" },
+    hostile: { label: "Hostile", color: "#c4121c" }
+  },
+  // Dodge pips drawn at most; past this the count shows as a number.
+  maxPips: 6
+};
+
+/**
+ * The turn marker under the acting token (Johnald, 2026-10-11: the blend of the segmented bezel and
+ * the callout band). White, so Foundry's "Match disposition" tints it by side; Foundry uses it unless
+ * the GM sets an image of their own in Combat Tracker Settings.
+ */
+IROP.turnMarker = "systems/irop/assets/markers/turn-marker.svg";
+
 /* -------------------------------------------- */
 /*  Derived statistics                          */
 /* -------------------------------------------- */

@@ -602,6 +602,51 @@ for ( const editMode of [false, true] ) {
     emptySlot?.tagName === "BUTTON" && emptySlot.dataset.action === "chooseAmmo" && /Special ammo/.test(emptySlot.textContent));
 }
 
+// An empty mod slot opens a picker of the loose mods that fit (Johnald, 2026-10-11: a loose mod on the
+// Gear tab could not be dragged to a weapon on the Combat tab).
+{
+  const armory = makeActor("operative", OperativeData, {}, [
+    { type: "weapon", name: "T2 Pistol", id: "pistol", system: { category: "ranged", weaponClass: "pistols", modSlots: 3 } },
+    { type: "weapon", name: "Survival Sword", id: "sword", system: { category: "melee", weaponClass: "blades", modSlots: 1 } },
+    { type: "mod", name: "Laser Sight", id: "laser", system: { target: "ranged", installedOn: "pistol" } },
+    { type: "mod", name: "Laser Sight", id: "laser2", system: { target: "ranged" } },
+    { type: "mod", name: "Red Dot", id: "dot", system: { target: "ranged" } },
+    { type: "mod", name: "Scope", id: "scope", system: { target: "ranged", stowed: true } },
+    { type: "mod", name: "Ceramic Plate", id: "plate", system: { target: "armor" } }
+  ]);
+  const api = foundry.applications.api;
+  const realInput = api.DialogV2.input;
+  const oldUi = globalThis.ui;
+  const said = [];
+  globalThis.ui = { notifications: { warn: m => said.push(m), info: m => said.push(m) } };
+  const asked = [];
+  api.DialogV2.input = async opts => { asked.push(opts); return { mod: "dot" }; };
+  const updates = [];
+  for ( const item of armory.items ) item.update = async data => { updates.push([item.id, data]); return item; };
+  const sheet = new OperativeSheet(armory);
+  const at = id => ({ closest: () => ({ dataset: { itemId: id } }) });
+  await IropActorSheet.DEFAULT_OPTIONS.actions.chooseMod.call(sheet, {}, at("pistol"));
+  const offered = [...new JSDOM(asked[0]?.content ?? "").window.document.querySelectorAll("option")].map(o => o.value);
+  check("mod picker: a pistol's empty slot offers the loose ranged mods, not one it already has, a stowed one, or armor's",
+    offered.join() === "dot" && /Fit a mod to T2 Pistol/.test(asked[0]?.window?.title ?? ""), offered.join());
+  check("mod picker: the chosen mod is fitted", JSON.stringify(updates) === JSON.stringify([["dot", { "system.installedOn": "pistol" }]]),
+    JSON.stringify(updates));
+  asked.length = 0;
+  await IropActorSheet.DEFAULT_OPTIONS.actions.chooseMod.call(sheet, {}, at("sword"));
+  check("mod picker: with no loose mod that fits, it says what the weapon takes, and asks nothing",
+    !asked.length && /None of Test Operative's loose mods fit Survival Sword, which takes melee weapon mods/.test(said.at(-1) ?? ""), said.at(-1));
+  const bare = makeActor("operative", OperativeData, {}, [
+    { type: "weapon", name: "T2 Pistol", id: "pistol", system: { category: "ranged", weaponClass: "pistols", modSlots: 1 } }]);
+  await IropActorSheet.DEFAULT_OPTIONS.actions.chooseMod.call(new OperativeSheet(bare), {}, at("pistol"));
+  check("mod picker: with no loose mods at all, it says where they wait", /carries no loose mods\. They wait on the Gear tab/.test(said.at(-1) ?? ""), said.at(-1));
+  const { out } = await renderSheet(OperativeSheet, armory);
+  const slot = new JSDOM(out.combat).window.document.querySelector('.weapon-row[data-item-id="pistol"] .mod-tray .mod-slot');
+  check("mod picker: an empty mod slot is a button that opens it, and still says a mod can be dragged there",
+    slot?.tagName === "BUTTON" && slot.dataset.action === "chooseMod" && /click to fit a loose mod, or drag one here/.test(slot.dataset.tooltip ?? ""));
+  api.DialogV2.input = realInput;
+  globalThis.ui = oldUi;
+}
+
 // Launchers (RULED 2026-10-08): load a grenade from the stack, fire it with its own damage, unload it back.
 {
   const sheet = new OperativeSheet(operative);
@@ -1220,6 +1265,8 @@ for ( const editMode of [false, true] ) {
 // The Dossier tab is called Training now (Johnald, 2026-10-08).
 check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t => t.id === "bio")?.label === "Training"
   && !OperativeSheet.TABS.primary.tabs.some(t => t.label === "Dossier"));
+// Abilities before Combat on the operative sheet (Johnald, 2026-10-11).
+check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet.TABS.primary.tabs.map(t => t.id).slice(0, 4).join() === "main,abilities,combat,gear");
 
 // The ledger folds away on a click of its header, and stays as each user left it (Johnald, 2026-10-08).
 {
@@ -3958,7 +4005,7 @@ check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t =
   game.user = { id: "p1", isGM: false, name: "Johnald" };
   const play = new OperativeSheet(operative);
   check("effects: a player in Play mode has no Effects tab or page",
-    !(await tabIds(play)).includes("effects") && !("effects" in play._configureRenderParts({})) && (await tabIds(play)).includes("notes"));
+    !(await tabIds(play)).includes("effects") && !("effects" in play._configureRenderParts({})) && (await tabIds(play)).includes("gear"));
   play.tabGroups = { primary: "effects" };
   await IropActorSheet.DEFAULT_OPTIONS.actions.toggleMode.call(play);
   check("effects: in Edit mode the player has them", (await tabIds(play)).includes("effects") && ("effects" in play._configureRenderParts({})));
@@ -4214,7 +4261,7 @@ check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t =
   await OperativeSheet.DEFAULT_OPTIONS.actions.toggleRecord.call(sheet);
   context = await sheet._prepareContext({});
   html = tpl("templates/actor/record.hbs")(await sheet._preparePartContext("record", { ...context }, {}));
-  check("record: toggled open", /class="irop-record-dock open/.test(html) && context.record.open === true);
+  check("record: toggled open", /class="irop-record-dock page-record open/.test(html) && context.record.open === true);
   const openDoc = new JSDOM(html).window.document;
   const openBar = openDoc.querySelector(".record-bar");
   check("record: open, the bar points right (push it back in)",
@@ -4226,6 +4273,43 @@ check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t =
     !/record-toggle|toggleRecord/.test(header) && /data-action="toggleMode"/.test(header));
   await OperativeSheet.DEFAULT_OPTIONS.actions.toggleRecord.call(sheet);
   check("record: toggled closed again", (await sheet._prepareContext({})).record.open === false);
+
+  // Notes off the tab bar, onto a side tab under Record (Johnald, 2026-10-11): one drawer, two pages.
+  const drawerDoc = async () => new JSDOM(tpl("templates/actor/record.hbs")(await sheet._preparePartContext("record", { ...(await sheet._prepareContext({})) }, {}))).window.document;
+  let nd = await drawerDoc();
+  const gutterBars = [...nd.querySelectorAll(".record-gutter > .record-bar")];
+  check("notes drawer: a Notes side tab under Record in the gutter, shut, pointing out",
+    (gutterBars.map(b => b.dataset.action).join() === "toggleRecord,toggleNotes") && /Notes/.test(gutterBars[1].textContent)
+      && (gutterBars[1].getAttribute("aria-expanded") === "false") && [...gutterBars[1].querySelectorAll("i")].every(i => i.classList.contains("fa-caret-left")));
+  check("notes drawer: the editor for the owner's notes, with its rich text, in the drawer",
+    !!nd.querySelector('.irop-record > .drawer-notes prose-mirror.drawer-notes-editor[name="system.details.notes"]'));
+  await OperativeSheet.DEFAULT_OPTIONS.actions.toggleNotes.call(sheet);
+  nd = await drawerDoc();
+  let dk = nd.querySelector(".irop-record-dock");
+  check("notes drawer: Notes opens the drawer on its Notes page, its tab lit and pointing in, Record's not",
+    dk.classList.contains("open") && dk.classList.contains("page-notes") && !dk.classList.contains("page-record")
+      && nd.querySelector(".notes-tab").classList.contains("active") && !nd.querySelector(".record-tab").classList.contains("active")
+      && [...nd.querySelectorAll(".notes-tab i")].every(i => i.classList.contains("fa-caret-right"))
+      && [...nd.querySelectorAll(".record-tab i")].every(i => i.classList.contains("fa-caret-left")));
+  await OperativeSheet.DEFAULT_OPTIONS.actions.toggleRecord.call(sheet);
+  nd = await drawerDoc();
+  dk = nd.querySelector(".irop-record-dock");
+  check("notes drawer: Record while the Notes are open turns the drawer to the record, still open",
+    dk.classList.contains("open") && dk.classList.contains("page-record") && nd.querySelector(".record-tab").classList.contains("active"));
+  await OperativeSheet.DEFAULT_OPTIONS.actions.toggleNotes.call(sheet);
+  await OperativeSheet.DEFAULT_OPTIONS.actions.toggleNotes.call(sheet);
+  check("notes drawer: Notes on its own open page shuts the drawer", (await sheet._prepareContext({})).record.open === false);
+  await OperativeSheet.DEFAULT_OPTIONS.actions.toggleRecord.call(sheet);
+  check("notes drawer: the drawer shut on Notes opens on the record from the Record tab",
+    (await sheet._prepareContext({})).record.page === "record" && (await sheet._prepareContext({})).record.open === true);
+  await OperativeSheet.DEFAULT_OPTIONS.actions.toggleRecord.call(sheet);
+  {
+    const ncss = fs.readFileSync(path.join(ROOT, "styles/irop.css"), "utf8");
+    check("notes drawer css: one page at a time, the notes tab shorter than Record's, only the open page's tab lit",
+      /\.irop-record-dock\.page-notes \.record-body \{ display: none; \}/.test(ncss) && /\.irop \.drawer-notes \{ display: none; \}/.test(ncss)
+        && /\.record-bar\.notes-tab \{ height: 112px; \}/.test(ncss) && /\.irop-record-dock\.open \.record-bar\.active \{/.test(ncss)
+        && !/\.irop-record-dock\.open \.record-bar \{/.test(ncss));
+  }
 
   // Opening near the left of the screen shifts the sheet right to make room, as far as the screen allows.
   const moves = [];
@@ -4601,8 +4685,9 @@ check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t =
   // The Dossier tab no longer carries the Biography, so no field is edited in two places.
   const bioHtml = tpl("templates/actor/bio.hbs")(await sheet._preparePartContext("bio", { ...context }, {}));
   check("record: Dossier tab has no Biography editor", !/name="system.details.biography"/.test(bioHtml) && !/<h3>Biography/.test(bioHtml));
-  check("record: Notes moved off the Dossier to their own tab (2026-10-08)", !/name="system.details.notes"/.test(bioHtml)
-    && /name="system.details.notes"/.test(tpl("templates/actor/notes.hbs")(await sheet._preparePartContext("notes", { ...context }, {}))));
+  check("record: Notes are off the Training tab, and off the tab bar, in the drawer (2026-10-11)", !/name="system.details.notes"/.test(bioHtml)
+    && !("notes" in OperativeSheet.PARTS) && !OperativeSheet.TABS.primary.tabs.some(t => t.id === "notes")
+    && /name="system.details.notes"/.test(tpl("templates/actor/record.hbs")(await sheet._preparePartContext("record", { ...context }, {}))));
 }
 
 // Observers (and Limited users) see the Personnel Record alone, read only (RULED 2026-10-06).
@@ -4630,6 +4715,7 @@ check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t =
   const html = tpl("templates/actor/record.hbs")(await sheet._preparePartContext("record", { ...context }, {}));
   const doc = inspect("observer record", html, { actions: ACTIONS, source: watched.system._source });
   check("observer: no bar, no close button", !doc.querySelector(".record-gutter, .record-bar") && !/Close record/.test(html));
+  check("observer: none of the owner's Notes", !doc.querySelector(".drawer-notes, .notes-tab") && !/system\.details\.notes/.test(html));
   check("observer: a Read only tag in its place", doc.querySelector(".record-tag")?.textContent.trim() === "Read only");
   check("observer: every field is disabled",
     [...doc.querySelectorAll("input, textarea")].length > 0 && [...doc.querySelectorAll("input, textarea")].every(el => el.disabled));
@@ -5253,7 +5339,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   const reachesHeader = selectors.filter(sel => /^\.(application\.)?irop(\.[\w-]+)*\s+(button|\.icon|\.header-control|\.window-header\s+button)/.test(sel));
   check("no stylesheet rule reaches title bar buttons", reachesHeader.length === 0, reachesHeader.join(" | "));
   check("button rules are scoped to the window body",
-    selectors.filter(sel => /\bbutton\b/.test(sel) && /^\.(application\.)?irop\b/.test(sel) && !/window-content|irop-card|irop-banks|irop-support-button|irop-project-strip|irop-roll-dialog|irop-record|irop-war-room-bar|irop-calendar|irop-date-bar/.test(sel)).length === 0);
+    selectors.filter(sel => /\bbutton\b/.test(sel) && /^\.(application\.)?irop\b/.test(sel) && !/window-content|irop-card|irop-banks|irop-support-button|irop-project-strip|irop-roll-dialog|irop-record|irop-war-room-bar|irop-calendar|irop-date-bar|irop-turn-ribbon/.test(sel)).length === 0);
 }
 
 // Status effects (Johnald, 2026-10-10): the field guide's rules on all twelve, with his rulings, and
@@ -6171,6 +6257,225 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     && !fs.existsSync(path.join(ROOT, "module/compat.mjs")));
   globalThis.CONFIG = savedConfig;
   game.settings = savedSettings;
+}
+
+// The turn order ribbon (Johnald, 2026-10-11): the cards each viewer sees, the controls, the settings.
+{
+  foundry.applications.api.ApplicationV2 ??= class { constructor(options = {}) { this.options = options; } render() { return this; } };
+  const { TurnRibbon, ribbonContext, cardFor, portraitFor, statusesFor } = await import("../module/apps/turn-ribbon.mjs");
+  const SHOW = CONST.ACTIVE_EFFECT_SHOW_ICON;
+  const player = { id: "p1", isGM: false };
+  const gm = { id: "gm", isGM: true };
+  const effect = (name, img, more = {}) => ({ name, img, showIcon: SHOW.ALWAYS, isTemporary: false, flags: {}, ...more });
+  const actor = (type, system, { img = "art/portrait.webp", effects = [], observers = [] } = {}) => ({
+    type, img, system, appliedEffects: effects,
+    testUserPermission: (user, level) => user.isGM || observers.includes(user.id)
+  });
+  const vit = (hp, armor = [0, 0], barrier = [0, 0], dodges = [1, 1]) => ({ hp: { value: hp[0], max: hp[1] },
+    armor: { value: armor[0], max: armor[1] }, barrier: { value: barrier[0], max: barrier[1] },
+    energy: { value: 9, max: 9 }, dodges: { value: dodges[0], max: dodges[1] } });
+  const combatant = (id, name, a, { disposition = 1, initiative = 10, owner = false, hidden = false, defeated = false, tokenImg = "tokens/t.webp" } = {}) => ({
+    id, name, actor: a, initiative, isOwner: owner, hidden, isDefeated: defeated, img: null,
+    get visible() { return this.isOwner || !this.hidden; },
+    token: { disposition, texture: { src: tokenImg } }
+  });
+  const wraith = combatant("wraith", "Wraith", actor("operative", { vitals: vit([14, 18], [6, 8], [0, 4], [1, 2]), accent: "#d64f4f", roleKey: "outrider" },
+    { effects: [effect("Ignited (1)", "icons/svg/fire.svg", { flags: { irop: { counter: 1 } } }),
+      effect("Strong Back", "icons/perk.svg", { showIcon: SHOW.CONDITIONAL }), effect("Hidden aura", "icons/aura.svg", { showIcon: SHOW.NEVER })] }),
+    { initiative: 21, owner: true });
+  const enforcer = combatant("enforcer", "Enforcer", actor("npc", { vitals: vit([12, 30], [4, 6]), details: { faction: "" } },
+    { effects: [effect("Pinned", "icons/svg/net.svg")] }), { disposition: -1, initiative: 18 });
+  const sniper = combatant("sniper", "Sniper", actor("npc", { vitals: vit([20, 20]), details: { faction: "GENESIS" } }), { disposition: -1, initiative: 16, hidden: true });
+  const bastion = combatant("bastion", "Bastion", actor("operative", { vitals: vit([22, 24], [10, 10], [5, 5], [0, 1]), accent: "#4a90d9", roleKey: "warmachine" },
+    { img: "icons/svg/mystery-man.svg" }), { initiative: 15, tokenImg: "tokens/bastion.webp" });
+  const drone = combatant("drone", "Hound drone", actor("npc", { vitals: vit([0, 10]) }), { disposition: -1, initiative: 7, defeated: true });
+  const rookie = combatant("rookie", "Rookie", actor("operative", { vitals: vit([12, 12]), accent: null, roleKey: null }), { initiative: null, owner: true });
+  const turns = [wraith, enforcer, sniper, bastion, drone, rookie];
+  const combat = (current, { round = 2 } = {}) => ({
+    turns, round, started: round > 0,
+    combatant: turns.find(c => c.id === current) ?? null,
+    // Foundry's next, skipping the defeated.
+    get nextCombatant() {
+      const at = turns.findIndex(c => c.id === current);
+      for ( let i = 1; i <= turns.length; i++ ) { const c = turns[(at + i) % turns.length]; if ( !c.isDefeated ) return c; }
+      return null;
+    }
+  });
+  const draw = (ctx) => new JSDOM(tpl("templates/apps/turn-ribbon.hbs")(ctx)).window.document;
+
+  // A player's view, Bastion acting, the line turning.
+  let doc = draw(ribbonContext(combat("bastion"), player, "actingFirst"));
+  const cardIds = d => [...d.querySelectorAll(".rb-line > *")].map(el => el.classList.contains("rb-marker") ? "|" : el.dataset.combatantId).join(" ");
+  check("ribbon card: compiles to one strip, the round first, the acting card leading the line",
+    doc.body.children.length === 1 && !!doc.querySelector(".rb-strip > .rb-round + .rb-more.left + .rb-line") && (cardIds(doc) === "bastion rookie | wraith enforcer drone"), cardIds(doc));
+  const active = doc.querySelector(".rb-card.active");
+  check("ribbon card: the acting card has the large portrait, its name, its doctrine and its numbers in full",
+    active?.dataset.combatantId === "bastion" && (active.querySelector(".rb-portrait img")?.getAttribute("src") === "tokens/bastion.webp")
+      && /Acting/.test(active.querySelector(".rb-tag")?.textContent) && /Init 15/.test(active.textContent)
+      && (active.querySelector(".rb-name")?.textContent === "Bastion") && (active.querySelector(".rb-label")?.textContent === "Warmachine")
+      && ([...active.querySelectorAll(".rb-vl")].map(v => v.textContent.replace(/\s+/g, "")).join() === "H22/24,A10/10,B5/5")
+      && /--rb-edge: #4a90d9/.test(active.getAttribute("style")) && (active.querySelectorAll(".rb-pip").length === 1) && !active.querySelector(".rb-pip.full"));
+  check("ribbon card: a player who does not own the acting combatant has no End turn; nor the round controls, nor End combat",
+    !doc.querySelector('[data-action="endTurn"]') && !doc.querySelector(".rb-gm") && !doc.querySelector('[data-action="endCombat"]'));
+  check("ribbon: a tab at each end of the line, hidden until cards are out of sight that way",
+    !!doc.querySelector('.rb-strip > .rb-more.left[data-action="scrollMore"][hidden] + .rb-line')
+      && !!doc.querySelector('.rb-line + .rb-more.right[data-action="scrollMore"][data-dir="right"][hidden] .rb-more-n'));
+  const enf = doc.querySelector('[data-combatant-id="enforcer"]');
+  check("ribbon card: a player reads a hostile's condition in a word, not its numbers, in GENESIS red",
+    enf.classList.contains("side-hostile") && (enf.querySelector(".rb-condition")?.textContent === "Wounded") && !enf.querySelector(".rb-bar, .rb-pip")
+      && /--rb-edge: #c4121c/.test(enf.getAttribute("style")) && (enf.querySelector(".rb-status")?.dataset.tooltip === "Pinned"));
+  check("ribbon card: the hidden sniper is not there for a player; the defeated drone is a stub",
+    !doc.querySelector('[data-combatant-id="sniper"]') && doc.querySelector('[data-combatant-id="drone"]').classList.contains("down"));
+  const wr = doc.querySelector('[data-combatant-id="wraith"]');
+  check("ribbon card: a waiting operative shows its Health line, dodges and the statuses its token shows, with X",
+    (wr.querySelector(".rb-bar.hp i")?.getAttribute("style") === "width: 78%") && (wr.querySelectorAll(".rb-pip").length === 2)
+      && (wr.querySelectorAll(".rb-pip.full").length === 1) && (wr.querySelectorAll(".rb-status").length === 1)
+      && (wr.querySelector(".rb-status b")?.textContent === "1") && (wr.querySelector(".rb-status")?.dataset.tooltip === "Ignited (1)"));
+  const rk = doc.querySelector('[data-combatant-id="rookie"]');
+  check("ribbon card: next is marked; an owner with no initiative rolls from the card; no doctrine is ODR sky",
+    rk.classList.contains("next") && /Next/.test(rk.querySelector(".rb-init")?.textContent ?? "") && /--rb-edge: #42abf2/.test(rk.getAttribute("style")));
+  // Johnald, 2026-10-11: players roll initiative from the ribbon if they want, wherever their card is in line.
+  check("ribbon card: next and not yet rolled, the owner has both Next and Roll, Roll in the bottom right corner",
+    !!rk.querySelector('.rb-foot > [data-action="rollInitiative"]:last-child') && /Roll/.test(rk.querySelector(".rb-roll")?.textContent ?? ""));
+  const actingUnrolled = draw(ribbonContext(combat("rookie"), player, "actingFirst")).querySelector(".rb-card.active");
+  check("ribbon card: acting without an initiative, its owner rolls from the acting card's bottom row, before End turn",
+    actingUnrolled?.dataset.combatantId === "rookie" && !!actingUnrolled.querySelector('.rb-foot > .rb-roll + .rb-end') && !actingUnrolled.querySelector('.rb-top [data-action="rollInitiative"]') && !/Init/.test(actingUnrolled.querySelector(".rb-top")?.textContent ?? ""));
+  const stranger = cardFor(combatant("x1", "Stranger", actor("npc", { vitals: vit([5, 5]) }), { initiative: null, owner: false }), player);
+  const mine = cardFor(combatant("x2", "Mine", actor("operative", { vitals: vit([5, 5]) }), { initiative: null, owner: true }), player);
+  check("ribbon card: Roll only on a card the viewer owns, and only before it has an initiative",
+    !stranger.canRoll && mine.canRoll && !cardFor(combatant("x3", "Done", actor("operative", { vitals: vit([5, 5]) }), { initiative: 0, owner: true }), player).canRoll);
+  check("ribbon: the round, and the acting card's place among those standing",
+    (doc.querySelector(".rb-round-n")?.textContent === "2") && /1 of 4/.test(doc.querySelector(".rb-count")?.textContent ?? ""),
+    doc.querySelector(".rb-count")?.textContent);
+
+  // The owner's own turn: End turn. Rookie has no initiative yet: a Roll button, when it is not next.
+  doc = draw(ribbonContext(combat("wraith"), player, "fixed"));
+  check("ribbon card: the acting combatant's owner can end the turn from the card",
+    !!doc.querySelector('.rb-card.active[data-combatant-id="wraith"] [data-action="endTurn"]'));
+  check("ribbon, fixed order: the line keeps initiative order", cardIds(doc) === "wraith enforcer bastion drone rookie", cardIds(doc));
+  check("ribbon card: an owner rolls initiative from a card that has none",
+    !!doc.querySelector('[data-combatant-id="rookie"] [data-action="rollInitiative"]'));
+
+  // The GM sees everything: the hidden sniper marked, the hostile's numbers, the round controls.
+  doc = draw(ribbonContext(combat("enforcer"), gm, "fixed"));
+  const sn = doc.querySelector('[data-combatant-id="sniper"]');
+  const en = doc.querySelector('[data-combatant-id="enforcer"]');
+  check("ribbon card: the GM sees the hidden sniper, faded and marked, and next",
+    sn?.classList.contains("rb-hidden") && !!sn.querySelector(".rb-hidden-mark") && sn.classList.contains("next") && (sn.querySelector(".rb-condition") === null));
+  check("ribbon card: the GM reads a hostile's numbers, its faction or Hostile beneath its name, and can end its turn",
+    [...en.querySelectorAll(".rb-vl")].map(v => v.textContent.replace(/\s+/g, "")).join() === "H12/30,A4/6" && (en.querySelector(".rb-label")?.textContent === "Hostile")
+      && !!en.querySelector('[data-action="endTurn"]'));
+  check("ribbon: the GM has previous and next turn on the round, and End combat (Johnald, 2026-10-11)",
+    !!doc.querySelector('.rb-gm [data-action="previousTurn"]') && !!doc.querySelector('.rb-gm [data-action="nextTurn"]') && !doc.querySelector('[data-action="beginCombat"]')
+      && /End combat/.test(doc.querySelector('.rb-round [data-action="endCombat"]')?.textContent ?? ""));
+  check("ribbon, fixed order: those who have acted are dimmed", doc.querySelector('[data-combatant-id="wraith"]').classList.contains("acted")
+    && !doc.querySelector('[data-combatant-id="bastion"]').classList.contains("acted"));
+
+  // Before it starts.
+  doc = draw(ribbonContext(combat(null, { round: 0 }), gm, "actingFirst"));
+  check("ribbon: before the fight, Ready, how many are in it, and the GM's Begin",
+    /Ready/.test(doc.querySelector(".rb-round")?.textContent ?? "") && (doc.querySelector(".rb-round-n")?.textContent === "5")
+      && !!doc.querySelector('[data-action="beginCombat"]') && !!doc.querySelector('[data-action="endCombat"]') && !doc.querySelector(".rb-card.active")
+      && doc.querySelector('[data-combatant-id="wraith"]').classList.contains("next"));
+
+  // Pieces.
+  check("ribbon: the portrait is the actor's art, or the token's when the actor has Foundry's blank figure",
+    (portraitFor(wraith) === "art/portrait.webp") && (portraitFor(bastion) === "tokens/bastion.webp"));
+  check("ribbon: statuses as the token shows them: always, or temporary ones set to show while temporary",
+    statusesFor(wraith.actor).map(s => s.name).join() === "Ignited (1)"
+      && statusesFor({ appliedEffects: [effect("Stunned", "s.svg", { showIcon: SHOW.CONDITIONAL, isTemporary: true })] }).length === 1);
+  check("ribbon: an observer of an NPC reads its numbers", cardFor(enforcer, { id: "p2", isGM: false }).numbers === false
+    && cardFor(combatant("e2", "Guard", actor("npc", { vitals: vit([5, 5]) }, { observers: ["p2"] })), { id: "p2", isGM: false }).numbers === true);
+  check("ribbon: nothing to show with no combat, or none a player may see",
+    (ribbonContext(null, player) === null) && (ribbonContext({ turns: [sniper], round: 1, started: true, combatant: sniper, nextCombatant: sniper }, player) === null));
+
+  // The window: frameless, in Foundry's top area, its actions; the settings.
+  const o = TurnRibbon.DEFAULT_OPTIONS;
+  check("ribbon window: frameless, with its actions and template",
+    (o.id === "irop-turn-ribbon") && (o.window.frame === false) && ["endTurn", "previousTurn", "nextTurn", "beginCombat", "endCombat", "rollInitiative", "scrollMore"].every(a => a in o.actions)
+      && fs.existsSync(path.join(ROOT, TurnRibbon.PARTS.body.template.replace("systems/irop/", ""))));
+  const { registerSettings } = await import("../module/settings.mjs");
+  const registered = {};
+  const oldSettings = game.settings;
+  game.settings = { register: (ns, key, data) => { registered[key] = data; } };
+  registerSettings();
+  game.settings = oldSettings;
+  check("ribbon settings: each person shows it or not; the GM picks the order, acting first by default",
+    (registered.turnRibbonShown?.scope === "client") && registered.turnRibbonShown.config && (registered.turnRibbonShown.default === true)
+      && (registered.turnRibbonOrder?.scope === "world") && (registered.turnRibbonOrder.default === "actingFirst")
+      && (Object.keys(registered.turnRibbonOrder.choices).join() === "actingFirst,fixed"));
+  const css = fs.readFileSync(path.join(ROOT, "styles/irop.css"), "utf8");
+  check("ribbon styles: no class Foundry hides (.hidden), and buttons free of core's fixed height",
+    !/\.rb-card\.hidden\b/.test(css) && /\.irop-turn-ribbon button \{[^}]*height: auto;[^}]*min-height: 0;/.test(css));
+}
+
+// The turn marker (Johnald, 2026-10-11): the segmented bezel with ACTING in its gaps, white for Foundry to tint by side.
+{
+  const markerPath = path.join(ROOT, IROP.turnMarker.replace("systems/irop/", ""));
+  const svg = fs.existsSync(markerPath) ? fs.readFileSync(markerPath, "utf8") : "";
+  const mdoc = new JSDOM(svg, { contentType: "image/svg+xml" }).window.document;
+  const glyphs = mdoc.querySelectorAll("g[transform^='rotate'] > path");
+  check("turn marker: the image is there, drawn in white, with the word as strokes not text (no web font reaches an image)",
+    !!svg && !mdoc.querySelector("text") && (glyphs.length === 18)
+      && [...mdoc.querySelectorAll("[stroke]")].every(el => el.getAttribute("stroke") === "#fff")
+      && (mdoc.documentElement.getAttribute("viewBox") === "-100 -100 200 200"));
+  const bezel = mdoc.querySelector("circle[stroke-dasharray][transform]");
+  const [dash, gap] = (bezel?.getAttribute("stroke-dasharray") ?? "").split(" ").map(Number);
+  const r = Number(bezel?.getAttribute("r"));
+  check("turn marker: three arcs and three gaps around the bezel, just outside the token's edge (radius 66.7 of 100)",
+    Math.abs(3 * (dash + gap) - (2 * Math.PI * r)) < 0.1 && (r - (Number(bezel.getAttribute("stroke-width")) / 2) > 66.7));
+  const entry = fs.readFileSync(path.join(ROOT, "module/irop.mjs"), "utf8");
+  check("turn marker: Foundry's fallback marker, and the sides' colors the ribbon's own",
+    /CONFIG\.Combat\.fallbackTurnMarker = IROP\.turnMarker;/.test(entry)
+      && /PARTY: sideColor\("operative"\), FRIENDLY: sideColor\("ally"\), NEUTRAL: sideColor\("neutral"\), HOSTILE: sideColor\("hostile"\)/.test(entry)
+      && (IROP.turnOrder.sides.hostile.color === "#c4121c") && (IROP.turnOrder.sides.operative.color === "#42abf2"));
+}
+
+// The turn marker in the sides' colors (bug fix, Johnald, 2026-10-11: with Disposition Tint ticked it stayed white).
+{
+  const tm = await import("../module/canvas/turn-marker.mjs");
+  const savedConfig = globalThis.CONFIG;
+  const savedCanvas = globalThis.canvas;
+  const shared = { src: "", disposition: true };
+  globalThis.CONFIG = { ...(savedConfig ?? {}), Combat: { settings: { turnMarker: shared }, fallbackTurnMarker: IROP.turnMarker } };
+  const token = (color, own = { mode: 1, src: null, disposition: false }) => ({
+    document: { turnMarker: own }, getDispositionColor: () => color,
+    turnMarker: { mesh: { destroyed: false, tint: 0xFFFFFF } }
+  });
+  const hostile = token(0xc4121c);
+  const operative = token(0x42abf2);
+  const added = [];
+  globalThis.canvas = { tokens: { turnMarkers: new Set([hostile, operative]) }, app: { ticker: { add: fn => added.push(fn), remove: fn => { const i = added.indexOf(fn); if ( i >= 0 ) added.splice(i, 1); } } } };
+  tm.syncTurnMarkerTints();
+  check("turn marker color: with Disposition Tint on, each marker takes its side's exact color",
+    (hostile.turnMarker.mesh.tint === 0xc4121c) && (operative.turnMarker.mesh.tint === 0x42abf2));
+  shared.disposition = false;
+  tm.syncTurnMarkerTints();
+  check("turn marker color: turned off, back to white at once", (hostile.turnMarker.mesh.tint === 0xFFFFFF) && (operative.turnMarker.mesh.tint === 0xFFFFFF));
+  const custom = token(0xb9c4c8, { mode: 2, src: null, disposition: true });
+  canvas.tokens.turnMarkers.add(custom);
+  tm.syncTurnMarkerTints();
+  check("turn marker color: a token set to custom with its own Disposition Tint follows its own setting", custom.turnMarker.mesh.tint === 0xb9c4c8);
+  shared.disposition = true;
+  shared.src = "worlds/x/my-marker.webp";
+  const theirs = token(0x42abf2);
+  theirs.turnMarker.mesh.tint = 0x123456;
+  canvas.tokens.turnMarkers.add(theirs);
+  tm.syncTurnMarkerTints();
+  check("turn marker color: an image the GM set is left as Foundry draws it", theirs.turnMarker.mesh.tint === 0x123456);
+  check("turn marker source: the token's own when custom, the GM's, else the fallback",
+    (tm.markerSource({ turnMarker: { mode: 2, src: null } }) === IROP.turnMarker) && (tm.markerSource({ turnMarker: { mode: 2, src: "t.webp" } }) === "t.webp")
+      && (tm.markerSource({ turnMarker: { mode: 1, src: "t.webp" } }) === "worlds/x/my-marker.webp"));
+  const gone = token(0xc4121c);
+  gone.turnMarker.mesh = { destroyed: true, tint: 0xFFFFFF };
+  canvas.tokens.turnMarkers.add(gone);
+  tm.syncTurnMarkerTints();
+  check("turn marker color: a mesh already gone is not touched", gone.turnMarker.mesh.tint === 0xFFFFFF);
+  tm.watchTurnMarkers();
+  tm.watchTurnMarkers();
+  check("turn marker color: it runs each frame, once however many scenes are drawn", (added.length === 1) && (added[0] === tm.syncTurnMarkerTints));
+  globalThis.CONFIG = savedConfig;
+  globalThis.canvas = savedCanvas;
 }
 
 console.log(`${pass} passed, ${fail} failed`);
