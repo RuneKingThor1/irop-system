@@ -1,0 +1,61 @@
+<div class="banks-body">
+  <section class="bank-group gm-banks">
+    <header class="panel-head"><h3>GM</h3><span class="hint">reset at the end of the session</span></header>
+    <div class="bank-line">
+      <span class="bank-name sym-DANGER"><i class="fa-solid fa-caret-down"></i> Danger</span>
+      <span class="bank-pips">{{#each dangerPips as |on|}}<span class="bank-pip danger {{#if on}}filled{{/if}}"></span>{{/each}}</span>
+      <span class="bank-count">{{danger}} / 6</span>
+      {{#if isGM}}
+      <button type="button" class="icon" data-action="gm" data-bank="danger" data-delta="-1" data-tooltip="Spend one"><i class="fa-solid fa-minus"></i></button>
+      <button type="button" class="icon" data-action="gm" data-bank="danger" data-delta="1" data-tooltip="Bank one"><i class="fa-solid fa-plus"></i></button>
+      {{/if}}
+    </div>
+    <div class="bank-line">
+      <span class="bank-name sym-DEFEAT"><i class="fa-solid fa-skull"></i> Defeat</span>
+      <span class="bank-pips">{{#each defeatPips as |on|}}<span class="bank-pip defeat {{#if on}}filled{{/if}}"></span>{{/each}}</span>
+      <span class="bank-count">{{defeat}} / 1</span>
+      {{#if isGM}}
+      <button type="button" class="icon" data-action="gm" data-bank="defeat" data-delta="-1"><i class="fa-solid fa-minus"></i></button>
+      <button type="button" class="icon" data-action="gm" data-bank="defeat" data-delta="1"><i class="fa-solid fa-plus"></i></button>
+      {{/if}}
+    </div>
+  </section>
+
+  {{!-- Only this mission's operatives, dragged in by the GM (RULED 2026-10-07). --}}
+  <section class="bank-group squad">
+    <header class="panel-head"><h3>Squad</h3>
+      <span class="hint">{{#if squadVictory}}Victory held: Nigh Impossible is open{{else}}no Victory held{{/if}}</span></header>
+    {{#each operatives as |o|}}
+    <div class="bank-line operative" data-actor-id="{{o.id}}">
+      <img src="{{o.img}}" alt="">
+      <span class="bank-name">{{o.name}}</span>
+      <span class="bank-pips">{{#each o.edgePips as |on|}}<span class="bank-pip edge {{#if on}}filled{{/if}}"></span>{{/each}}</span>
+      {{#if o.canEdit}}
+      <button type="button" class="icon" data-action="operative" data-bank="edge" data-delta="-1" data-tooltip="Spend Edge"><i class="fa-solid fa-minus"></i></button>
+      <button type="button" class="icon" data-action="operative" data-bank="edge" data-delta="1" data-tooltip="Bank Edge"><i class="fa-solid fa-plus"></i></button>
+      {{/if}}
+      <span class="bank-pips">{{#each o.victoryPips as |on|}}<span class="bank-pip victory {{#if on}}filled{{/if}}"></span>{{/each}}</span>
+      {{#if o.canEdit}}
+      <button type="button" class="icon" data-action="operative" data-bank="victory" data-delta="{{#if o.victory}}-1{{else}}1{{/if}}"
+              data-tooltip="{{#if o.victory}}Spend Victory{{else}}Bank Victory{{/if}}"><i class="fa-solid fa-star"></i></button>
+      {{/if}}
+      {{#if @root.isGM}}
+      <button type="button" class="icon stand-down" data-action="standDown" data-tooltip="Stand down: take off the squad"><i class="fa-solid fa-xmark"></i></button>
+      {{/if}}
+    </div>
+    {{else}}
+    <p class="hint">No operatives deployed{{#unless @root.isGM}} yet{{/unless}}.</p>
+    {{/each}}
+    {{#if isGM}}
+    <div class="squad-drop"><i class="fa-solid fa-user-plus"></i> Drag this mission's operatives here from the Actors sidebar, one at a time or a whole folder</div>
+    {{/if}}
+  </section>
+
+  {{#if isGM}}
+  <footer class="bank-actions">
+    <button type="button" data-action="start" data-tooltip="Rolls 1d6 Danger and one Edge flip for the deployed squad. Shift click flips per operative.">
+      <i class="fa-solid fa-play"></i> Start session</button>
+    <button type="button" data-action="end"><i class="fa-solid fa-stop"></i> End session</button>
+  </footer>
+  {{/if}}
+</div>

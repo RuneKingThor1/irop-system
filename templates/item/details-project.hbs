@@ -1,0 +1,42 @@
+<section class="tab details {{tab.cssClass}}" data-group="primary" data-tab="details">
+  {{!-- An ODR project (Strategy Layer step 5, 2026-10-08), in the doc's Research Project Format. --}}
+  <div class="form-grid">
+    <label><span>Kind</span><select name="system.kind">{{selectOptions project.kinds selected=system.kind}}</select></label>
+    <label data-tooltip="Hidden projects are the GM's until shown to the players"><span>Status</span>
+      <select name="system.status">{{selectOptions project.statuses selected=system.status}}</select></label>
+    {{#if project.isIntelligence}}<label data-tooltip="One short term and one long term action run at a time"><span>Term</span>
+      <select name="system.term">{{selectOptions project.terms selected=system.term}}</select></label>{{/if}}
+    {{#if project.isEngineering}}<label><span>Builds</span><select name="system.builds">{{selectOptions project.builds selected=system.builds}}</select></label>{{/if}}
+    <label data-tooltip="Doc: it varies from project to project; the GM sets it"><span>Cost ({{project.resource}})</span>
+      <input type="number" name="system.cost" value="{{system.cost}}" min="0"></label>
+    <label><span>Progress</span><input type="number" name="system.progress" value="{{system.progress}}" min="0"></label>
+    {{#if project.hasPlace}}<label><span>{{project.placeLabel}}</span>
+      <select name="system.territory">{{selectOptions project.territories selected=system.territory blank="None"}}</select></label>{{/if}}
+    {{#if project.isResearch}}<label data-tooltip="Doc: each recovered salvage adds {{project.salvageAmount}} progress here"><span>Salvage recovered</span>
+      <input type="number" name="system.salvage" value="{{system.salvage}}" min="0"></label>{{/if}}
+  </div>
+  <div class="project-meter"><div class="os-track"><span style="width: {{project.pct}}%"></span></div>
+    <span class="os-count">{{system.progress}} / {{system.cost}} {{project.resource}}</span></div>
+
+  {{#if project.isIntelligence}}
+  <p class="hint">Worked by soldiers with any Social skill, Stealth, Hacking or Lock Picking: the skill's attribute modifier + 5 per rank, each turn.</p>
+  <label class="wide-field" data-tooltip="Opens as a Tactical Action when this completes. Blank reveals nothing."><span>Reveals</span>
+    <input type="text" name="system.reveals" value="{{system.reveals}}" placeholder="Strike the GENESIS asset"></label>
+  {{else}}
+  <h4 class="section-title">Specialization</h4>
+  <div class="project-skills">
+    {{#each project.skills as |k|}}<button type="button" class="skill-chip {{#if k.on}}on{{/if}}" data-action="toggleSkill" data-skill="{{k.key}}" {{#unless @root.editable}}disabled{{/unless}}>{{k.label}}</button>{{/each}}
+  </div>
+  <p class="hint">Soldiers with one of these skills add their Intelligence bonus + 5 per rank each turn{{#if project.isEngineering}}; any soldier can add labor instead, their Strength bonus{{/if}}.</p>
+  {{/if}}
+
+  {{#if project.isResearch}}
+  <label class="wide-field" data-tooltip="Doc: pursuing it unlocks more projects of these kinds"><span>Advancement</span>
+    <input type="text" name="system.advancement" value="{{system.advancement}}" placeholder="Weaponry, Armor"></label>
+  <label class="wide-field" data-tooltip="Doc: exact details only once complete"><span>Unlocks</span>
+    <input type="text" name="system.unlocks" value="{{system.unlocks}}" placeholder="Weapon and Armor Modifications"></label>
+  {{/if}}
+
+  <h4 class="section-title">Assigned</h4>
+  <p class="hint">{{#each project.assigned as |a|}}{{a.name}} ({{a.skill}}){{#unless @last}}, {{/unless}}{{else}}Nobody yet.{{/each}} Soldiers are assigned from the ODR window.</p>
+</section>

@@ -1,0 +1,48 @@
+<div class="calendar-body">
+  {{!-- The calendar (Johnald, 2026-10-08): today, and the month's page. The GM picks a day and sets it. --}}
+  <header class="cal-today">
+    <span class="cal-date">{{today.long}}</span>
+    <span class="cal-sub">{{#if today.season}}<span class="cal-season-name">{{today.season}}</span>{{/if}}<span class="cal-time"><i class="fa-regular fa-clock"></i> {{today.time}}</span></span>
+  </header>
+
+  <nav class="cal-nav">
+    <button type="button" class="cal-turn" data-action="month" data-delta="-1" data-tooltip="The month before" aria-label="The month before"><i class="fa-solid fa-chevron-left"></i></button>
+    <span class="cal-title">{{grid.title}}</span>
+    <button type="button" class="cal-turn" data-action="month" data-delta="1" data-tooltip="The month after" aria-label="The month after"><i class="fa-solid fa-chevron-right"></i></button>
+    {{#unless showingToday}}<button type="button" class="cal-back" data-action="toToday">Today</button>{{/unless}}
+  </nav>
+
+  <table class="cal-grid">
+    <thead><tr>{{#each grid.weekdays as |w|}}<th data-tooltip="{{w.name}}">{{w.abbr}}</th>{{/each}}</tr></thead>
+    <tbody>
+      {{#each grid.weeks as |week|}}
+      <tr>
+        {{#each week as |d|}}
+        <td>{{#unless d.blank}}{{#if @root.isGM}}<button type="button" class="cal-day {{#if d.today}}today{{/if}} {{#if d.selected}}picked{{/if}}" data-action="pick" data-day="{{d.index}}"{{#if d.season}} data-tooltip="{{d.season}} begins"{{/if}}>{{d.day}}{{#if d.season}}<i class="cal-mark"></i>{{/if}}</button>{{else}}<span class="cal-day {{#if d.today}}today{{/if}}"{{#if d.season}} data-tooltip="{{d.season}} begins"{{/if}}>{{d.day}}{{#if d.season}}<i class="cal-mark"></i>{{/if}}</span>{{/if}}{{/unless}}</td>
+        {{/each}}
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  {{#if isGM}}
+  <footer class="cal-gm">
+    <div class="cal-steps">
+      <button type="button" data-action="step" data-days="-7" data-tooltip="Back a week"><i class="fa-solid fa-angles-left"></i> Week</button>
+      <button type="button" data-action="step" data-days="-1" data-tooltip="Back a day"><i class="fa-solid fa-angle-left"></i> Day</button>
+      <button type="button" data-action="step" data-days="1" data-tooltip="On a day">Day <i class="fa-solid fa-angle-right"></i></button>
+      <button type="button" data-action="step" data-days="7" data-tooltip="On a week">Week <i class="fa-solid fa-angles-right"></i></button>
+      {{#if turnStep}}<button type="button" data-action="step" data-days="{{turnStep}}" data-tooltip="On a turn's worth: {{turnStep}} days">Turn <i class="fa-solid fa-forward-step"></i></button>{{/if}}
+    </div>
+    <div class="cal-set">
+      <span class="cal-picked">{{#if picked}}{{picked}}{{else}}Pick a day, or set the time{{/if}}</span>
+      <input type="time" name="time" value="{{today.time}}" aria-label="Time of day">
+      <button type="button" data-action="setDate"><i class="fa-solid fa-check"></i> Set</button>
+    </div>
+    <div class="cal-foot">
+      <span class="hint">{{#if perTurn}}Advance turn moves the date on {{perTurn}} day{{#if (gt perTurn 1)}}s{{/if}}.{{else}}Turns leave the date alone.{{/if}}</span>
+      <button type="button" data-action="edit"><i class="fa-solid fa-gear"></i> Calendar settings</button>
+    </div>
+  </footer>
+  {{/if}}
+</div>

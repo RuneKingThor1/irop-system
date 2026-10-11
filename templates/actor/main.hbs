@@ -1,0 +1,107 @@
+<section class="tab main {{tab.cssClass}}" data-group="primary" data-tab="main">
+
+  <div class="attributes">
+    {{#each attributes as |a|}}
+    <div class="attribute">
+      {{!-- A boon lights the box from inside in ODR Silver (Johnald, 2026-10-06). --}}
+      <button type="button" class="attr-roll {{#if a.boons}}boon{{/if}}" data-action="rollAttribute" data-attribute="{{a.key}}"
+              data-tooltip="d100 {{a.label}} check: meet or roll under {{a.value}}. Modifier {{a.mod}}, the tens in color{{#if a.boons}}. Boon +{{a.boons}}{{/if}}">
+        <span class="name">{{a.label}}</span>
+        <span class="score"><span class="tens">{{a.tens}}</span><span class="ones">{{a.ones}}</span></span>
+      </button>
+      {{#if @root.editMode}}
+      <label class="attr-base">base <input type="number" name="system.attributes.{{a.key}}.base" value="{{a.base}}"></label>
+      {{/if}}
+      {{!-- Ranks show in both modes, like skill ranks; only edit mode can change them. --}}
+      <span class="pips advance-pips" data-tooltip="Attribute ranks, +5 each: {{a.advances}} of {{a.advancePips.length}}">
+        {{#each a.advancePips as |p|}}<button type="button" class="pip {{#if p.filled}}filled{{/if}} {{#if p.buyable}}buyable{{/if}}" data-action="setAdvance"
+          data-attribute="{{a.key}}" data-rank="{{p.n}}" {{#if p.buyable}}data-tooltip="Buy rank {{p.n}}: {{p.cost}} XP"{{/if}}
+          {{#unless (or @root.editMode p.buyable)}}disabled{{/unless}}></button>{{/each}}
+      </span>
+    </div>
+    {{/each}}
+  </div>
+
+  <div class="derived">
+    {{!-- Every box here has its label top and centre; Critical, Initiative and Throw show their one
+          value big and centred beneath it (Johnald, 2026-10-07). Dodge left this tab for the Combat
+          tab's alone (Johnald, 2026-10-10). --}}
+    <div class="stat big" data-tooltip="10 + PER mod + 2 x LCK mod">
+      <span class="mono-label">Critical</span><span class="stat-value">{{system.critical}}</span>
+    </div>
+    <button type="button" class="stat big roll" data-action="rollInitiative" data-tooltip="Roll initiative into the current combat: {{initiativeText}}">
+      <span class="mono-label">Initiative</span><span class="stat-value">{{initiativeBonusText}}</span>
+    </button>
+    {{!-- Throw beside Initiative (Johnald, 2026-10-10). --}}
+    <div class="stat big" data-tooltip="Throw range in tiles, 2 x STR mod">
+      <span class="mono-label">Throw</span><span class="stat-value">{{system.throwRange}}</span>
+    </div>
+    <div class="stat movement wide">
+      <span class="mono-label">Movement</span>
+      <div class="speeds">
+        <div class="speed" data-tooltip="Shift: 2 tiles plus armor bonuses. A quick action; forfeits Run and Sprint this turn">
+          <span class="abbr">Shift</span><span class="score">{{movement.shift}}</span><span class="cost">quick</span>
+        </div>
+        <div class="speed" data-tooltip="Run: 4 + AGI mod. The Move action">
+          <span class="abbr">Run</span><span class="score">{{movement.run}}</span><span class="cost">1 action</span>
+        </div>
+        <div class="speed" data-tooltip="Sprint: 2 x Run. Two actions, turn ending">
+          <span class="abbr">Sprint</span><span class="score">{{movement.sprint}}</span><span class="cost">2 actions</span>
+        </div>
+      </div>
+    </div>
+    {{!-- Operatives read carried weight in the header (2026-10-09); NPCs have no Gear tab, so theirs stays here. --}}
+    {{#unless isOperative}}
+    <div class="stat {{#if system.carry.over}}over{{/if}}" data-tooltip="Carried weight against capacity, 30 + 2 x STR mod + TGH mod">
+      <span class="mono-label">Carry</span><span class="stat-value">{{system.carry.value}} / {{system.carry.max}}</span>
+    </div>
+    {{/unless}}
+    {{#if editMode}}
+    <div class="stat bonuses wide">
+      <span class="mono-label">Bonuses</span>
+      <label>crit <input type="number" name="system.bonuses.critical" value="{{systemSource.bonuses.critical}}"></label>
+      <label>init <input type="number" name="system.bonuses.initiative" value="{{systemSource.bonuses.initiative}}"></label>
+      <label>shift <input type="number" name="system.bonuses.move.shift" value="{{systemSource.bonuses.move.shift}}"></label>
+      <label>run <input type="number" name="system.bonuses.move.run" value="{{systemSource.bonuses.move.run}}"></label>
+      <label>sprint <input type="number" name="system.bonuses.move.sprint" value="{{systemSource.bonuses.move.sprint}}"></label>
+      <label>carry <input type="number" name="system.bonuses.carry" value="{{systemSource.bonuses.carry}}"></label>
+      <label data-tooltip="Defense outside worn armor">defense <input type="number" name="system.bonuses.defense" value="{{systemSource.bonuses.defense}}"></label>
+      <label data-tooltip="Percent points more of carry capacity that may show at a checkpoint, on top of the place's and the species'">concealment % <input type="number" name="system.bonuses.concealment" value="{{systemSource.bonuses.concealment}}"></label>
+      <label>dodges <input type="number" name="system.vitals.dodges.bonus" value="{{systemSource.vitals.dodges.bonus}}"></label>
+    </div>
+    {{/if}}
+  </div>
+
+  <div class="skills panel">
+    <header class="panel-head">
+      <h3>Skills</h3>
+      <button type="button" class="ghost" data-action="rollPool"><i class="fa-solid fa-dice"></i> Free pool</button>
+    </header>
+    {{!-- Grouped Physical, Knowledge and Social (RULED 2026-10-07); the groups live in IROP.skillGroups.
+          Physical and Social side by side, Knowledge wide beneath them with its list in two columns. --}}
+    <div class="skill-groups">
+      {{#each skillGroups as |g|}}
+      <section class="skill-group {{#if g.wide}}wide{{/if}}" data-group="{{g.key}}">
+        <h4 class="skill-group-title">{{g.label}}</h4>
+        <ol class="skill-list">
+          {{#each g.skills as |s|}}
+          <li class="skill-row">
+            <button type="button" class="skill-roll" data-action="rollSkill" data-skill="{{s.key}}" data-tooltip="Roll {{s.label}}">
+              <span class="skill-name">{{s.label}}</span><span class="attr" data-tooltip="Uses the {{s.attrLabel}} modifier, {{s.mod}}">{{s.attrAbbr}}</span>
+            </button>
+            <span class="pips rank-pips">
+              {{#each s.rankPips as |p|}}<button type="button" class="pip {{#if p.filled}}filled{{/if}} {{#if p.buyable}}buyable{{/if}}" data-action="setRank"
+                data-skill="{{s.key}}" data-rank="{{p.n}}" {{#if p.buyable}}data-tooltip="Buy rank {{p.n}}: {{p.cost}} XP"{{/if}}
+                {{#unless (or @root.editMode p.buyable)}}disabled{{/unless}}></button>{{/each}}
+            </span>
+            <span class="pool" {{#if s.floored}}data-tooltip="Topped up by the minimum pool house rule"{{/if}}>
+              {{#each s.dice as |d|}}<span class="irop-die die-{{d.key}}" data-tooltip="{{d.name}}"></span>{{/each}}
+            </span>
+          </li>
+          {{/each}}
+        </ol>
+      </section>
+      {{/each}}
+    </div>
+  </div>
+</section>

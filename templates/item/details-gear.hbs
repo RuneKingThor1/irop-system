@@ -1,0 +1,34 @@
+<section class="tab details {{tab.cssClass}}" data-group="primary" data-tab="details">
+  <div class="form-grid">
+    <label><span>Kind</span><select name="system.kind">{{selectOptions config.gearKinds selected=system.kind}}</select></label>
+    <label data-tooltip="Rolled when used, for example 1d4 + @int.mod for a Medkit"><span>Use roll</span>
+      <input type="text" name="system.formula" value="{{system.formula}}" placeholder="1d4 + @int.mod"></label>
+    <label class="check"><input type="checkbox" name="system.consumable" {{checked system.consumable}}><span>Consumed on use</span></label>
+  </div>
+
+  {{#if isAmmo}}
+  {{!-- Special ammo: what it does while loaded in a ranged weapon. Quantity counts magazines;
+        loading one is a reload, and the next reload spends it (Johnald, 2026-10-08). --}}
+  <h4 class="section-title">Special ammo: while loaded. Quantity counts magazines</h4>
+  <div class="form-grid">
+    <label data-tooltip="Replaces the weapon's damage type while loaded, e.g. Cold for Cryo Rounds"><span>Damage type</span>
+      <select name="system.ammo.damageType">{{selectOptions ammoDamageTypes selected=system.ammo.damageType}}</select></label>
+    <label data-tooltip="Added to the weapon's damage, e.g. 1 or 1d2"><span>Damage bonus</span>
+      <input type="text" name="system.ammo.damageBonus" value="{{system.ammo.damageBonus}}" placeholder="1d2"></label>
+    <label data-tooltip="D.M. on the attack roll: minus makes it easier"><span>Accuracy D.M.</span>
+      <input type="number" name="system.ammo.accuracy" value="{{system.ammo.accuracy}}"></label>
+    <label data-tooltip="D.M. on the critical roll: minus makes a crit likelier"><span>Crit D.M.</span>
+      <input type="number" name="system.ammo.critical" value="{{system.ammo.critical}}"></label>
+    <label data-tooltip="Damage reduction the target ignores"><span>Bypass DR</span>
+      <input type="number" name="system.ammo.drBypass" value="{{system.ammo.drBypass}}"></label>
+    <label><span>Shred</span><input type="number" name="system.ammo.shred" value="{{system.ammo.shred}}"></label>
+    <label><span>Penetration</span><input type="number" name="system.ammo.penetration" value="{{system.ammo.penetration}}"></label>
+    <label data-tooltip="Status the target gains when the damage is applied"><span>Status on hit</span>
+      <select name="system.ammo.status">{{selectOptions ammoStatuses selected=system.ammo.status}}</select></label>
+    <label data-tooltip="The status's value, X in Frostbite (X)"><span>Status value</span>
+      <input type="number" name="system.ammo.statusValue" value="{{system.ammo.statusValue}}"></label>
+    <label class="check" data-tooltip="Attacks with it skip the target's Defense"><input type="checkbox" name="system.ammo.ignoreDefense" {{checked system.ammo.ignoreDefense}}><span>Ignores Defense</span></label>
+  </div>
+  {{/if}}
+  {{> "systems/irop/templates/item/physical.hbs"}}
+</section>

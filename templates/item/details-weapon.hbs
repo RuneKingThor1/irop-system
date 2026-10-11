@@ -1,0 +1,57 @@
+<section class="tab details {{tab.cssClass}}" data-group="primary" data-tab="details">
+  <div class="form-grid">
+    <label><span>Category</span><select name="system.category">{{selectOptions config.weaponCategories selected=system.category}}</select></label>
+    <label><span>Class</span><select name="system.weaponClass">{{selectOptions config.weaponClasses selected=system.weaponClass}}</select></label>
+    <label data-tooltip="Where it sits on the Combat tab. By category: Launchers and Chemthrowers to Special, melee to Melee, thrown and explosive to Explosives, the rest to Ranged">
+      <span>Section</span><select name="system.sheetSection">{{selectOptions config.weaponGroupChoices selected=system.sheetSection}}</select></label>
+    <label data-tooltip="Magazine: a clip plus one special ammo slot. Single use: fired once and tossed (LAW). Fuel: a tank out of 100 (chemthrowers). Grenades or Rockets: launchers that load them into slots">
+      <span>Feed</span><select name="system.feed">{{selectOptions config.weaponFeedChoices selected=system.feed}}</select></label>
+    <label><span>Tier</span><input type="number" name="system.tier" value="{{system.tier}}"></label>
+    <label><span>Handling</span><select name="system.handling">{{selectOptions config.weaponHandling selected=system.handling}}</select></label>
+    <label data-tooltip="+20 makes the attack 20 easier (a D.M. of -20)"><span>Accuracy</span><input type="number" name="system.accuracy" value="{{system.accuracy}}"></label>
+    <label><span>Damage</span><input type="text" name="system.damage.formula" value="{{system.damage.formula}}" placeholder="2d4 + 1"></label>
+    <label><span>Damage type</span><select name="system.damage.type">{{selectOptions damageTypes selected=system.damage.type}}</select></label>
+    <label data-tooltip="Subtracted from the critical roll"><span>Crit chance</span><input type="number" name="system.critical.chance" value="{{system.critical.chance}}"></label>
+    <label data-tooltip="Added to damage on a critical"><span>Crit damage</span><input type="number" name="system.critical.damage" value="{{system.critical.damage}}"></label>
+    <label><span>Shred</span><input type="number" name="system.shred" value="{{system.shred}}"></label>
+    <label><span>Penetration</span><input type="number" name="system.penetration" value="{{system.penetration}}"></label>
+    <label><span>Destruction</span><input type="number" name="system.destruction" value="{{system.destruction}}"></label>
+    <label data-tooltip="Blast radius in tiles"><span>Blast</span><input type="number" name="system.blast" value="{{system.blast}}"></label>
+    <label data-tooltip="The shape set down on the map when it is used, before the attack: Blast is its radius, or the length of a cone or line"><span>Template</span><select name="system.template">{{selectOptions config.blastTemplates selected=system.template}}</select></label>
+    <label data-tooltip="Magazine size; 0 means the weapon does not track ammo"><span>Clip</span><input type="number" name="system.ammo.max" value="{{system.ammo.max}}"></label>
+    <label><span>Loaded</span><input type="number" name="system.ammo.value" value="{{system.ammo.value}}"></label>
+    <label data-tooltip="Blank uses the default for the category ({{defaultSlots}})"><span>Mod slots</span>
+      <input type="number" name="system.modSlots" value="{{systemSource.modSlots}}" placeholder="{{defaultSlots}}"></label>
+  </div>
+
+  {{#if isFuel}}
+  {{!-- Chemthrowers (RULED 2026-10-08): fuel burns instead of an attack roll; the target saves. --}}
+  <h4 class="section-title">Fuel and burn: each burn past the first adds a damage die. Range D.M.s apply to the save</h4>
+  <div class="form-grid">
+    <label><span>Fuel</span><input type="number" name="system.fuel.value" value="{{system.fuel.value}}"></label>
+    <label><span>Tank</span><input type="number" name="system.fuel.max" value="{{system.fuel.max}}"></label>
+    <label data-tooltip="Fuel each burn costs; the Fuel Efficiency perk lowers it by 5"><span>Per burn</span><input type="number" name="system.fuel.cost" value="{{system.fuel.cost}}"></label>
+    <label data-tooltip="Most burns in one attack"><span>Max burns</span><input type="number" name="system.fuel.maxBurns" value="{{system.fuel.maxBurns}}"></label>
+    <label data-tooltip="What the target saves against"><span>Save</span><select name="system.burn.save">{{selectOptions attributes selected=system.burn.save}}</select></label>
+    <label data-tooltip="Status on a failed save"><span>Status</span><select name="system.burn.status">{{selectOptions burnStatuses selected=system.burn.status}}</select></label>
+    <label data-tooltip="X in the status, e.g. Ignited (3)"><span>Status value</span><input type="number" name="system.burn.statusValue" value="{{system.burn.statusValue}}"></label>
+  </div>
+  {{/if}}
+
+  {{#if (eq system.category "ranged")}}
+  <h4 class="section-title">Rangefinder</h4>
+  <table class="range-table">
+    <thead><tr><th></th>{{#each rangeBands as |b|}}<th>{{b.label}}</th>{{/each}}</tr></thead>
+    <tbody>
+      <tr><th>Tiles</th>{{#each rangeBands as |b|}}<td><input type="number" name="system.range.{{b.key}}.tiles" value="{{b.tiles}}"></td>{{/each}}</tr>
+      <tr><th>D.M.</th>{{#each rangeBands as |b|}}<td><input type="number" name="system.range.{{b.key}}.dm" value="{{b.dm}}"></td>{{/each}}</tr>
+    </tbody>
+  </table>
+  {{/if}}
+
+  {{> "systems/irop/templates/item/physical.hbs"}}
+
+  <label class="wide-field"><span>Special properties</span>
+    <input type="text" name="system.properties" value="{{system.properties}}" placeholder="Bleeding 1, Cumbersome"></label>
+  {{#if fitted}}<p class="hint">Fitted: {{fitted}}</p>{{/if}}
+</section>

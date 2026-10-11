@@ -1,0 +1,33 @@
+<div class="war-room-bar">
+  {{!-- Style A (Johnald, 2026-10-08): a slim top bar over the full width map. --}}
+  {{!-- The calendar's date (2026-10-08), when the GM shows it on the Strategy Layer; it opens the calendar. --}}
+  {{#if date}}<button type="button" class="wr-cell wr-stock wr-date" data-action="calendar" data-tooltip="{{#if date.season}}{{date.season}}. {{/if}}Open the calendar"><i class="fa-solid fa-calendar-days"></i> <b>{{date.short}}</b></button>
+  <span class="wr-sep"></span>{{/if}}
+  <span class="wr-cell"><i class="fa-solid fa-calendar-week"></i> Turn <b>{{state.week}}</b></span>
+  <span class="wr-cell">Phase <b>{{phase}}</b></span>
+  {{#if incursions}}<button type="button" class="wr-tool wr-alert" data-action="incursion" data-tooltip="GENESIS is moving to retake liberated ground. Stop it as a Tactical Action."><i class="fa-solid fa-triangle-exclamation"></i> Incursion{{#if (gt incursions 1)}}s{{/if}}</button>{{/if}}
+  {{!-- Steps 4 and 5 (2026-10-08): the ODR board for everyone; the GM advances the week, or takes it back. --}}
+  <button type="button" class="wr-tool" data-action="odr" data-tooltip="Research, Engineering, Intelligence and the turn's Tactical Action"><i class="fa-solid fa-chess-board"></i> ODR</button>
+  <button type="button" class="wr-tool" data-action="events" data-tooltip="Event and Dark Event cards in play{{#if isGM}}, the GENESIS hand and the decks{{/if}}"><i class="fa-solid fa-layer-group"></i> Events</button>
+  {{#if isGM}}
+  <button type="button" class="wr-tool" data-action="advance" data-tooltip="Plan the new turn and see it before anything is saved"><i class="fa-solid fa-forward-step"></i> Advance turn</button>
+  {{#if undoWeek}}<button type="button" class="wr-tool icon" data-action="undo" data-tooltip="Undo turn {{undoWeek}}"><i class="fa-solid fa-rotate-left"></i></button>{{/if}}
+  {{/if}}
+  <span class="wr-sep"></span>
+  {{!-- Step 3 (2026-10-08): the stock opens its ledger. --}}
+  <button type="button" class="wr-cell wr-stock" data-action="ledger" data-tooltip="The ledger: every gain and spend">Logistics <b>{{state.logistics}}</b></button>
+  <button type="button" class="wr-cell wr-stock" data-action="ledger" data-tooltip="The ledger: every gain and spend">Intel <b>{{state.intel}}</b></button>
+  <span class="wr-sep"></span>
+  <span class="wr-layers">
+    {{#each layers as |l|}}<button type="button" class="wr-chip {{#if l.active}}active{{/if}}" data-action="layer" data-layer="{{l.key}}">{{l.label}}</button>{{/each}}
+  </span>
+  {{#if isGM}}
+  <span class="wr-sep"></span>
+  <span class="wr-tools">
+    {{#if mapIncomplete}}<span class="wr-note" data-tooltip="Territories with a region on this map, linked by name or on their sheet">{{counts.linked}} of {{counts.total}} on the map</span>{{/if}}
+    {{#unless counts.regions}}<button type="button" class="wr-tool" data-action="testMap" data-tooltip="Put a rough test board on this scene: one region per territory, named to match">Test layout</button>{{/unless}}
+    <button type="button" class="wr-tool" data-action="neighbours" data-tooltip="Work out which {{unit}}s border each other from the map">Neighbors</button>
+    <button type="button" class="wr-tool icon" data-action="settings" data-tooltip="Strategy Layer settings"><i class="fa-solid fa-gear"></i></button>
+  </span>
+  {{/if}}
+</div>

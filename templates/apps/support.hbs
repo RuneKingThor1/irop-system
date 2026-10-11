@@ -1,0 +1,22 @@
+<div class="support-body">
+  {{!-- Strategy Layer step 3 (2026-10-08): Support in tactical battles, paid in Logistics (doc: General Uses of Logistics). --}}
+  <header class="support-stock">
+    <span><i class="fa-solid fa-boxes-stacked"></i> Logistics <b>{{stock}}</b></span>
+    <button type="button" class="ghost" data-action="ledger"><i class="fa-solid fa-book"></i> Ledger</button>
+  </header>
+  <p class="hint">{{#if isGM}}Calling one in spends its Logistics at once and posts it to chat.{{else}}A request goes to the GM in chat. The Logistics are spent when the GM approves it.{{/if}}</p>
+  <ol class="support-list">
+    {{#each options as |o|}}
+    <li class="support-option {{#unless o.affordable}}short{{/unless}}" data-support="{{o.key}}">
+      <div class="so-head">
+        <i class="{{o.icon}} so-icon"></i>
+        <span class="so-name">{{o.label}}</span>
+        <span class="so-cost">{{o.costLabel}} <small>Logistics</small></span>
+        <button type="button" data-action="call" {{#unless o.affordable}}disabled{{/unless}}>{{#if @root.isGM}}Call it in{{else}}Request{{/if}}</button>
+      </div>
+      <p class="so-effect">{{o.effect}}</p>
+      {{#unless o.affordable}}<p class="so-short">{{o.short}}</p>{{/unless}}
+    </li>
+    {{/each}}
+  </ol>
+</div>

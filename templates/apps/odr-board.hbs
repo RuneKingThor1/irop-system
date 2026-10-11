@@ -1,0 +1,202 @@
+<div class="odr-board">
+  {{!-- The ODR phase (Strategy Layer step 5, 2026-10-08). Johnald: the players drive it, choosing
+        research, how Logistics and Intel are used, and the week's Tactical Action. --}}
+  <header class="odr-head">
+    <span class="odr-week">Turn <b>{{week}}</b></span>
+    <span class="odr-phase">{{phase}} phase</span>
+    <span class="odr-stock"><i class="fa-solid fa-boxes-stacked"></i> Logistics <b>{{logistics}}</b></span>
+    <span class="odr-stock"><i class="fa-solid fa-satellite-dish"></i> Intel <b>{{intel}}</b></span>
+    {{#if megacities.total}}<span class="odr-stock" data-tooltip="Doc: liberate every Megacity in the area to win"><i class="fa-solid fa-flag"></i> Megacities <b>{{megacities.liberated}}/{{megacities.total}}</b></span>{{/if}}
+    {{#if isGM}}
+    <span class="odr-gm">
+      {{#if undoWeek}}<button type="button" class="ghost" data-action="undo" data-tooltip="Take back the last Advance turn">Undo turn {{undoWeek}}</button>{{/if}}
+      <button type="button" data-action="advance" data-tooltip="Plan the new turn: the GENESIS phase and the projects' progress, shown before anything is saved"><i class="fa-solid fa-forward-step"></i> Advance turn</button>
+    </span>
+    {{/if}}
+  </header>
+  <nav class="odr-tabs">
+    {{#each tabs as |t|}}
+    <a class="odr-tab {{#if t.active}}active{{/if}}" data-action="switchTab" data-tab="{{t.key}}"><i class="{{t.icon}}"></i> {{t.label}} <span class="odr-badge">{{t.badge}}</span></a>
+    {{/each}}
+  </nav>
+
+  {{#*inline "slot"}}
+  <article class="odr-slot" data-project-id="{{id}}">
+    <header class="os-head">
+      <img src="{{img}}" alt="">
+      <div class="os-title">
+        <a class="os-name" data-action="openProject">{{name}}</a>
+        <span class="os-sub">{{#if term}}{{term}}. {{/if}}{{#if builds}}{{builds}}{{#if where}}, {{where}}{{/if}}. {{/if}}{{skills}}</span>
+      </div>
+      <button type="button" class="ghost" data-action="stop" data-tooltip="Back to the list; its progress is kept">Stop</button>
+    </header>
+    {{#if noCost}}
+    <p class="os-warn">No cost set yet. {{#if @root.isGM}}Set one on the project.{{else}}The GM sets it.{{/if}}</p>
+    {{else}}
+    <div class="os-progress">
+      <div class="os-track"><span style="width: {{pct}}%"></span></div>
+      <span class="os-count">{{progress}} / {{cost}} {{resource}}</span>
+    </div>
+    <p class="os-weekly" data-tooltip="{{breakdown}}">+{{weekly}} next turn</p>
+    {{/if}}
+    {{#if unlocks}}<p class="os-line"><span class="label">Unlocks</span> {{unlocks}}</p>{{/if}}
+    {{#if reveals}}<p class="os-line"><span class="label">Reveals</span> {{reveals}}{{#if where}}, in {{where}}{{/if}}</p>{{/if}}
+    <div class="os-team">
+      {{#each assigned as |a|}}
+      <span class="os-soldier" data-actor-id="{{a.actor}}">{{a.name}} <small>{{a.label}} +{{a.amount}}</small>
+        {{#if a.canRemove}}<button type="button" class="icon" data-action="unassign" data-tooltip="Take off this project"><i class="fa-solid fa-xmark"></i></button>{{/if}}</span>
+      {{/each}}
+      {{#if soldiers.length}}
+      <span class="os-assign">
+        <select data-soldier>{{#each soldiers as |s|}}<option value="{{s.id}}">{{s.name}}</option>{{/each}}</select>
+        <button type="button" data-action="assign" data-tooltip="Works it each turn with their best skill for it"><i class="fa-solid fa-user-plus"></i> Assign</button>
+      </span>
+      {{/if}}
+    </div>
+    {{#unless noCost}}
+    <div class="os-spend">
+      <input type="number" data-spend min="1" max="{{remaining}}" placeholder="{{resource}}">
+      <button type="button" data-action="spend" data-tooltip="Spend from the stock to push it along; {{remaining}} left to pay">Spend {{resource}}</button>
+      {{#if canSalvage}}<button type="button" class="ghost" data-action="salvage" data-tooltip="Recovered salvage: each adds {{salvageAmount}}">Salvage +{{salvageAmount}}</button>{{/if}}
+    </div>
+    {{/unless}}
+    {{#if description}}<details class="os-desc"><summary>Briefing</summary>{{{description}}}</details>{{/if}}
+  </article>
+  {{/inline}}
+
+  {{#*inline "row"}}
+  <li class="odr-row {{#if hidden}}hidden-project{{/if}}" data-project-id="{{id}}">
+    <img src="{{img}}" alt="">
+    <div class="or-main">
+      <a class="or-name" data-action="openProject">{{name}}</a>{{#if hidden}} <span class="or-flag">Hidden</span>{{/if}}
+      <span class="or-sub">{{#if cost}}{{cost}} {{resource}}{{else}}No cost yet{{/if}}{{#if progress}}, {{progress}} done{{/if}}. {{skills}}</span>
+      {{#if description}}<details class="or-desc"><summary>Briefing</summary>{{{description}}}</details>{{/if}}
+    </div>
+    <div class="or-actions">
+      {{#if @root.isGM}}{{#if hidden}}<button type="button" class="ghost" data-action="show" data-tooltip="Let the players see it">Show</button>
+      {{else}}<button type="button" class="ghost" data-action="hide" data-tooltip="Hide it from the players">Hide</button>{{/if}}{{/if}}
+      <span class="or-start" {{#unless canStart}}data-tooltip="{{why}}"{{/unless}}><button type="button" data-action="start" {{#unless canStart}}disabled{{/unless}}>{{startLabel}}</button></span>
+    </div>
+  </li>
+  {{/inline}}
+
+  {{#*inline "done"}}
+  <li class="odr-row done" data-project-id="{{id}}">
+    <img src="{{img}}" alt="">
+    <div class="or-main"><a class="or-name" data-action="openProject">{{name}}</a>
+      <span class="or-sub">{{#if unlocks}}Unlocked: {{unlocks}}{{/if}}{{#if builds}}{{builds}}{{#if where}}, {{where}}{{/if}}{{/if}}</span></div>
+  </li>
+  {{/inline}}
+
+  <div class="odr-pane">
+    {{#if is.research}}
+    <section class="odr-section">
+      <h4 class="section-title">Under way</h4>
+      {{#if research.slot}}{{> slot research.slot}}
+      {{else}}<p class="odr-empty">No research under way. Pick one below: one runs at a time, and switching costs nothing.</p>{{/if}}
+    </section>
+    <section class="odr-section">
+      <h4 class="section-title">Projects {{#if isGM}}<button type="button" class="ghost" data-action="newProject" data-kind="research"><i class="fa-solid fa-plus"></i> New</button>{{/if}}</h4>
+      <ul class="odr-list">
+        {{#each research.waiting as |r|}}{{> row r}}
+        {{else}}<li class="empty-row">No research projects open.{{#if @root.isGM}} Make one with New, or import the doc's examples.{{/if}}</li>{{/each}}
+      </ul>
+      {{#if research.done.length}}<details class="odr-done"><summary>Complete ({{research.done.length}})</summary>
+        <ul class="odr-list">{{#each research.done as |r|}}{{> done r}}{{/each}}</ul></details>{{/if}}
+    </section>
+    {{/if}}
+
+    {{#if is.engineering}}
+    <section class="odr-section">
+      <h4 class="section-title">Under way, {{engineering.slotsTotal}} at a time</h4>
+      {{#each engineering.slots as |s|}}
+      {{#if s.empty}}<p class="odr-empty">Engineering slot {{s.n}} is free.</p>{{else}}{{> slot s}}{{/if}}
+      {{/each}}
+    </section>
+    <section class="odr-section">
+      <h4 class="section-title">Projects {{#if isGM}}<button type="button" class="ghost" data-action="newProject" data-kind="engineering"><i class="fa-solid fa-plus"></i> New</button>{{/if}}</h4>
+      <ul class="odr-list">
+        {{#each engineering.waiting as |r|}}{{> row r}}
+        {{else}}<li class="empty-row">No Engineering projects open.</li>{{/each}}
+      </ul>
+      {{#if engineering.done.length}}<details class="odr-done" open><summary>Built ({{engineering.done.length}})</summary>
+        <ul class="odr-list">{{#each engineering.done as |r|}}{{> done r}}{{/each}}</ul></details>{{/if}}
+    </section>
+    {{/if}}
+
+    {{#if is.intelligence}}
+    <section class="odr-section">
+      <h4 class="section-title">Under way: one short term, one long term</h4>
+      {{#each intelligence.slots as |s|}}
+      {{#if s.empty}}<p class="odr-empty">No {{s.term}} action under way.</p>{{else}}{{> slot s}}{{/if}}
+      {{/each}}
+    </section>
+    <section class="odr-section">
+      <h4 class="section-title">Short term {{#if isGM}}<button type="button" class="ghost" data-action="newProject" data-kind="intelligence" data-term="short"><i class="fa-solid fa-plus"></i> New</button>{{/if}}</h4>
+      <ul class="odr-list">
+        {{#each intelligence.short as |r|}}{{> row r}}{{else}}<li class="empty-row">None open.</li>{{/each}}
+      </ul>
+      <h4 class="section-title">Long term {{#if isGM}}<button type="button" class="ghost" data-action="newProject" data-kind="intelligence" data-term="long"><i class="fa-solid fa-plus"></i> New</button>{{/if}}</h4>
+      <ul class="odr-list">
+        {{#each intelligence.long as |r|}}{{> row r}}{{else}}<li class="empty-row">None open.</li>{{/each}}
+      </ul>
+      {{#if intelligence.done.length}}<details class="odr-done"><summary>Complete ({{intelligence.done.length}})</summary>
+        <ul class="odr-list">{{#each intelligence.done as |r|}}{{> done r}}{{/each}}</ul></details>{{/if}}
+    </section>
+    {{/if}}
+
+    {{#if is.tactical}}
+    <section class="odr-section">
+      <h4 class="section-title">This turn's Tactical Action</h4>
+      {{#with tactical.current}}
+      <article class="odr-slot tactical-slot status-{{status}}">
+        <header class="os-head">
+          <i class="fa-solid fa-crosshairs os-icon"></i>
+          <div class="os-title"><span class="os-name">{{label}}</span>
+            <span class="os-sub">{{where}}. {{statusLabel}}.{{#if by}} Chosen by {{by}}.{{/if}}</span></div>
+        </header>
+        {{#if rewards}}<p class="os-line"><span class="label">Rewards</span> {{rewards}}</p>{{/if}}
+        {{#if heatLabel}}<p class="os-line"><span class="label">Heat it draws</span> {{heatLabel}}</p>{{/if}}
+        <div class="os-actions">
+          {{#if canClear}}<button type="button" class="ghost" data-action="clear" data-tooltip="Choose again">Put it back</button>{{/if}}
+          {{#if canBrief}}<button type="button" data-action="brief" data-tooltip="Post the generated mission to chat"><i class="fa-solid fa-scroll"></i> Brief the mission</button>{{/if}}
+          {{#if canDebrief}}<button type="button" data-action="debrief" data-tooltip="Enter what the mission brought back"><i class="fa-solid fa-clipboard-check"></i> Debrief</button>{{/if}}
+          {{#if done}}{{#if @root.isGM}}<button type="button" data-action="advance"><i class="fa-solid fa-forward-step"></i> Advance turn</button>
+          {{else}}<span class="hint">Done. The GM advances the turn.</span>{{/if}}{{/if}}
+        </div>
+      </article>
+      {{else}}
+      <p class="hint">One Tactical Action a turn, taken at the end of it. Pick where, then the action; the GM briefs it as a mission.</p>
+      <label class="wide-field"><span>Where</span>
+        <select data-tactical-territory>{{selectOptions tactical.territories selected=tactical.territory blank="Pick a territory"}}</select></label>
+      <ul class="odr-list odr-choices">
+        {{#each tactical.choices as |c|}}
+        <li class="odr-row odr-choice {{#if c.revealed}}revealed{{/if}} {{#if c.response}}response{{/if}} {{#if c.priority}}priority{{/if}}" data-choice="{{c.key}}">
+          <i class="fa-solid {{#if c.priority}}fa-triangle-exclamation{{else}}{{#if c.revealed}}fa-eye{{else}}{{#if c.response}}fa-bolt{{else}}{{#if c.megacity}}fa-flag{{else}}fa-crosshairs{{/if}}{{/if}}{{/if}}{{/if}} or-icon"></i>
+          <div class="or-main"><span class="or-name">{{c.label}}</span>{{#if c.revealed}} <span class="or-flag">Revealed{{#if c.where}}: {{c.where}}{{/if}}</span>{{/if}}
+            {{#if c.response}} <span class="or-flag">In play{{#if c.where}}: {{c.where}}{{/if}}</span>{{/if}}
+            {{#if c.priority}} <span class="or-flag priority">High priority: {{c.where}}</span>{{/if}}
+            {{#if c.megacity}} <span class="or-flag">At a Megacity</span>{{/if}}
+            <span class="or-sub">{{c.rewards}}{{#if c.heatLabel}} Heat: {{c.heatLabel}}.{{/if}}</span></div>
+          <div class="or-actions">
+            {{#if c.revealed}}{{#if @root.isGM}}<button type="button" class="ghost icon" data-action="removeRevealed" data-tooltip="No longer open"><i class="fa-solid fa-xmark"></i></button>{{/if}}{{/if}}
+            <button type="button" data-action="choose">Take it</button>
+          </div>
+        </li>
+        {{/each}}
+      </ul>
+      {{/with}}
+    </section>
+    <section class="odr-section">
+      <h4 class="section-title">Mission log</h4>
+      <ol class="odr-log">
+        {{#each tactical.log as |m|}}
+        <li class="outcome-{{m.outcome}}"><span class="ol-week">Turn {{m.week}}</span><span class="ol-what">{{m.label}}, {{m.territory}}</span>
+          <span class="ol-outcome">{{m.outcomeLabel}}</span>
+          <span class="ol-gains">{{#if m.logistics}}+{{m.logistics}} Logistics {{/if}}{{#if m.intel}}+{{m.intel}} Intel{{/if}}</span></li>
+        {{else}}<li class="empty-row">No missions yet.</li>{{/each}}
+      </ol>
+    </section>
+    {{/if}}
+  </div>
+</div>

@@ -1,0 +1,17 @@
+<div class="irop-liberation">
+  {{!-- Doc: "Once all three are captured... The Megacity and surrounding regions are considered liberated." (step 7, 2026-10-08) --}}
+  <p class="hint">{{name}}: {{taken}} of 3 objectives taken. Liberated, its GENESIS Strength is gone and it counts as an ODR base.</p>
+  <h4 class="section-title">Liberated with it</h4>
+  <ul class="lib-area">
+    {{#each area as |a|}}
+    <li><label class="check-row">
+      <input type="checkbox" name="free.{{a.id}}" {{#if a.fixed}}checked disabled{{else}}checked{{/if}}>
+      <span>{{a.name}}</span> <small>{{a.kind}}</small></label></li>
+    {{/each}}
+  </ul>
+  <h4 class="section-title">Heat spikes nearby</h4>
+  {{#if spike.length}}
+  <ul class="lib-spike">{{#each spike as |s|}}<li>{{s.name}}: Heat {{s.fromLabel}} to {{s.toLabel}}</li>{{/each}}</ul>
+  <p class="hint">+{{heat}} Heat within {{reach}} borders. GENESIS Strength will move toward it.</p>
+  {{else}}<p class="hint">Nothing nearby to heat up.</p>{{/if}}
+</div>

@@ -1,0 +1,11 @@
+<section class="tab details {{tab.cssClass}}" data-group="primary" data-tab="details">
+  <div class="form-grid">
+    <label><span>Doctrine</span><select name="system.role">{{selectOptions config.roles selected=system.role}}</select></label>
+  </div>
+  <label class="wide-field"><span>Starting skills</span><input type="text" name="system.startingSkills" value="{{system.startingSkills}}" placeholder="Athletics, Tactics or History" data-tooltip="The first comes free; a new character picks one of the others"></label>
+  <label class="wide-field"><span>Preferred attributes</span><input type="text" name="system.preferredAttributes" value="{{system.preferredAttributes}}"></label>
+  <label class="wide-field"><span>Weapon specialties</span><input type="text" name="system.weaponSpecialties" value="{{system.weaponSpecialties}}"></label>
+  <label class="wide-field"><span>Role abilities</span><input type="text" name="system.roleAbilities" value="{{system.roleAbilities}}"></label>
+  <label class="wide-field"><span>Specializations</span><input type="text" name="system.specializations" value="{{system.specializations}}"></label>
+  <p class="hint">The doctrine sets the operative sheet's accent color.</p>
+</section>

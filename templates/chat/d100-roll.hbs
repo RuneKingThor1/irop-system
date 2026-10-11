@@ -1,0 +1,40 @@
+<div class="irop-card d100-card kind-{{kind}} {{#if success}}success{{else}}failure{{/if}}">
+  {{#if isPrivate}}
+  <header class="card-head"><h3>d100 check</h3></header>
+  <p class="private">Rolled privately.</p>
+  {{else}}
+  <header class="card-head">
+    <h3>{{label}}</h3>
+    {{#if subtitle}}<span class="card-sub">{{subtitle}}</span>{{/if}}
+  </header>
+
+  <div class="d100-line">
+    <span class="d100-natural" data-tooltip="The d100">{{natural}}</span>
+    {{#each modifiers as |m|}}<span class="d100-mod {{#if m.harder}}harder{{else}}easier{{/if}}" data-tooltip="{{m.label}}">{{m.text}}</span>{{/each}}
+    <span class="d100-eq">=</span>
+    <span class="d100-total">{{total}}</span>
+    <span class="d100-vs">vs</span>
+    <span class="d100-target">{{targetLabel}}</span>
+  </div>
+
+  {{#if modifiers.length}}
+  <ul class="mod-breakdown">
+    {{#each modifiers as |m|}}<li><span>{{m.label}}</span><span class="{{#if m.harder}}harder{{else}}easier{{/if}}">{{m.text}}</span></li>{{/each}}
+  </ul>
+  {{/if}}
+
+  <div class="result-banner">
+    <span class="result-word">{{resultLabel}}</span>
+    <span class="margin">by {{margin}}</span>
+  </div>
+  {{#if outOfBand}}<p class="summary">The modified total is outside 1 to 100. No clamp is applied; the GM may rule.</p>{{/if}}
+
+  {{#if buttons.length}}
+  <div class="card-buttons">
+    {{#each buttons as |b|}}
+    <button type="button" data-irop-action="{{b.action}}" {{#if b.critical}}data-critical="true"{{/if}}><i class="{{b.icon}}"></i> {{b.label}}</button>
+    {{/each}}
+  </div>
+  {{/if}}
+  {{/if}}
+</div>

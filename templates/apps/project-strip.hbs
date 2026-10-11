@@ -1,0 +1,23 @@
+<div class="project-strip">
+  {{!-- Every ODR slot at a glance along the bottom of a War Room map (step 5, 2026-10-08); a click opens its tab. --}}
+  <button type="button" class="ps-seg" data-action="open" data-tab="research">
+    <span class="ps-kind"><i class="fa-solid fa-flask"></i> Research</span>
+    {{#if research}}<span class="ps-item"><span class="ps-name">{{research.name}}</span><span class="ps-bar"><span style="width: {{research.pct}}%"></span></span><span class="ps-num">{{research.progress}}/{{research.cost}}</span></span>
+    {{else}}<span class="ps-none">none</span>{{/if}}
+  </button>
+  <button type="button" class="ps-seg" data-action="open" data-tab="engineering">
+    <span class="ps-kind"><i class="fa-solid fa-helmet-safety"></i> Engineering</span>
+    {{#each engineering as |e|}}<span class="ps-item"><span class="ps-name">{{e.name}}</span><span class="ps-bar"><span style="width: {{e.pct}}%"></span></span></span>{{/each}}
+    {{#if engineeringFree}}<span class="ps-none">{{engineeringFree}} free</span>{{/if}}
+  </button>
+  <button type="button" class="ps-seg" data-action="open" data-tab="intelligence">
+    <span class="ps-kind"><i class="fa-solid fa-user-secret"></i> Intel</span>
+    {{#if short}}<span class="ps-item"><span class="ps-name">{{short.name}}</span><span class="ps-bar"><span style="width: {{short.pct}}%"></span></span></span>{{else}}<span class="ps-none">short: none</span>{{/if}}
+    {{#if long}}<span class="ps-item"><span class="ps-name">{{long.name}}</span><span class="ps-bar"><span style="width: {{long.pct}}%"></span></span></span>{{else}}<span class="ps-none">long: none</span>{{/if}}
+  </button>
+  <button type="button" class="ps-seg" data-action="open" data-tab="tactical">
+    <span class="ps-kind"><i class="fa-solid fa-crosshairs"></i> Tactical</span>
+    {{#if tactical}}<span class="ps-name">{{tactical.label}}{{#if tactical.where}}, {{tactical.where}}{{/if}}</span><span class="ps-status">{{tactical.status}}</span>
+    {{else}}<span class="ps-none">not chosen</span>{{/if}}
+  </button>
+</div>

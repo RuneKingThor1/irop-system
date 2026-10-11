@@ -1,0 +1,33 @@
+<div class="strategy-rules">
+  {{!-- RULED 2026-10-08 (Johnald): the defaults stand, and any of these can be changed in game.
+        All the Strategy Layer settings live here together (Johnald, 2026-10-08).
+        The settings scroll; Save stays in view below them (Johnald, 2026-10-09). --}}
+  <div class="rules-body">
+  <h4 class="section-title">Campaign</h4>
+  <div class="rules-grid campaign">
+    <label class="rule-field" data-tooltip="How big the campaign's map is. It names the territories: regions, sectors, districts.">
+      <span>Campaign scale</span>
+      <select name="campaign.scale">{{selectOptions campaign.scales selected=campaign.scale}}</select>
+    </label>
+    <label class="rule-field" data-tooltip="Advance turn runs the GENESIS phase from these rules and shows its report before anything is saved. Off: the GM runs each step by hand.">
+      <span>Automatic GENESIS phase</span>
+      <input type="checkbox" name="campaign.automatic" {{checked campaign.automatic}}>
+    </label>
+  </div>
+  {{#each sections as |s|}}
+  <h4 class="section-title">{{s.section}}</h4>
+  <div class="rules-grid">
+    {{#each s.fields as |f|}}
+    <label class="rule-field" data-tooltip="Default {{f.initial}}">
+      <span>{{f.label}}</span>
+      <input type="number" name="{{f.path}}" value="{{f.value}}" step="1">
+    </label>
+    {{/each}}
+  </div>
+  {{/each}}
+  </div>
+  <footer class="rules-actions">
+    <button type="button" class="ghost" data-action="reset" data-tooltip="Every number back to its default; the campaign settings stay"><i class="fa-solid fa-rotate-left"></i> Numbers back to the defaults</button>
+    <button type="submit"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+  </footer>
+</div>

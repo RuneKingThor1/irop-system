@@ -1,0 +1,13 @@
+<div class="irop-card liberation-card {{#if victory}}victory{{/if}}">
+  {{!-- A liberation, and the victory when the last Megacity falls (Strategy Layer step 7, 2026-10-08). --}}
+  {{#if victory}}
+  <header class="week-banner"><span class="week-no">Victory</span><span class="week-phase">Turn {{week}}</span></header>
+  <p class="lib-line">Every Megacity is liberated: {{count.liberated}} of {{count.total}}. GENESIS's hold on the area is broken.</p>
+  {{else}}
+  <header class="week-banner"><span class="week-no">{{name}} liberated</span><span class="week-phase">Turn {{week}}</span></header>
+  {{#if freed.length}}<p class="lib-line">Freed with it: {{#each freed as |f|}}{{f}}{{#unless @last}}, {{/unless}}{{/each}}.</p>{{/if}}
+  {{#if landmark}}<p class="lib-line"><i class="fa-solid fa-landmark"></i> <strong>{{landmark}}</strong>{{#if landmarkBonus}}: {{landmarkBonus}}{{/if}}</p>{{/if}}
+  {{#if spike.length}}<p class="lib-line lib-heat">GENESIS answers: {{#each spike as |s|}}{{s.name}} to {{s.to}}{{#unless @last}}, {{/unless}}{{/each}}.</p>{{/if}}
+  <p class="lib-line lib-count">Megacities liberated: {{count.liberated}} of {{count.total}}.</p>
+  {{/if}}
+</div>

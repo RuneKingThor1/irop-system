@@ -1,0 +1,16 @@
+<div class="irop-dialog">
+  <p class="lede">Dodge: d100, meet or roll under <strong>{{targetLabel}}</strong>. Dodges left this round: {{dodgesLeft}} of {{dodgesMax}}.</p>
+  <fieldset class="choice-row">
+    <legend>Your cover (dodge column)</legend>
+    {{#each covers as |c|}}
+    <label class="pill"><input type="radio" name="cover" value="{{c.key}}" {{checked c.checked}}><span>{{c.label}}</span></label>
+    {{/each}}
+  </fieldset>
+  <fieldset class="toggle-list">
+    <label><input type="checkbox" name="unaware"><span>Unaware</span><em>you dodge as if in the open (+30)</em></label>
+    <label><input type="checkbox" name="disorientated" {{checked disorientated}}><span>Disorientated</span><em>+20</em></label>
+  </fieldset>
+  <label class="row"><span>Situational D.M.</span><input type="number" name="dm" value="0" step="5"></label>
+  <label class="row"><span>Roll mode</span>
+    <select name="mode">{{selectOptions modes selected=mode valueAttr="value" labelAttr="label"}}</select></label>
+</div>

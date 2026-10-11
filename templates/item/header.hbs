@@ -1,0 +1,8 @@
+<header class="irop-header item-header">
+  <img class="portrait small" src="{{item.img}}" alt="{{item.name}}" {{#if editable}}data-action="editImage" data-edit="img"{{/if}}>
+  <div class="identity">
+    <input class="actor-name" type="text" name="name" value="{{item.name}}" placeholder="Name" {{#unless editable}}{{#unless canRename}}disabled{{/unless}}{{/unless}}
+           {{#if canRename}}data-tooltip="Rename it: the rest is the GM's"{{/if}}>
+    <span class="type-stamp">{{typeLabel}}</span>
+  </div>
+</header>

@@ -1,0 +1,213 @@
+<section class="tab combat {{tab.cssClass}}" data-group="primary" data-tab="combat">
+
+  {{!-- No top bar (Johnald, 2026-10-07): Initiative and Critical live on the Attributes tab;
+        Defense and the dodges sit in the Damage reduction panel below. --}}
+  <div class="panel">
+    <header class="panel-head">
+      <h3>Weapons</h3>
+      {{#if gmEditable}}<button type="button" class="ghost" data-action="createItem" data-type="weapon"><i class="fa-solid fa-plus"></i> Add</button>{{/if}}
+    </header>
+    {{!-- In sections: Ranged, Melee, Special, Explosives (Johnald, 2026-10-08); empty ones are left out. --}}
+    {{#each weaponGroups as |g|}}
+    <section class="item-group" data-group="{{g.key}}">
+    <h4 class="item-group-title">{{g.label}}</h4>
+    <ol class="item-list">
+      {{#each g.weapons as |w|}}
+      <li class="item-row weapon-row draggable {{#if w.system.equipped}}equipped{{/if}}" data-item-id="{{w.id}}">
+        <div class="row-main">
+          <img class="item-img" src="{{w.img}}" alt="">
+          <div class="item-name">
+            <a data-action="editItem">{{w.name}}</a>
+            {{!-- Class and tier; the section title already says Ranged or Melee (Johnald, 2026-10-08). --}}
+            <span class="item-sub">{{w.classShort}}{{#if w.system.tier}} · Tier {{w.system.tier}}{{/if}}</span>
+          </div>
+          {{!-- Labelled boxes in fixed columns, so values line up row to row (Johnald, 2026-10-08). --}}
+          <div class="item-stats weapon-stats">
+            {{#each w.stats as |st|}}
+            <div class="item-stat {{#if st.dim}}dim{{/if}} {{st.cls}}" {{#if st.tip}}data-tooltip="{{st.tip}}"{{/if}}>
+              <span class="label">{{st.label}}</span><span class="value">{{st.value}}</span></div>
+            {{/each}}
+            {{#if w.ammo}}
+            <div class="item-stat ammo" data-tooltip="Rounds in the magazine">
+              <span class="label">Ammo</span>
+              <span class="value"><input type="number" data-item-field="system.ammo.value" value="{{w.system.ammo.value}}"><span class="of">/ {{w.system.ammo.max}}</span>
+                <button type="button" class="icon" data-action="reload" data-tooltip="Reload"><i class="fa-solid fa-rotate-right"></i></button></span>
+            </div>
+            {{!-- Special weapons feed differently (RULED 2026-10-08): fuel, single use, loaded grenades or rockets. --}}
+            {{else if w.isFuel}}
+            <div class="item-stat ammo fuel" data-tooltip="Fuel tank: each burn costs {{w.system.fuel.cost}}, up to {{w.system.fuel.maxBurns}} burns an attack">
+              <span class="label">Fuel</span>
+              <span class="value"><input type="number" data-item-field="system.fuel.value" value="{{w.system.fuel.value}}"><span class="of">/ {{w.system.fuel.max}}</span>
+                <button type="button" class="icon" data-action="refuel" data-tooltip="Refuel"><i class="fa-solid fa-gas-pump"></i></button></span>
+            </div>
+            {{!-- Counts are typed in on the row (Johnald, 2026-10-10). --}}
+            {{else if w.isSingleUse}}
+            <div class="item-stat count" data-tooltip="Fired once, then tossed away. How many you carry"><span class="label">Single use</span>
+              <span class="value">x<input type="number" data-item-field="system.quantity" value="{{w.system.quantity}}" min="0" step="1"></span></div>
+            {{else if w.projectiles}}
+            <div class="item-stat" data-tooltip="Click a loaded {{w.projectileNoun}} below to fire it"><span class="label">Loaded</span>
+              <span class="value">{{w.system.loaded.length}} / {{w.projectiles.length}}</span></div>
+            {{else if w.counted}}
+            <div class="item-stat count" data-tooltip="How many you carry"><span class="label">Count</span>
+              <span class="value"><input type="number" data-item-field="system.quantity" value="{{w.system.quantity}}" min="0" step="1"></span></div>
+            {{else}}
+            <div class="item-stat dim"><span class="label">Ammo</span><span class="value">none</span></div>
+            {{/if}}
+          </div>
+          <div class="row-controls">
+            {{#if w.canAttack}}<button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-crosshairs"></i> Attack</button>{{/if}}
+            <button type="button" class="icon {{#if w.system.equipped}}on{{/if}}" data-action="toggleEquip" data-tooltip="Equipped"><i class="fa-solid fa-hand-fist"></i></button>
+            <button type="button" class="icon" data-action="toggleStow" data-tooltip="Stow"><i class="fa-solid fa-box-archive"></i></button>
+            <button type="button" class="icon" data-action="postItem" data-tooltip="Post to chat"><i class="fa-solid fa-comment"></i></button>
+            {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete (Shift skips the prompt)"><i class="fa-solid fa-trash"></i></button>{{/if}}
+          </div>
+        </div>
+        {{#if w.showTray}}
+        <div class="mod-tray" data-mod-host="{{w.id}}">
+          {{!-- Square slots: a fitted mod shows its icon, an empty slot a dashed square (Johnald, 2026-10-08). --}}
+          {{#each w.mods as |m|}}<span class="mod-chip" data-tooltip="{{m.name}}"><img src="{{m.img}}" alt="{{m.name}}">
+            <button type="button" class="icon" data-action="unfitMod" data-mod-id="{{m.id}}" data-tooltip="Unfit {{m.name}}"><i class="fa-solid fa-xmark"></i></button></span>{{/each}}
+          {{#iropTimes w.freeSlots}}<span class="mod-slot" data-tooltip="Empty slot: drag a mod here"><i class="fa-solid fa-plus"></i></span>{{/iropTimes}}
+          {{!-- Ranged weapons only: one special ammo slot, a rectangle to tell it from the mods (Johnald, 2026-10-08). --}}
+          {{#if w.takesAmmo}}
+          {{#if w.specialAmmo}}
+          <span class="ammo-slot loaded" data-tooltip="{{w.specialAmmo.tip}}">
+            <img src="{{w.specialAmmo.img}}" alt="{{w.specialAmmo.name}}"><span class="ammo-name">{{w.specialAmmo.name}}</span><span class="ammo-count">x{{w.specialAmmo.quantity}}</span>
+            <button type="button" class="icon" data-action="unloadAmmo" data-ammo-id="{{w.specialAmmo.id}}" data-tooltip="Unload {{w.specialAmmo.name}}"><i class="fa-solid fa-xmark"></i></button></span>
+          {{else}}
+          <button type="button" class="ammo-slot" data-action="chooseAmmo" data-tooltip="Load special ammo: click to choose, or drag ammunition here">
+            <i class="fa-solid fa-plus"></i> Special ammo</button>
+          {{/if}}
+          {{/if}}
+          {{!-- Launchers: a slot per grenade or rocket; click a loaded one to fire it (RULED 2026-10-08). --}}
+          {{#each w.projectiles as |p|}}
+          {{#if p.loaded}}
+          <span class="ammo-slot loaded projectile" data-tooltip="{{p.name}}: click to fire">
+            <button type="button" class="fire" data-action="fireProjectile" data-slot="{{p.slot}}"><img src="{{p.img}}" alt="{{p.name}}"><span class="ammo-name">{{p.name}}</span></button>
+            <button type="button" class="icon" data-action="unloadProjectile" data-slot="{{p.slot}}" data-tooltip="Unload {{p.name}}"><i class="fa-solid fa-xmark"></i></button></span>
+          {{else}}
+          <button type="button" class="ammo-slot projectile" data-action="chooseProjectile" data-tooltip="Load a {{p.noun}}: click to choose, or drag one here">
+            <i class="fa-solid fa-plus"></i> {{p.noun}}</button>
+          {{/if}}
+          {{/each}}
+        </div>
+        {{/if}}
+      </li>
+      {{/each}}
+    </ol>
+    </section>
+    {{else}}
+    <p class="empty-row">No weapons. Drag one in from the Items directory or a compendium.</p>
+    {{/each}}
+  </div>
+
+  {{!-- Deployables: deployable gear, moved here from the Gear tab's list (Johnald, 2026-10-08). --}}
+  <div class="panel deployables">
+    <header class="panel-head">
+      <h3>Deployables</h3>
+      {{#if gmEditable}}<button type="button" class="ghost" data-action="createItem" data-type="gear" data-kind="deployable"><i class="fa-solid fa-plus"></i> Add</button>{{/if}}
+    </header>
+    <ol class="item-list">
+      {{#each deployables as |d|}}
+      <li class="item-row deploy-row draggable" data-item-id="{{d.id}}">
+        <div class="row-main">
+          <img class="item-img" src="{{d.img}}" alt="">
+          <div class="item-name">
+            <a data-action="editItem">{{d.name}}</a>
+            <span class="item-sub">{{#if d.system.consumable}}Used up when deployed{{else}}Reusable{{/if}}</span>
+          </div>
+          <div class="item-stats deploy-stats">
+            <div class="item-stat" data-tooltip="How many you carry"><span class="label">Count</span>
+              <span class="value"><input type="number" data-item-field="system.quantity" value="{{d.system.quantity}}" min="0" step="1"></span></div>
+            <div class="item-stat {{#unless d.system.weight}}dim{{/unless}}" data-tooltip="Weight each"><span class="label">Weight</span><span class="value">{{d.system.weight}}</span></div>
+          </div>
+          <div class="row-controls">
+            <button type="button" class="attack" data-action="useItem" data-tooltip="Post it to chat as deployed{{#if d.system.consumable}}, using one up{{/if}}"><i class="fa-solid fa-person-digging"></i> Deploy</button>
+            <button type="button" class="icon" data-action="toggleStow" data-tooltip="Stow"><i class="fa-solid fa-box-archive"></i></button>
+            <button type="button" class="icon" data-action="postItem" data-tooltip="Post to chat"><i class="fa-solid fa-comment"></i></button>
+            {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
+          </div>
+        </div>
+      </li>
+      {{else}}
+      <li class="empty-row">No deployables.</li>
+      {{/each}}
+    </ol>
+  </div>
+
+  <div class="panel">
+    <header class="panel-head">
+      <h3>Armor</h3>
+      {{#if gmEditable}}<button type="button" class="ghost" data-action="createItem" data-type="armor"><i class="fa-solid fa-plus"></i> Add</button>{{/if}}
+    </header>
+    <ol class="item-list">
+      {{#each armors as |a|}}
+      <li class="item-row armor-row draggable {{#if a.system.equipped}}equipped{{/if}}" data-item-id="{{a.id}}">
+        <div class="row-main">
+          <img class="item-img" src="{{a.img}}" alt="">
+          <div class="item-name">
+            <a data-action="editItem">{{a.name}}</a>
+            <span class="item-sub">{{a.classLabel}}</span>
+          </div>
+          <div class="item-stats armor-stats">
+            {{#each a.stats as |st|}}
+            <div class="item-stat {{#if st.dim}}dim{{/if}}" {{#if st.tip}}data-tooltip="{{st.tip}}"{{/if}}>
+              <span class="label">{{st.label}}</span><span class="value">{{st.value}}</span></div>
+            {{/each}}
+          </div>
+          <div class="row-controls">
+            <button type="button" class="equip-toggle {{#if a.system.equipped}}on{{/if}}" data-action="toggleEquip">
+              {{#if a.system.equipped}}Worn{{else}}Wear{{/if}}</button>
+            <button type="button" class="icon" data-action="toggleStow" data-tooltip="Stow"><i class="fa-solid fa-box-archive"></i></button>
+            <button type="button" class="icon" data-action="postItem" data-tooltip="Post to chat"><i class="fa-solid fa-comment"></i></button>
+            {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
+          </div>
+        </div>
+        {{#if a.slots}}
+        <div class="mod-tray" data-mod-host="{{a.id}}">
+          {{#each a.mods as |m|}}<span class="mod-chip" data-tooltip="{{m.name}}"><img src="{{m.img}}" alt="{{m.name}}">
+            <button type="button" class="icon" data-action="unfitMod" data-mod-id="{{m.id}}" data-tooltip="Unfit {{m.name}}"><i class="fa-solid fa-xmark"></i></button></span>{{/each}}
+          {{#iropTimes a.freeSlots}}<span class="mod-slot" data-tooltip="Empty slot: drag a mod here"><i class="fa-solid fa-plus"></i></span>{{/iropTimes}}
+        </div>
+        {{/if}}
+      </li>
+      {{else}}
+      <li class="empty-row">No armor.</li>
+      {{/each}}
+    </ol>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <header class="panel-head"><h3>Damage reduction</h3></header>
+      <div class="defense-bar">
+        <span class="defense-readout" data-tooltip="Defense: added to every attack roll against you, from worn armor plus bonuses">Defense <strong>{{system.defense}}</strong></span>
+        <button type="button" data-action="rollDodge" {{#if canDodge}}data-tooltip="d100 Dodge against Agility, spends a dodge"{{else}}disabled data-tooltip="No dodges left this round. They come back at the start of the round, or with Reset dodges"{{/if}}><i class="fa-solid fa-person-running"></i> Dodge
+          <span class="pips">{{#each dodgePips as |p|}}<span class="pip {{#if p.filled}}filled{{/if}}"></span>{{/each}}</span></button>
+        <button type="button" data-action="resetDodges" data-tooltip="Dodges also reset at the start of every round"><i class="fa-solid fa-rotate"></i> Reset dodges</button>
+      </div>
+      <div class="dr-grid">
+        {{#each dr as |d|}}
+        <div class="dr-cell {{#if d.total}}has{{/if}}">
+          <span class="mono-label">{{d.label}}</span>
+          {{#if @root.editMode}}<input type="number" name="system.dr.{{d.key}}" value="{{d.bonus}}" data-tooltip="Bonus DR outside armor">{{/if}}
+          <span class="dr-total">{{d.total}}</span>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <div class="panel">
+      <header class="panel-head"><h3>Status</h3></header>
+      <div class="status-grid">
+        {{#each statuses as |s|}}
+        <button type="button" class="status {{#if s.active}}active{{/if}}" data-action="toggleStatus" data-status="{{s.id}}"
+                {{#if s.counter}}data-counter{{/if}}
+                data-tooltip="{{#if s.counter}}{{s.name}} (X){{else}}{{s.name}}{{/if}}: {{s.text}}{{#if s.value}} Right-click to change X.{{/if}}">
+          <img src="{{s.img}}" alt=""><span>{{s.name}}</span>{{#if s.value}}<b class="status-x">{{s.value}}</b>{{/if}}
+        </button>
+        {{/each}}
+      </div>
+    </div>
+  </div>
+</section>

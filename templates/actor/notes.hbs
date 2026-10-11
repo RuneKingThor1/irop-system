@@ -1,0 +1,8 @@
+<section class="tab notes {{tab.cssClass}}" data-group="primary" data-tab="notes">
+  {{!-- RULED 2026-10-08: the player's own notes, on a tab of their own. Only the owner and the GM
+        see the full sheet; everyone else gets the Personnel Record alone. --}}
+  <div class="panel notes-panel">
+    <header class="panel-head"><h3>Notes</h3></header>
+    <prose-mirror name="system.details.notes" value="{{system.details.notes}}" toggled>{{{notes}}}</prose-mirror>
+  </div>
+</section>

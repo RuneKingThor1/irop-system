@@ -1,0 +1,17 @@
+<div class="irop-card item-card" {{#if accent}}style="--card-accent: {{accent}}"{{/if}}>
+  <header class="card-head with-img">
+    <img src="{{item.img}}" alt="">
+    <div>
+      <h3>{{item.name}}</h3>
+      <span class="card-sub">{{typeLabel}}{{#if actionType}} · {{actionType}}{{/if}}{{#if discipline}} · {{discipline}}{{/if}}</span>
+    </div>
+  </header>
+  {{#if (or spent system.range system.area)}}
+  <div class="card-stats">
+    {{#if spent}}<span class="stat-chip energy">{{spent}} Energy spent</span>{{/if}}
+    {{#if system.range}}<span class="stat-chip">Range {{system.range}}</span>{{/if}}
+    {{#if system.area}}<span class="stat-chip">Area {{system.area}}</span>{{/if}}
+  </div>
+  {{/if}}
+  <div class="card-description">{{{description}}}</div>
+</div>

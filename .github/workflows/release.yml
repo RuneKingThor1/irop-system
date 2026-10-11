@@ -1,0 +1,55 @@
+name: Release
+
+# A release for each new version (2026-10-11). When system.json on main carries a version that has
+# no release yet, this builds irop.zip and publishes release v<version> with the zip and system.json
+# attached. Foundry reads the manifest from the latest release and offers Update in Setup whenever
+# the version there is newer than the one installed. A push that does not change the version
+# publishes nothing.
+
+on:
+  push:
+    branches: [main]
+    paths: [system.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version
+        id: version
+        run: echo "version=$(jq -r .version system.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Check for a release of it
+        id: check
+        run: |
+          if gh release view "v${{ steps.version.outputs.version }}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the zip, pinned to this version
+        if: steps.check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          jq --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/irop.zip" '.download = $url' system.json > system.release.json
+          mv system.release.json system.json
+          python3 pack.py
+
+      - name: Publish the release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v${VERSION}" irop.zip system.json --title "v${VERSION}" \
+            --notes "Insurrection: Retake Our Planet v${VERSION}. In Foundry's Setup, Game Systems, press Update on the system to install it, then relaunch the world."

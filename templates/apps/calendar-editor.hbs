@@ -1,0 +1,102 @@
+<div class="calendar-editor">
+<div class="ce-body">
+  {{!-- Calendar settings (Johnald, 2026-10-08): where the date shows, the turn link, and the calendar itself. --}}
+  <section class="ce-section">
+    <h4 class="section-title">Where the date shows</h4>
+    <label class="ce-check"><input type="checkbox" name="show.strategy" {{checked show.strategy}}>
+      <span>On the Strategy Layer<small class="hint">The War Room bar, mission briefings and turn reports.</small></span></label>
+    <label class="ce-check"><input type="checkbox" name="show.dateBar" {{checked show.dateBar}}>
+      <span>A date bar on other scenes<small class="hint">A small bar along the top of every scene that is not a War Room.</small></span></label>
+    <p class="hint">Everyone can open the calendar from the Journal Notes tools on the left, or by clicking the date.</p>
+  </section>
+
+  <section class="ce-section">
+    <h4 class="section-title">Turns</h4>
+    <label class="ce-field"><span>Days a turn moves the date</span><input type="number" name="turnDays" value="{{turnDays}}" min="0" max="366" step="1"></label>
+    <p class="hint">Advance turn moves the date on by this many days, and undoing the turn takes them back. 0 keeps the calendar apart from the turns. The weather's seasons follow the date either way.</p>
+  </section>
+
+  <section class="ce-section">
+    <h4 class="section-title">The calendar{{#if gregorian}} <span class="ce-tag">Gregorian</span>{{/if}}</h4>
+    <label class="ce-field"><span>Name</span><input type="text" name="name" value="{{calendar.name}}"></label>
+    <label class="ce-field"><span>After the year</span><input type="text" name="era" value="{{calendar.era}}" placeholder="Nothing" maxlength="24"></label>
+    <label class="ce-field"><span>Leap years</span><select name="leap.rule">{{selectOptions leapRules selected=calendar.leap.rule}}</select></label>
+    {{#if every}}
+    <div class="ce-field ce-every"><span>A leap year every</span>
+      <input type="number" name="leap.every" value="{{calendar.leap.every}}" min="2" step="1" aria-label="Years between leap years">
+      <span>years, from year</span>
+      <input type="number" name="leap.start" value="{{calendar.leap.start}}" min="0" step="1" aria-label="The first leap year"></div>
+    {{else}}
+    <input type="hidden" name="leap.every" value="{{calendar.leap.every}}"><input type="hidden" name="leap.start" value="{{calendar.leap.start}}">
+    {{/if}}
+    <label class="ce-field"><span>Today, {{todayDate}}, is a</span><select name="anchor">{{selectOptions weekdayOptions selected=anchor}}</select></label>
+    <p class="hint">A year has {{yearDays}} days{{#if leapYearDays}}, {{leapYearDays}} in a leap year{{/if}}. Saving keeps today's date as it reads.</p>
+  </section>
+
+  <section class="ce-section">
+    <h4 class="section-title">Months</h4>
+    <div class="ce-table ce-months">
+      <div class="ce-head"><span>Name</span><span>Short</span><span>Days</span><span data-tooltip="Days in a leap year, if different">Leap year</span><span></span></div>
+      {{#each months as |m|}}
+      <div class="ce-row">
+        <input type="text" name="months.{{m.i}}.name" value="{{m.name}}" aria-label="Month name">
+        <input type="text" name="months.{{m.i}}.abbr" value="{{m.abbr}}" aria-label="Short name">
+        <input type="number" name="months.{{m.i}}.days" value="{{m.days}}" min="1" step="1" aria-label="Days">
+        <input type="number" name="months.{{m.i}}.leapDays" value="{{m.leapDays}}" min="1" step="1" placeholder="{{m.days}}" aria-label="Days in a leap year">
+        <span class="ce-tools">
+          <button type="button" class="ce-icon" data-action="moveRow" data-list="months" data-index="{{m.i}}" data-dir="up" data-tooltip="Earlier" {{#if m.first}}disabled{{/if}}><i class="fa-solid fa-arrow-up"></i></button>
+          <button type="button" class="ce-icon" data-action="moveRow" data-list="months" data-index="{{m.i}}" data-dir="down" data-tooltip="Later" {{#if m.last}}disabled{{/if}}><i class="fa-solid fa-arrow-down"></i></button>
+          <button type="button" class="ce-icon" data-action="removeRow" data-list="months" data-index="{{m.i}}" data-tooltip="Remove" {{#if m.lone}}disabled{{/if}}><i class="fa-solid fa-xmark"></i></button>
+        </span>
+      </div>
+      {{/each}}
+    </div>
+    <button type="button" class="ce-add" data-action="addRow" data-list="months"><i class="fa-solid fa-plus"></i> Add a month</button>
+  </section>
+
+  <section class="ce-section">
+    <h4 class="section-title">Weekdays</h4>
+    <p class="hint">In the order the week runs; the first is the calendar's first column.</p>
+    <div class="ce-table ce-weekdays">
+      <div class="ce-head"><span>Name</span><span>Short</span><span></span></div>
+      {{#each weekdays as |d|}}
+      <div class="ce-row">
+        <input type="text" name="weekdays.{{d.i}}.name" value="{{d.name}}" aria-label="Weekday name">
+        <input type="text" name="weekdays.{{d.i}}.abbr" value="{{d.abbr}}" aria-label="Short name">
+        <span class="ce-tools">
+          <button type="button" class="ce-icon" data-action="moveRow" data-list="weekdays" data-index="{{d.i}}" data-dir="up" data-tooltip="Earlier" {{#if d.first}}disabled{{/if}}><i class="fa-solid fa-arrow-up"></i></button>
+          <button type="button" class="ce-icon" data-action="moveRow" data-list="weekdays" data-index="{{d.i}}" data-dir="down" data-tooltip="Later" {{#if d.last}}disabled{{/if}}><i class="fa-solid fa-arrow-down"></i></button>
+          <button type="button" class="ce-icon" data-action="removeRow" data-list="weekdays" data-index="{{d.i}}" data-tooltip="Remove" {{#if d.lone}}disabled{{/if}}><i class="fa-solid fa-xmark"></i></button>
+        </span>
+      </div>
+      {{/each}}
+    </div>
+    <button type="button" class="ce-add" data-action="addRow" data-list="weekdays"><i class="fa-solid fa-plus"></i> Add a weekday</button>
+  </section>
+
+  <section class="ce-section">
+    <h4 class="section-title">Seasons</h4>
+    <p class="hint">Each runs from its first day to the next one's. The weather is warmest in the middle of the season called Summer.</p>
+    <div class="ce-table ce-seasons">
+      {{#if seasons.length}}<div class="ce-head"><span>Name</span><span>Starts</span><span>Day</span><span></span></div>{{/if}}
+      {{#each seasons as |s|}}
+      <div class="ce-row">
+        <input type="text" name="seasons.{{s.i}}.name" value="{{s.name}}" aria-label="Season name">
+        <select name="seasons.{{s.i}}.month" aria-label="Month it starts">{{selectOptions @root.monthOptions selected=s.monthKey}}</select>
+        <input type="number" name="seasons.{{s.i}}.day" value="{{s.day}}" min="1" step="1" aria-label="Day it starts">
+        <span class="ce-tools">
+          <button type="button" class="ce-icon" data-action="removeRow" data-list="seasons" data-index="{{s.i}}" data-tooltip="Remove"><i class="fa-solid fa-xmark"></i></button>
+        </span>
+      </div>
+      {{else}}
+      <p class="hint">No seasons.</p>
+      {{/each}}
+    </div>
+    <button type="button" class="ce-add" data-action="addRow" data-list="seasons"><i class="fa-solid fa-plus"></i> Add a season</button>
+  </section>
+</div>
+<footer class="ce-actions">
+  <button type="button" data-action="gregorian" {{#if gregorian}}disabled{{/if}} data-tooltip="Back to the standard Gregorian calendar"><i class="fa-solid fa-rotate-left"></i> Gregorian</button>
+  <button type="submit"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+</footer>
+</div>

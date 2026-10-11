@@ -1,0 +1,16 @@
+<div class="irop-card mortar-card">
+  {{!-- The Mortar Strike as the doc runs it (Strategy Layer step 3, 2026-10-08). --}}
+  <header class="card-head"><h3>Mortar Strike</h3><span class="card-sub">{{damage}} {{damageType}}, radius {{radius}}, Destruction {{destruction}}</span></header>
+  <ol class="mortar-strikes">
+    {{#each strikes as |s|}}
+    <li class="mortar-strike {{#if s.scatters}}scatters{{/if}}">
+      <span class="ms-n">Strike {{s.n}}</span>
+      <span class="ms-roll" data-tooltip="d100">{{s.roll}}</span>
+      <span class="ms-result">{{#if s.scatters}}Scatters <strong>{{s.distance}}</strong> {{s.tiles}} <strong>{{s.direction}}</strong>{{else}}On target{{/if}}</span>
+      <button type="button" data-irop-action="mortarDamage" data-strike="{{s.n}}">Damage</button>
+    </li>
+    {{/each}}
+  </ol>
+  {{#if markerNote}}<p class="scatter-note"><i class="fa-solid fa-bullseye"></i> {{markerNote}}</p>{{/if}}
+  <p class="support-hint">A roll of {{scatterOn}} or more scatters {{scatter}} tiles, in a direction from 1d8.</p>
+</div>

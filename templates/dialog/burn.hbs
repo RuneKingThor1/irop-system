@@ -1,0 +1,23 @@
+<div class="irop-dialog attack-dialog burn-dialog">
+  <div class="attack-head">
+    <img src="{{img}}" alt="">
+    <div>
+      <strong>{{itemName}}</strong>
+      <span class="hint">Fuel {{fuel}} · {{targetName}} makes {{saveLabel}} save</span>
+    </div>
+  </div>
+
+  {{!-- RULED 2026-10-08: each burn costs fuel; every burn past the first adds a damage die. --}}
+  <label class="row"><span>Fuel to burn</span>
+    <select name="burns">{{#each burns as |b|}}<option value="{{b.value}}" {{#if b.selected}}selected{{/if}}>{{b.label}}</option>{{/each}}</select></label>
+
+  <fieldset class="choice-row">
+    <legend>Range band: adjusts the target's save</legend>
+    {{#each ranges as |r|}}
+    <label class="pill"><input type="radio" name="range" value="{{r.key}}" {{checked r.checked}}><span>{{r.label}}</span></label>
+    {{/each}}
+  </fieldset>
+
+  <label class="row"><span>Roll mode</span>
+    <select name="mode">{{selectOptions modes selected=mode valueAttr="value" labelAttr="label"}}</select></label>
+</div>

@@ -1,0 +1,174 @@
+<div class="store-sheet-body {{#if shopView}}shop-view{{/if}}">
+  {{!-- A store (Johnald, 2026-10-10): the GM stocks the shelf; players buy at once, the price off their sheet,
+        and sell their own things back. Controls marked data-shop stay usable on a shopper's read only sheet.
+        Players see the shop: categories, a list, and the picked item in full beside it. Whoever runs the
+        store also has Manage, the shelf to edit, and switches between the two. --}}
+  {{#if manage}}
+  <nav class="store-views">
+    <button type="button" class="{{#unless shopView}}on{{/unless}}" data-action="switchView" data-view="manage"><i class="fa-solid fa-pen-to-square"></i> Manage</button>
+    <button type="button" class="{{#if shopView}}on{{/if}}" data-action="switchView" data-view="shop" data-tooltip="The shop as players see it"><i class="fa-solid fa-store"></i> Shop</button>
+  </nav>
+  {{/if}}
+  <header class="store-head">
+    <img class="store-img" src="{{store.img}}" alt="" {{#if editing}}data-edit="img" data-tooltip="Change the picture"{{/if}}>
+    <div class="store-title">
+      {{#if editing}}
+      <input class="store-name" type="text" name="name" value="{{store.name}}" placeholder="Store name">
+      <div class="store-terms">
+        <label data-tooltip="Added over the items' own prices. A minus number is a discount"><span>Markup</span>
+          <input type="number" name="system.markup" value="{{system.markup}}" step="5"><em>%</em></label>
+        <label data-tooltip="What the store pays for a player's item, as a share of its price. At 0 it buys nothing"><span>Buys back at</span>
+          <input type="number" name="system.sellBack" value="{{system.sellBack}}" min="0" max="100" step="5"><em>%</em></label>
+        <label data-tooltip="Prices show in it and Buy charges it, unless a player picks another the item takes. Selling back pays in it"><span>Prefers</span>
+          <select name="system.preferred">{{selectOptions currencies selected=system.preferred}}</select></label>
+      </div>
+      {{else}}
+      <h1 class="store-name">{{store.name}}</h1>
+      <p class="store-terms-read">Prefers {{preferredLabel}}. {{#if markupText}}Prices {{markupText}}. {{/if}}{{#if sellBack}}Buys back at {{sellBack}}% of an item's price.{{else}}Buys nothing.{{/if}}</p>
+      {{/if}}
+    </div>
+  </header>
+
+  {{#if editing}}
+  <prose-mirror class="store-description" name="system.description" value="{{system.description}}" toggled>{{{descriptionHTML}}}</prose-mirror>
+  {{else if descriptionHTML}}
+  <div class="store-description">{{{descriptionHTML}}}</div>
+  {{/if}}
+
+  <section class="store-buyer">
+    {{#if buyer}}
+    <label class="buyer-pick"><span>Buying as</span>
+      {{#if pickBuyer}}<select data-buyer data-shop>{{#each buyers as |b|}}<option value="{{b.id}}" {{#if b.selected}}selected{{/if}}>{{b.name}}</option>{{/each}}</select>
+      {{else}}<strong>{{buyer.name}}</strong>{{/if}}</label>
+    <div class="wallet">{{#each buyer.wallet as |w|}}<span class="wallet-coin {{w.key}}"><span class="mono-label">{{w.label}}</span> <b>{{w.value}}</b></span>{{/each}}</div>
+    {{else}}
+    <p class="hint">{{#if isGM}}There is no operative to buy with yet.{{else}}You need a character of your own to buy with. Ask the GM to assign you one.{{/if}}</p>
+    {{/if}}
+  </section>
+
+  {{#if shopView}}
+  {{!-- The shop (Johnald, 2026-10-10: B, a list beside a detail panel, with C's category filters). --}}
+  <section class="shop">
+    <nav class="shop-cats">
+      {{#each categories as |c|}}
+      <button type="button" class="shop-cat {{#if c.active}}on{{/if}} {{#if c.sell}}sell{{/if}}" data-action="category" data-category="{{c.key}}" data-shop>{{c.label}} <span class="n">{{c.count}}</span></button>
+      {{/each}}
+    </nav>
+    <div class="shop-panes">
+      <ol class="shop-list">
+        {{#each list as |r|}}
+        <li class="shop-row {{#if r.picked}}picked{{/if}} {{#if r.soldOut}}sold-out{{/if}} {{#if r.unpriced}}unpriced{{/if}}" data-action="pick" data-pick="{{r.id}}">
+          <img src="{{r.img}}" alt="">
+          <span class="shop-row-name">{{r.name}}{{#if r.many}} <small>x{{r.quantity}}</small>{{/if}}</span>
+          <span class="shop-row-price">{{#if r.soldOut}}Sold out{{else}}{{r.priceText}}{{/if}}</span>
+        </li>
+        {{else}}
+        <li class="empty-row">{{#if selling}}Nothing {{buyer.name}} carries has a price this store will pay.{{else}}Nothing for sale here right now.{{/if}}</li>
+        {{/each}}
+      </ol>
+      {{#if detail}}
+      <article class="shop-detail" {{#if detail.selling}}data-sell-id="{{detail.id}}"{{else}}data-item-id="{{detail.id}}" data-pay-currency="{{detail.pay}}"{{/if}}>
+        <header class="shop-detail-head">
+          <img src="{{detail.img}}" alt="">
+          <div>
+            <h2 class="shop-detail-name">{{#if detail.selling}}{{detail.name}}{{else}}<a data-action="editItem" data-tooltip="Open its sheet">{{detail.name}}</a>{{/if}}</h2>
+            <span class="item-sub">{{detail.typeLine}}</span>
+          </div>
+        </header>
+        {{!-- Buying or selling first, under the name (Johnald, 2026-10-10: the buy option above the description). --}}
+        {{#if detail.selling}}
+        <div class="shop-deal">
+          <span class="shop-price">{{detail.priceText}} <small>each</small></span>
+          <label class="shop-qty" data-tooltip="How many to sell"><span>Qty</span><input type="number" class="sell-qty" data-shop-qty data-shop value="1" min="1" max="{{detail.quantity}}" step="1"></label>
+          <button type="button" data-action="sell" data-shop><i class="fa-solid fa-hand-holding-dollar"></i> Sell</button>
+        </div>
+        <p class="shop-note">{{store.name}} pays {{sellBack}}% of its price.</p>
+        {{else}}
+        <div class="shop-deal">
+          {{#if detail.pickPay}}
+          <select class="shelf-pay" data-pay {{#if detail.canBuy}}data-shop{{else}}disabled{{/if}} data-tooltip="Pay with">{{#each detail.options as |o|}}<option value="{{o.currency}}" {{#if o.selected}}selected{{/if}} {{#unless o.affordable}}disabled{{/unless}}>{{o.text}}</option>{{/each}}</select>
+          {{else}}
+          <span class="shop-price">{{detail.priceText}}</span>
+          {{/if}}
+          <span class="shelf-stock">{{#if detail.limited}}{{#if detail.soldOut}}Sold out{{else}}{{detail.stock}} left{{/if}}{{else}}In stock{{/if}}</span>
+          {{!-- How many to buy, labelled: beside the stock count it read as the stock (2026-10-10). --}}
+          <label class="shop-qty" data-tooltip="How many to buy"><span>Qty</span><input type="number" class="shelf-qty" data-shop-qty {{#if detail.canBuy}}data-shop{{else}}disabled{{/if}} value="1" min="1" step="1" {{#if detail.limited}}max="{{detail.stock}}"{{/if}}></label>
+          <button type="button" class="shelf-buy-btn" data-action="buy" {{#if detail.canBuy}}data-shop{{else}}disabled{{/if}}><i class="fa-solid fa-cart-shopping"></i> Buy</button>
+        </div>
+        {{#if detail.why}}<p class="shop-why">{{detail.why}}</p>{{/if}}
+        {{/if}}
+        {{#if buyer}}<p class="shop-carry"><i class="fa-solid fa-suitcase"></i> {{buyer.name}} carries {{#if detail.carried}}{{detail.carried}}{{else}}none{{/if}}.</p>{{/if}}
+        {{#if detail.stats.length}}
+        <dl class="shop-stats">{{#each detail.stats as |st|}}<dt>{{st.label}}</dt><dd>{{st.value}}</dd>{{/each}}</dl>
+        {{/if}}
+        {{#if detail.descriptionHTML}}<div class="shop-desc">{{{detail.descriptionHTML}}}</div>{{/if}}
+      </article>
+      {{else}}
+      <article class="shop-detail empty"><p>Pick something on the left to see it here.</p></article>
+      {{/if}}
+    </div>
+  </section>
+  {{else}}
+  <section class="store-shelf-wrap">
+    <h3 class="section-title">For sale <span class="hint">Drag weapons, armor, gear or mods here to stock the shelf.</span></h3>
+    <ol class="store-shelf">
+      {{#each shelf as |s|}}
+      <li class="shelf-row {{#if s.hidden}}hidden-item{{/if}} {{#if s.soldOut}}sold-out{{/if}} {{#if s.unpriced}}unpriced{{/if}}" data-item-id="{{s.id}}" data-pay-currency="{{s.pay}}">
+        <img class="item-img" src="{{s.img}}" alt="">
+        <div class="shelf-name">
+          <a data-action="editItem" data-tooltip="Read about it">{{s.name}}</a>
+          <span class="item-sub">{{s.typeLabel}}{{#if s.hidden}} · Hidden from players{{/if}}</span>
+        </div>
+        <div class="shelf-buy" {{#if s.why}}data-tooltip="{{s.why}}"{{/if}}>
+          {{#if s.pickPay}}
+          <select class="shelf-pay" data-pay {{#if s.canBuy}}data-shop{{else}}disabled{{/if}} data-tooltip="Pay with">{{#each s.options as |o|}}<option value="{{o.currency}}" {{#if o.selected}}selected{{/if}} {{#unless o.affordable}}disabled{{/unless}}>{{o.text}}</option>{{/each}}</select>
+          {{else}}
+          <span class="shelf-price">{{s.priceText}}</span>
+          {{/if}}
+          <span class="shelf-stock">{{#if s.limited}}{{#if s.soldOut}}Sold out{{else}}{{s.stock}} left{{/if}}{{else}}In stock{{/if}}</span>
+          <input type="number" class="shelf-qty" data-shop-qty {{#if s.canBuy}}data-shop{{else}}disabled{{/if}} value="1" min="1" step="1" {{#if s.limited}}max="{{s.stock}}"{{/if}}>
+          <button type="button" class="shelf-buy-btn" data-action="buy" {{#if s.canBuy}}data-shop{{else}}disabled{{/if}}><i class="fa-solid fa-cart-shopping"></i> Buy</button>
+        </div>
+        <div class="shelf-gm">
+          {{#each s.prices as |p|}}
+          <span class="shelf-price-cell {{#unless p.accepted}}refused{{/unless}}">
+            <label class="check" data-tooltip="{{#if p.accepted}}{{p.label}} can buy it. Untick so it cannot{{else}}{{p.label}} cannot buy it. Tick so it can{{/if}}"><input type="checkbox" data-shelf-field="system.accepts.{{p.key}}" {{checked p.accepted}}><span>{{p.label}}</span></label>
+            <input type="number" data-shelf-field="system.prices.{{p.key}}" value="{{p.price}}" min="0" step="1" data-tooltip="Its own price in {{p.label}}, before the markup. 0 for none">
+          </span>
+          {{/each}}
+          <button type="button" class="toggle {{#if s.limited}}on{{/if}}" data-action="toggleLimited"
+            data-tooltip="{{#if s.limited}}Stock runs out. Click for unlimited{{else}}Unlimited. Click to set how many are for sale{{/if}}">{{#if s.limited}}Limited{{else}}Unlimited{{/if}}</button>
+          {{#if s.limited}}<label><span>Stock</span><input type="number" data-shelf-field="flags.irop.shelf.stock" value="{{s.stock}}" min="0" step="1"></label>{{/if}}
+          <span class="shelf-gm-tools">
+            <button type="button" class="icon {{#if s.hidden}}on{{/if}}" data-action="toggleHidden"
+              data-tooltip="{{#if s.hidden}}Hidden from players. Click to show it{{else}}Hide it from players{{/if}}"><i class="fa-solid {{#if s.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i></button>
+            <button type="button" class="icon" data-action="removeItem" data-tooltip="Take it off the shelf (Shift skips the prompt)"><i class="fa-solid fa-trash"></i></button>
+          </span>
+        </div>
+      </li>
+      {{else}}
+      <li class="empty-row">Nothing on the shelf yet. Drag weapons, armor, gear or mods here from the sidebar or a sheet.</li>
+      {{/each}}
+    </ol>
+  </section>
+
+  {{#if buyer}}{{#if sellBack}}
+  <section class="store-sell-wrap">
+    <h3 class="section-title">Sell to {{store.name}} <span class="hint">at {{sellBack}}% of an item's price</span></h3>
+    <ol class="store-sell">
+      {{#each sellable as |r|}}
+      <li class="sell-row" data-sell-id="{{r.id}}">
+        <img class="item-img" src="{{r.img}}" alt="">
+        <span class="sell-name">{{r.name}}{{#if r.many}} <small>x{{r.quantity}}</small>{{/if}}</span>
+        <span class="sell-price" data-tooltip="Paid for each one">{{r.priceText}} each</span>
+        <input type="number" class="sell-qty" data-shop-qty data-shop value="1" min="1" max="{{r.quantity}}" step="1">
+        <button type="button" data-action="sell" data-shop><i class="fa-solid fa-hand-holding-dollar"></i> Sell</button>
+      </li>
+      {{else}}
+      <li class="empty-row">Nothing {{buyer.name}} carries has a price this store will pay.</li>
+      {{/each}}
+    </ol>
+  </section>
+  {{/if}}{{/if}}
+  {{/if}}
+</div>

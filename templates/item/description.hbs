@@ -1,0 +1,47 @@
+<section class="tab description {{tab.cssClass}} {{#if hasExtras}}has-extras{{/if}}" data-group="primary" data-tab="description">
+  {{!-- With skills or perks below it, the description is as tall as its text, not a fixed box. --}}
+  {{#if readOnlyDescription}}
+  {{#if descriptionHTML}}<div class="item-description-read">{{{descriptionHTML}}}</div>{{/if}}
+  {{else}}
+  <prose-mirror {{#if hasExtras}}class="content-sized"{{/if}} name="system.description" value="{{system.description}}" toggled>{{{descriptionHTML}}}</prose-mirror>
+  {{/if}}
+  {{!-- What the Details tab holds, read only: a weapon's, armor's, gear's, mod's or species' stats,
+        a role's dossier (Johnald, 2026-10-10). --}}
+  {{#if itemFacts.stats.length}}
+  <div class="item-facts">
+    <h3 class="description-section-title">{{itemFacts.title}}</h3>
+    <dl class="shop-stats item-stats">
+      {{#each itemFacts.stats as |st|}}<dt>{{st.label}}</dt><dd>{{st.value}}</dd>{{/each}}
+    </dl>
+  </div>
+  {{/if}}
+  {{!-- A background's starting skills, above its perks (Johnald, 2026-10-10). --}}
+  {{#if skillChoices.skills.length}}
+  <div class="background-skills">
+    <h3 class="description-section-title">Starting skills</h3>
+    <ul class="skill-chips">
+      {{#each skillChoices.skills as |s|}}<li>{{s}}</li>{{/each}}
+    </ul>
+    {{#if isGM}}{{#if skillChoices.unknown.length}}<p class="hint warn">Not a skill, so never offered: {{#each skillChoices.unknown as |u|}}"{{u}}"{{#unless @last}}, {{/unless}}{{/each}}</p>{{/if}}{{/if}}
+  </div>
+  {{/if}}
+  {{!-- A background's perks as banners (Johnald, 2026-10-10). --}}
+  {{#if perkBanners.length}}
+  <div class="perk-banners">
+    <h3 class="description-section-title">Background perks</h3>
+    {{#each perkBanners as |p|}}
+    <article class="perk-banner {{#if p.taken}}taken{{/if}}">
+      <img class="perk-banner-icon" src="{{p.img}}" alt="">
+      <div class="perk-banner-body">
+        <header>
+          <h4>{{p.name}}</h4>
+          <span class="perk-banner-meta">{{p.meta}}</span>
+          {{#if p.taken}}<span class="perk-banner-taken"><i class="fa-solid fa-star"></i> Taken</span>{{/if}}
+        </header>
+        <div class="perk-banner-text">{{#if p.descriptionHTML}}{{{p.descriptionHTML}}}{{else}}<p class="hint">No description yet.</p>{{/if}}</div>
+      </div>
+    </article>
+    {{/each}}
+  </div>
+  {{/if}}
+</section>

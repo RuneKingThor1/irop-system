@@ -1,0 +1,78 @@
+<div class="events-body">
+  {{!-- The Events window (Strategy Layer step 6, 2026-10-08): what is in play, the GENESIS hand, the decks. --}}
+  {{!-- Only the GM: a player may not be sent the decks at all, so cannot tell whether they exist. --}}
+  {{#if isGM}}{{#unless typeReady}}
+  <p class="ev-warn"><i class="fa-solid fa-triangle-exclamation"></i> Foundry has not loaded the Event card type yet. Return to Setup and launch the world again before making cards.</p>
+  {{/unless}}{{/if}}
+  {{#if isGM}}{{#unless ready}}
+  <div class="ev-setup">
+    <p>The decks are not all set up yet. Setting up makes any missing card stacks in the Cards sidebar: the Event, Dark Event and World Event decks, the cards in play, the GENESIS hand and a discard pile.</p>
+    <button type="button" data-action="setup"><i class="fa-solid fa-layer-group"></i> Set up the decks</button>
+  </div>
+  {{/unless}}{{/if}}
+  <div class="ev-body">
+    <section class="ev-section">
+      <h4 class="section-title">In play</h4>
+      {{#each inPlay as |c|}}
+      <article class="ev-card kind-{{c.kindKey}}" data-card-id="{{c.id}}">
+        <img class="ev-img" src="{{c.img}}" alt="">
+        <div class="ev-main">
+          <header><span class="ev-name">{{c.name}}</span> <span class="ev-kind"><i class="{{c.kindIcon}}"></i> {{c.kind}}</span>
+            {{#if c.reprisal}}<span class="ev-flag">Reprisal</span>{{/if}}</header>
+          <p class="ev-where"><i class="fa-solid fa-location-dot"></i> {{#if c.where}}{{c.where}}{{else}}Everywhere{{/if}}, {{c.until}}{{#if c.respond}}. Players can respond to it as a Tactical Action{{/if}}.</p>
+          {{#if c.text}}<div class="ev-text">{{{c.text}}}</div>{{/if}}
+          {{#if c.discard}}<p class="ev-discard"><span class="label">On discard</span> {{c.discard}}</p>{{/if}}
+          {{#if @root.isGM}}<div class="ev-actions">
+            <button type="button" class="ghost" data-action="openCard">Edit</button>
+            <button type="button" data-action="discard">Discard</button></div>{{/if}}
+        </div>
+      </article>
+      {{else}}
+      <p class="empty-row">No cards in play.</p>
+      {{/each}}
+    </section>
+
+    {{#if isGM}}
+    <section class="ev-section">
+      <h4 class="section-title">GENESIS hand</h4>
+      {{#each hand as |c|}}
+      <article class="ev-card kind-dark" data-card-id="{{c.id}}">
+        <img class="ev-img" src="{{c.img}}" alt="">
+        <div class="ev-main">
+          <header><span class="ev-name">{{c.name}}</span>{{#if c.reprisal}} <span class="ev-flag">Reprisal</span>{{/if}}</header>
+          {{#if c.effects}}<p class="ev-where">{{c.effects}}</p>{{/if}}
+          {{#if c.text}}<div class="ev-text">{{{c.text}}}</div>{{/if}}
+          <div class="ev-actions">
+            {{#if c.needsTerritory}}<select data-where>{{selectOptions c.places blank="Choose a territory"}}</select>{{/if}}
+            <button type="button" class="ghost" data-action="openCard">Edit</button>
+            <button type="button" data-action="play"><i class="fa-solid fa-skull"></i> Play it</button>
+          </div>
+        </div>
+      </article>
+      {{else}}
+      <p class="empty-row">No Dark Events held. Discretionary ones drawn at Advance turn wait here for you to play this turn.</p>
+      {{/each}}
+    </section>
+
+    <section class="ev-section">
+      <h4 class="section-title">Decks</h4>
+      <div class="ev-decks">
+        {{#each decks as |d|}}
+        <div class="ev-deck">
+          <img src="{{d.back}}" alt="" data-action="openDeck" data-kind="{{d.kind}}" data-tooltip="Open the deck">
+          <div class="ev-deck-main">
+            <span class="ev-name">{{d.label}}s</span>
+            <span class="ev-count">{{d.left}} left of {{d.total}}, {{d.discards}} discarded</span>
+            <div class="ev-actions">
+              <button type="button" data-action="newCard" data-kind="{{d.kind}}"><i class="fa-solid fa-plus"></i> New card</button>
+              <button type="button" class="ghost" data-action="reshuffle" data-kind="{{d.kind}}" data-tooltip="Shuffle the discards back in">Reshuffle</button>
+            </div>
+          </div>
+        </div>
+        {{/each}}
+      </div>
+      {{#if empty}}<p class="hint">The decks are empty. Write cards with New card, or <a data-action="examples">add six example cards</a> to try it with.</p>{{/if}}
+    </section>
+    {{/if}}
+  </div>
+</div>

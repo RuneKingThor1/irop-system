@@ -1,0 +1,20 @@
+<section class="tab details {{tab.cssClass}}" data-group="primary" data-tab="details">
+  <div class="form-grid">
+    <label data-tooltip="Health = this + TGH mod"><span>Base health</span><input type="number" name="system.health" value="{{system.health}}"></label>
+    <label data-tooltip="Energy = this + CHA mod + INT mod"><span>Base energy</span><input type="number" name="system.energy" value="{{system.energy}}"></label>
+    <label class="check"><input type="checkbox" name="system.playable" {{checked system.playable}}><span>Playable</span></label>
+    <label class="check" data-tooltip="Only Mutants have mutations; the Abilities tab shows them only for a species with this ticked">
+      <input type="checkbox" name="system.mutations" {{checked system.mutations}}><span>Carries mutations</span></label>
+    <label class="check" data-tooltip="Only Humans take attribute boons; the Abilities tab shows them only for a species with this ticked">
+      <input type="checkbox" name="system.boons" {{checked system.boons}}><span>Grants boons</span></label>
+    <label class="check" data-tooltip="Grants the Paraphysical tag: the Abilities tab shows the Paraphysics panel">
+      <input type="checkbox" name="system.paraphysical" {{checked system.paraphysical}}><span>Paraphysical</span></label>
+  </div>
+  <h4 class="section-title">Starting attributes</h4>
+  <div class="attr-block">
+    {{#each speciesAttributes as |a|}}
+    <label data-tooltip="{{a.label}}"><span class="mono-label">{{a.abbr}}</span><input type="number" name="system.attributes.{{a.key}}" value="{{a.value}}"></label>
+    {{/each}}
+  </div>
+  <p class="hint">Dropping this species on an operative offers to set its base attributes to this block.</p>
+</section>

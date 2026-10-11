@@ -1,0 +1,42 @@
+<div class="turn-report">
+  {{!-- Advance week (Strategy Layer step 4, 2026-10-08): the new week planned line by line, nothing saved until Start. --}}
+  <header class="tr-banner"><span class="tr-week">Turn {{week}}</span><span class="tr-phase">GENESIS phase</span></header>
+  {{#unless automatic}}
+  <p class="tr-manual"><i class="fa-solid fa-hand"></i> Manual GENESIS phase. The rules' suggestions are listed unticked: tick what stands, or change territories by hand on their sheets.</p>
+  {{/unless}}
+  {{#if dateLine}}<p class="tr-date"><i class="fa-solid fa-calendar-days"></i> {{dateLine}}</p>{{/if}}
+  {{#each warnings as |w|}}<p class="tr-warn"><i class="fa-solid fa-triangle-exclamation"></i> {{w}}</p>{{/each}}
+  <div class="tr-body">
+    {{#each sections as |s|}}
+    <section class="tr-section">
+      <h4 class="section-title">{{s.label}}{{#if (eq s.key "dark")}} <span class="tr-keep">use {{@root.keep}}</span>{{/if}}</h4>
+      <ul class="tr-lines">
+        {{#each s.lines as |l|}}
+        <li class="tr-line tone-{{l.tone}} {{#if l.img}}with-card{{/if}}">
+          {{#if l.img}}<img class="tr-card" src="{{l.img}}" alt="">{{/if}}
+          <div class="tr-main">
+            <label><input type="checkbox" data-line="{{l.id}}" {{checked l.ticked}}><span class="tr-text">{{l.text}}</span></label>
+            {{#if l.detail}}<span class="tr-detail">{{l.detail}}</span>{{/if}}
+            {{#if l.pick}}<label class="tr-where"><span>Hits</span>
+              <select data-where="{{l.id}}">{{selectOptions l.places selected=l.where blank="Choose a territory"}}</select></label>{{/if}}
+          </div>
+        </li>
+        {{/each}}
+      </ul>
+    </section>
+    {{/each}}
+    {{#if quiet}}<p class="tr-quiet">A quiet turn: nothing grows, moves or cools.</p>{{/if}}
+    {{#if due.length}}
+    <section class="tr-section">
+      <h4 class="section-title">Due this turn</h4>
+      {{#each due as |d|}}<p class="tr-due"><i class="fa-solid fa-layer-group"></i> {{d}}</p>{{/each}}
+    </section>
+    {{/if}}
+  </div>
+  <footer class="tr-actions">
+    <span class="hint">Untick a line to skip it this turn.</span>
+    <button type="button" class="ghost" data-action="replan" data-tooltip="Plan again from the world as it is now"><i class="fa-solid fa-rotate"></i> Refresh</button>
+    <button type="button" class="ghost" data-action="cancel">Cancel</button>
+    <button type="button" data-action="apply"><i class="fa-solid fa-forward-step"></i> Start turn {{week}}</button>
+  </footer>
+</div>

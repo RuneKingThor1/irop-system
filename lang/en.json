@@ -1,0 +1,27 @@
+{
+  "TYPES": {
+    "Actor": {
+      "operative": "Operative",
+      "npc": "NPC",
+      "store": "Store"
+    },
+    "Item": {
+      "weapon": "Weapon",
+      "armor": "Armor",
+      "gear": "Gear",
+      "mod": "Mod",
+      "ability": "Ability",
+      "species": "Species",
+      "role": "Role",
+      "background": "Background",
+      "boon": "Boon",
+      "mutation": "Mutation",
+      "skillTree": "Perk Tree",
+      "territory": "Territory",
+      "project": "Project"
+    },
+    "Card": {
+      "event": "Event card"
+    }
+  }
+}

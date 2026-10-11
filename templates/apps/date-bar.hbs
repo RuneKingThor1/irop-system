@@ -1,0 +1,5 @@
+<div class="date-bar-wrap">
+  {{!-- The date along the top of scenes that are not a War Room (2026-10-08). It opens the calendar;
+        dragged, it moves, and a right click puts it back (Johnald, 2026-10-09). --}}
+  <button type="button" class="date-bar" data-action="open" data-tooltip="Open the calendar. Drag to move it; right click to put it back"><i class="fa-solid fa-grip-vertical db-grip"></i><i class="fa-solid fa-calendar-days"></i> <b>{{date.short}}</b>{{#if date.season}}<span class="db-season">{{date.season}}</span>{{/if}}</button>
+</div>

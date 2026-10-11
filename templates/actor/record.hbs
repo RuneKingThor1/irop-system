@@ -1,0 +1,114 @@
+<div class="irop-record-dock {{#if record.open}}open{{/if}}"
+     {{#if record.roleColor}}style="--record-role: {{record.roleColor}}"{{/if}}>
+{{#unless record.only}}
+<div class="record-gutter">
+  <button type="button" class="record-bar" data-action="toggleRecord"
+          aria-expanded="{{#if record.open}}true{{else}}false{{/if}}"
+          data-tooltip="{{#if record.open}}Close the Personnel Record{{else}}Open the Personnel Record{{/if}}">
+    <i class="fa-solid {{record.barIcon}}" inert></i>
+    <span class="bar-label">Record</span>
+    <i class="fa-solid {{record.barIcon}}" inert></i>
+  </button>
+</div>
+{{/unless}}
+<aside class="irop-record" aria-hidden="{{#if record.open}}false{{else}}true{{/if}}">
+  <div class="record-body">
+
+    <header class="record-head">
+      <div class="record-head-band">
+        <div class="record-title">
+          <span class="record-name">{{record.title}}</span>
+          <span class="record-number"><span class="record-cursor"></span>{{record.number}}</span>
+        </div>
+        <ol class="record-log">
+          {{#each record.log as |line|}}<li>{{line}}</li>{{#unless @last}}<li class="sep">///</li>{{/unless}}{{/each}}
+        </ol>
+      </div>
+      {{#if record.only}}<div class="record-head-tabs"><span class="record-tag">Read only</span></div>{{/if}}
+    </header>
+
+    <section class="record-identity">
+      <img class="record-portrait" src="{{actor.img}}" alt="{{actor.name}}">
+    </section>
+
+    <section class="record-pair">
+      <div class="record-panel record-fields">
+        <dl>
+          {{#each record.identity as |f|}}
+          <div class="record-line {{#if f.indent}}indent{{/if}}"><dt>{{f.label}}:</dt>
+            <dd><input type="text" name="system.details.record.{{f.key}}" value="{{f.value}}" placeholder="{{f.placeholder}}"
+                       {{#unless @root.editable}}disabled{{/unless}}></dd></div>
+          {{/each}}
+        </dl>
+        <label class="record-stack"><span>Distinguishing marks</span>
+          <textarea name="system.details.record.marks" rows="2" placeholder="scars, tattoos, implants"
+                    {{#unless editable}}disabled{{/unless}}>{{record.marks}}</textarea></label>
+      </div>
+
+      {{!-- Johnald, 2026-10-08: the role's emblem on top, the rank below, where Biometrics was. --}}
+      <div class="record-panel record-insignia">
+        <div class="record-emblem">
+          <h4>Doctrine</h4>
+          {{#if role}}
+          <img class="record-emblem-img" src="{{role.img}}" alt="{{role.name}}">
+          <span class="record-insignia-name doctrine">{{role.name}}</span>
+          {{else}}
+          <i class="fa-solid fa-shield-halved record-emblem-none" inert></i>
+          <span class="record-insignia-name"><em>unassigned</em></span>
+          {{/if}}
+        </div>
+        <div class="record-rank">
+          <h4>Rank</h4>
+          <img class="record-rank-img" src="{{record.rank.insignia}}" alt="{{record.rank.label}} insignia">
+          <span class="record-insignia-name">{{record.rank.label}}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="record-panel record-service">
+      <h4>Service</h4>
+      <dl>
+        {{#if system.details.callsign}}<div class="record-line"><dt>Callsign:</dt><dd>{{system.details.callsign}}</dd></div>{{/if}}
+        <div class="record-line"><dt>Species:</dt><dd>{{#if species}}{{species.name}}{{else}}<em>unrecorded</em>{{/if}}</dd></div>
+        <div class="record-line"><dt>Background:</dt>
+          <dd>{{#if background}}<a data-action="editItem" data-item-id="{{background.id}}">{{background.name}}</a>{{else}}<em>unrecorded</em>{{/if}}</dd></div>
+        {{#each record.service as |f|}}
+        <div class="record-line"><dt>{{f.label}}:</dt>
+          <dd><input type="text" name="system.details.record.{{f.key}}" value="{{f.value}}" placeholder="{{f.placeholder}}"
+                     {{#unless @root.editable}}disabled{{/unless}}></dd></div>
+        {{/each}}
+        <div class="record-line"><dt>Next of kin:</dt>
+          <dd class="kin">
+            <input type="text" name="system.details.record.nextOfKin.name" value="{{record.nextOfKin.name}}" placeholder="name"
+                   {{#unless editable}}disabled{{/unless}}>
+            <input type="text" name="system.details.record.nextOfKin.relation" value="{{record.nextOfKin.relation}}" placeholder="relation"
+                   {{#unless editable}}disabled{{/unless}}>
+          </dd></div>
+      </dl>
+    </section>
+
+    <section class="record-panel record-bio">
+      <h4>Bio:</h4>
+      <prose-mirror class="record-biography" name="system.details.biography" value="{{system.details.biography}}" toggled>{{{biography}}}</prose-mirror>
+      <header class="record-bio-head">
+        <h5>Service log</h5>
+        {{#if editable}}<button type="button" class="record-btn small" data-action="addRecordEntry"><i class="fa-solid fa-plus" inert></i> Add entry</button>{{/if}}
+      </header>
+      <ol class="record-timeline">
+        {{#each record.timeline as |e|}}
+        <li class="record-entry" data-record-index="{{e.index}}">
+          <input type="text" class="record-date" value="{{e.date}}" placeholder="date" data-record-field="date"
+                 {{#unless @root.editable}}disabled{{/unless}}>
+          <textarea class="record-text" rows="2" placeholder="what happened" data-record-field="entry"
+                    {{#unless @root.editable}}disabled{{/unless}}>{{e.entry}}</textarea>
+          {{#if @root.editable}}<button type="button" class="icon" data-action="deleteRecordEntry" data-tooltip="Delete entry"><i class="fa-solid fa-xmark" inert></i></button>{{/if}}
+        </li>
+        {{else}}
+        <li class="record-empty">No entries on file.</li>
+        {{/each}}
+      </ol>
+    </section>
+
+  </div>
+</aside>
+</div>

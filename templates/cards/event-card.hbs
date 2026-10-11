@@ -1,0 +1,46 @@
+<div class="event-card-sheet-body">
+  {{!-- An Event or Dark Event card (Strategy Layer step 6, 2026-10-08). The card's own text says what happens;
+        these fields are what the War Room does with it. --}}
+  <header class="ec-head">
+    <img class="ec-img" src="{{img}}" alt="" {{#if editable}}data-action="editImage" data-tooltip="Change the picture"{{/if}}>
+    <div class="ec-title">
+      <input class="actor-name" type="text" name="name" value="{{card.name}}" placeholder="Card name">
+      <label class="ec-kind"><span>Deck</span><select name="system.kind">{{selectOptions kinds selected=system.kind}}</select></label>
+    </div>
+  </header>
+  <div class="ec-flags">
+    <label class="check" data-tooltip="Stays on its territory until the end of the next turn, then is discarded"><input type="checkbox" name="system.persistent" {{checked system.persistent}}><span>Persistent</span></label>
+    <label class="check" data-tooltip="A negative event: in a liberated territory the Resistance handles it"><input type="checkbox" name="system.negative" {{checked system.negative}}><span>Negative</span></label>
+    <label class="check" data-tooltip="Players can answer it with the Respond Tactical Action; a success counters it"><input type="checkbox" name="system.respond" {{checked system.respond}}><span>Can be answered</span></label>
+    <label class="check" data-tooltip="Its numbers land on every territory, not one"><input type="checkbox" name="system.worldwide" {{checked system.worldwide}}><span>Worldwide</span></label>
+    {{#if isDark}}
+    <label class="check" data-tooltip="Held in the GENESIS hand; the GM plays it when they choose, this turn"><input type="checkbox" name="system.discretionary" {{checked system.discretionary}}><span>Discretionary</span></label>
+    <label class="check" data-tooltip="The card says it can be kept past the turn it is drawn"><input type="checkbox" name="system.holdable" {{checked system.holdable}}><span>Can be held</span></label>
+    <label class="check" data-tooltip="Only one Reprisal can be used at a time"><input type="checkbox" name="system.reprisal" {{checked system.reprisal}}><span>Reprisal</span></label>
+    {{/if}}
+  </div>
+  {{!-- Never in (Johnald, 2026-10-08). --}}
+  <section class="ec-never">
+    <span class="ec-never-label">Never in</span>
+    <div class="ec-never-list">
+      {{#each never as |t|}}<span class="ec-chip">{{t.name}}{{#if @root.editable}}<button type="button" class="ec-chip-x" data-action="allow" data-id="{{t.id}}" data-tooltip="Let it happen here again" aria-label="Remove {{t.name}}"><i class="fa-solid fa-xmark"></i></button>{{/if}}</span>
+      {{else}}<span class="hint">Any {{unit}}</span>{{/each}}
+      {{#if editable}}{{#if canAdd}}<select class="ec-never-add" aria-label="Add a {{unit}} it never happens in">{{selectOptions others blank=addLabel}}</select>{{/if}}{{/if}}
+    </div>
+    <p class="hint">It never lands on these {{units}} at random and cannot be played on them. A Worldwide card's numbers skip them.</p>
+  </section>
+  <table class="ec-effects">
+    <thead><tr><th></th><th>When {{#if isDark}}played{{else}}revealed{{/if}}</th><th>When discarded</th></tr></thead>
+    <tbody>
+      {{#each effects as |e|}}
+      <tr><th>{{e.label}}</th>
+        <td><input type="number" name="system.effect.{{e.key}}" value="{{e.effect}}"></td>
+        <td><input type="number" name="system.discard.{{e.key}}" value="{{e.discard}}"></td></tr>
+      {{/each}}
+    </tbody>
+  </table>
+  <label class="wide-field"><span>On discard, in words</span>
+    <input type="text" name="system.discardText" value="{{system.discardText}}" placeholder="What else happens when it leaves play"></label>
+  <label class="wide-field"><span>What the card says</span>
+    <textarea name="description" rows="6">{{card.description}}</textarea></label>
+</div>

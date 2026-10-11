@@ -1,0 +1,121 @@
+{{!-- Role, Species and Background, a labelled list (Johnald, 2026-10-08; they were chips). In Edit mode
+      each can be removed, and the role and background take their free starting skills. --}}
+{{#*inline "identityList"}}
+<dl class="identity-list">
+  {{#each identityChips as |c|}}
+  <div class="identity-row {{#if c.isRole}}role{{/if}} {{#unless c.item}}empty{{/unless}}" {{#if c.item}}data-item-id="{{c.item.id}}"{{/if}}>
+    <dt class="mono-label">{{c.label}}</dt>
+    <dd>
+      {{#if c.item}}
+      <a class="identity-link" data-action="editItem"><img src="{{c.item.img}}" alt=""><span>{{c.item.name}}</span></a>
+      {{!-- The background's perk (2026-10-10): a star that opens it. --}}
+      {{#if c.perk}}<button type="button" class="identity-btn perk" data-item-id="{{c.perk.id}}" data-action="editItem" data-tooltip="Background perk: {{c.perk.name}}"><i class="fa-solid fa-star"></i></button>{{/if}}
+      {{#if @root.editMode}}
+      {{#if c.slot}}
+      {{#if c.takenFrom}}
+      {{#if @root.isGM}}<button type="button" class="identity-btn" data-action="resetStartingSkills" data-source="{{c.slot}}" data-tooltip="Starting skills taken. Let them be picked again"><i class="fa-solid fa-rotate-left"></i></button>{{/if}}
+      {{else if @root.editable}}
+      <button type="button" class="identity-btn pick" data-action="pickStartingSkills" data-source="{{c.slot}}" data-tooltip="Pick starting skills"><i class="fa-solid fa-list-check"></i></button>
+      {{/if}}
+      {{/if}}
+      {{#if c.perkPick}}{{#if @root.editable}}<button type="button" class="identity-btn pick" data-action="pickBackgroundPerk" data-tooltip="Pick a background perk"><i class="fa-regular fa-star"></i></button>{{/if}}{{/if}}
+      {{#if c.perk}}{{#if @root.isGM}}<button type="button" class="identity-btn" data-action="resetBackgroundPerk" data-tooltip="Background perk taken. Take it off so one can be picked again"><i class="fa-solid fa-star-half-stroke"></i></button>{{/if}}{{/if}}
+      {{#if @root.editable}}<button type="button" class="identity-btn" data-action="deleteItem" data-tooltip="Remove"><i class="fa-solid fa-xmark"></i></button>{{/if}}
+      {{/if}}
+      {{else}}<span class="identity-empty">Drop a {{c.noun}}</span>{{/if}}
+    </dd>
+  </div>
+  {{/each}}
+</dl>
+{{/inline}}
+<header class="irop-header">
+  <img class="portrait" src="{{actor.img}}" alt="{{actor.name}}" {{#if editable}}data-action="editImage" data-edit="img"{{/if}}>
+
+  <div class="identity">
+    <div class="name-row">
+      <input class="actor-name" type="text" name="name" value="{{actor.name}}" placeholder="Name" {{#unless editable}}disabled{{/unless}}>
+      {{#if editable}}
+      <button type="button" class="mode-toggle {{#if editMode}}active{{/if}}" data-action="toggleMode"
+              data-tooltip="{{#if editMode}}Back to play mode{{else}}Edit base values, ranks and bonuses{{/if}}">
+        <i class="fa-solid {{#if editMode}}fa-lock-open{{else}}fa-lock{{/if}}"></i>
+        <span>{{#if editMode}}Editing{{else}}Play{{/if}}</span>
+      </button>
+      {{/if}}
+    </div>
+
+    {{#if isOperative}}
+    <div class="subline">
+      <label class="field-inline"><span class="mono-label">Callsign</span>
+        <input type="text" name="system.details.callsign" value="{{system.details.callsign}}" placeholder="unassigned"></label>
+    </div>
+    {{> identityList}}
+    {{!-- Carried weight under Background, in the header so it shows on every tab (Johnald, 2026-10-09). --}}
+    <div class="carry-line {{#if system.carry.over}}over{{/if}}" data-tooltip="Carried weight against capacity, 30 + 2 x STR mod + TGH mod{{#if system.carry.over}}. Over capacity{{/if}}">
+      <span class="mono-label">Carried</span>
+      <span class="carry-value"><b>{{system.carry.value}}</b> / {{system.carry.max}}</span>
+      <span class="carry-meter"><span class="fill" style="width: {{carryPct}}%"></span></span>
+    </div>
+    {{!-- What shows of it at a checkpoint, and whether that passes in the Slums and a Megacity (2026-10-10). --}}
+    {{#if concealment}}
+    <div class="conceal-line" data-tooltip="{{concealment.tip}}">
+      <span class="mono-label">Concealment</span>
+      <span class="carry-value"><b>{{concealment.visible}}</b>{{#if concealment.hidden}} <small>+{{concealment.hidden}} hidden</small>{{/if}}</span>
+      <span class="conceal-checks">{{#each concealment.checks as |c|}}<span class="conceal-chip {{#if c.pass}}pass{{else}}caught{{/if}}"><i class="fa-solid {{#if c.pass}}fa-eye-slash{{else}}fa-eye{{/if}}"></i> {{c.label}}</span>{{/each}}</span>
+    </div>
+    {{/if}}
+    {{else}}
+    <div class="subline npc-line">
+      <label class="field-inline"><span class="mono-label">Threat</span>
+        <select name="system.details.threat">{{selectOptions config.npcThreats selected=system.details.threat}}</select></label>
+      <label class="field-inline"><span class="mono-label">Caste</span>
+        <select name="system.details.caste">{{selectOptions config.castes selected=system.details.caste}}</select></label>
+      <label class="field-inline grow"><span class="mono-label">Faction</span>
+        <input type="text" name="system.details.faction" value="{{system.details.faction}}" placeholder="none"></label>
+    </div>
+    {{> identityList}}
+    {{/if}}
+  </div>
+
+  <div class="vitals">
+    {{#each vitals as |v|}}
+    <div class="vital vital-{{v.cls}}">
+      <div class="vital-head">
+        <span class="mono-label">{{v.label}}</span>
+        {{#if @root.editMode}}<label class="bonus-input" data-tooltip="Bonus to the maximum">max +
+          <input type="number" name="system.vitals.{{v.key}}.bonus" value="{{v.bonus}}"></label>{{/if}}
+      </div>
+      <div class="vital-bar">
+        <div class="fill" style="width: {{v.pct}}%"></div>
+        <button type="button" class="step" data-action="adjust" data-path="system.vitals.{{v.key}}.value" data-delta="-1"
+                data-tooltip="Shift for 5"><i class="fa-solid fa-minus"></i></button>
+        <span class="vital-values">
+          <input type="number" name="system.vitals.{{v.key}}.value" value="{{v.value}}">
+          <span class="max">/ {{v.max}}</span>
+        </span>
+        <button type="button" class="step" data-action="adjust" data-path="system.vitals.{{v.key}}.value" data-delta="1"
+                data-tooltip="Shift for 5"><i class="fa-solid fa-plus"></i></button>
+      </div>
+    </div>
+    {{/each}}
+
+    <div class="tracks">
+      <div class="track luck-track" data-tooltip="Luck Points: max equals the Luck modifier">
+        <span class="mono-label">Luck</span>
+        <span class="pips">{{#each luckPips as |p|}}<button type="button" class="pip luck {{#if p.filled}}filled{{/if}}"
+          data-action="setPip" data-path="system.vitals.luck.value" data-value="{{p.n}}"></button>{{else}}<em class="none">0</em>{{/each}}</span>
+      </div>
+      {{#if edgePips}}
+      <div class="track" data-tooltip="Banked Edge, up to 3. Resets at the end of the session.">
+        <span class="mono-label">Edge</span>
+        <span class="pips">{{#each edgePips as |p|}}<button type="button" class="pip edge {{#if p.filled}}filled{{/if}}"
+          data-action="setPip" data-path="system.banks.edge" data-value="{{p.n}}"><i class="fa-solid fa-caret-up"></i></button>{{/each}}</span>
+      </div>
+      <div class="track" data-tooltip="Banked Victory, up to 1. Needed in the squad for a Nigh Impossible check.">
+        <span class="mono-label">Victory</span>
+        <span class="pips">{{#each victoryPips as |p|}}<button type="button" class="pip victory {{#if p.filled}}filled{{/if}}"
+          data-action="setPip" data-path="system.banks.victory" data-value="{{p.n}}"><i class="fa-solid fa-star"></i></button>{{/each}}</span>
+      </div>
+      {{/if}}
+    </div>
+  </div>
+</header>

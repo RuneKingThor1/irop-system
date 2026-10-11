@@ -1,0 +1,39 @@
+<div class="resource-ledger">
+  {{!-- Strategy Layer step 3 (2026-10-08): the Resistance's stock, and every gain and spend that made it. --}}
+  <div class="rl-stocks">
+    {{#each stocks as |s|}}
+    <div class="rl-stock {{s.key}}"><i class="{{s.icon}}"></i><span class="rl-label">{{s.label}}</span><span class="rl-value">{{s.value}}</span></div>
+    {{/each}}
+    <span class="rl-week">Turn {{week}}</span>
+  </div>
+  {{#if isGM}}
+  <div class="rl-entry">
+    <select name="resource">{{selectOptions resources selected="logistics"}}</select>
+    <input type="number" name="amount" min="1" placeholder="Amount">
+    <input type="text" name="reason" placeholder="What for: a mission's haul, a Reprisal">
+    <button type="button" data-action="record" data-sign="+" data-tooltip="Add it to the stock"><i class="fa-solid fa-plus"></i> Gain</button>
+    <button type="button" data-action="record" data-sign="-" data-tooltip="Take it from the stock"><i class="fa-solid fa-minus"></i> Spend</button>
+  </div>
+  {{/if}}
+  <div class="rl-weeks">
+    {{#each weeks as |w|}}
+    <section class="rl-week-block">
+      <header class="rl-week-head"><span class="rl-week-name">Turn {{w.week}}</span>
+        <span class="rl-net">{{#each w.net as |n|}}<span class="{{#if n.gain}}gain{{else}}loss{{/if}}">{{n.label}} {{n.amount}}</span>{{/each}}</span></header>
+      <ol class="rl-lines">
+        {{#each w.lines as |l|}}
+        <li class="rl-line {{#if l.gain}}gain{{else}}loss{{/if}}" data-entry-id="{{l.id}}">
+          <i class="{{l.icon}} rl-icon" data-tooltip="{{l.label}}"></i>
+          <span class="rl-reason">{{l.reason}}</span>
+          <span class="rl-amount">{{l.amount}} <small>{{l.label}}</small></span>
+          {{#if @root.isGM}}<button type="button" class="icon" data-action="undo" data-tooltip="Undo this entry"><i class="fa-solid fa-rotate-left"></i></button>{{/if}}
+        </li>
+        {{/each}}
+      </ol>
+    </section>
+    {{else}}
+    <p class="empty-row">Nothing gained or spent yet.{{#if isGM}} Record what comes in above: a mission's haul, an event's windfall.{{/if}}</p>
+    {{/each}}
+  </div>
+  <footer class="rl-footer"><button type="button" data-action="support"><i class="fa-solid fa-tower-broadcast"></i> Support</button></footer>
+</div>

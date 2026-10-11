@@ -1,0 +1,47 @@
+<div class="irop-card damage-card {{#if critical}}critical{{/if}}">
+  <header class="card-head">
+    <h3>{{label}}</h3>
+    <span class="card-sub">{{#if critical}}Critical damage{{else}}Damage{{/if}}</span>
+  </header>
+  {{#if isPrivate}}
+  <p class="private">Rolled privately.</p>
+  {{else}}
+  <div class="damage-line">
+    <span class="damage-total">{{total}}</span>
+    <span class="damage-type">{{damageType}}</span>
+  </div>
+  <div class="dice-roll">
+    <div class="dice-formula">{{formula}}</div>
+    {{{tooltip}}}
+  </div>
+  {{#if (or shred penetration destruction drBypass)}}
+  <div class="damage-props">
+    {{#if shred}}<span class="stat-chip">Shred {{shred}}</span>{{/if}}
+    {{#if penetration}}<span class="stat-chip">Penetration {{penetration}}</span>{{/if}}
+    {{#if destruction}}<span class="stat-chip">Destruction {{destruction}}</span>{{/if}}
+    {{#if drBypass}}<span class="stat-chip">Bypasses {{drBypass}} DR</span>{{/if}}
+  </div>
+  {{/if}}
+  {{#if burn}}
+  {{!-- Chemthrower burn (RULED 2026-10-08): no attack roll; the target saves for half. --}}
+  <div class="burn-save">
+    <p>{{burn.burns}} {{#if (gt burn.burns 1)}}burns{{else}}burn{{/if}}, {{burn.spent}} fuel. <strong>{{#if burn.targetName}}{{burn.targetName}}{{else}}The target{{/if}}</strong> makes
+      {{burn.saveLabel}} save{{#if burn.dm}} ({{burn.bandLabel}} range, D.M. {{burn.dm}}){{/if}}.</p>
+    <p>Fails: <strong>{{total}}</strong>{{#if burn.status}} and {{burn.statusLabel}}{{#if burn.status.value}} ({{burn.status.value}}){{/if}}{{/if}}.
+      Saves: <strong>{{burn.half}}</strong>, no status.</p>
+    {{#if burn.canSave}}<button type="button" data-irop-action="burnSave" {{#if burn.pickTarget}}data-tooltip="Target the token that must save, then press"{{/if}}><i class="fa-solid fa-shield-halved"></i> Roll {{burn.saveAbbr}} save</button>{{/if}}
+  </div>
+  {{/if}}
+  {{#if blastUuid}}
+  {{!-- Blast markers (Johnald, 2026-10-09): take it off the map once the damage is dealt. --}}
+  <div class="card-buttons"><button type="button" data-irop-action="clearBlast" data-tooltip="Take the blast marker off the map"><i class="fa-solid fa-eraser"></i> Clear marker</button></div>
+  {{/if}}
+  {{#if status}}
+  {{!-- From special ammo (2026-10-08): the target gains this status when the damage lands. --}}
+  <div class="damage-status">
+    <span>{{status.ammo}}: {{#if status.targetName}}{{status.targetName}} gains{{else}}inflicts{{/if}} <strong>{{status.label}}{{#if status.value}} ({{status.value}}){{/if}}</strong></span>
+    {{#if status.canApply}}<button type="button" data-irop-action="applyStatus" data-tooltip="Apply it to the target">Apply</button>{{/if}}
+  </div>
+  {{/if}}
+  {{/if}}
+</div>

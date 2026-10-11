@@ -1,0 +1,54 @@
+<section class="tab details {{tab.cssClass}}" data-group="primary" data-tab="details">
+  {{!-- RULED 2026-10-08: a GM editable perk tree. Tiers run top to bottom; drag abilities onto them. --}}
+  <div class="form-grid">
+    <label data-tooltip="The role whose characters see this tree; Everyone shows it to all"><span>For</span>
+      <select name="system.role">{{selectOptions config.treeRoles selected=system.role}}</select></label>
+    <label><span>Kind</span><select name="system.kind">{{selectOptions config.treeKinds selected=system.kind}}</select></label>
+    <label data-tooltip="The tab's name on the Training tab; blank uses the tree's name"><span>Tab name</span>
+      <input type="text" name="system.tab" value="{{system.tab}}" placeholder="{{item.name}}"></label>
+    <label data-tooltip="Lower comes first among trees of the same kind"><span>Order</span>
+      <input type="number" name="system.order" value="{{system.order}}"></label>
+    <label class="check" data-tooltip="Owning any perk in a tier opens the next tier down"><input type="checkbox" name="system.gated" {{checked system.gated}}>
+      <span>Unlock tiers in order</span></label>
+  </div>
+  {{#if editable}}<p class="hint">Drag abilities from the Items sidebar or a compendium onto a tier, or drag a perk to another tier to move it. Tick Pick one where taking one perk rules out the rest of its tier.</p>{{/if}}
+
+  <ol class="tree-editor">
+    {{#each treeTiers as |t|}}
+    <li class="tree-tier-edit" data-tier="{{t.index}}">
+      <header>
+        <span class="tier-label">{{t.label}} {{t.number}}</span>
+        <label class="check" data-tooltip="Taking one perk here rules out the rest of this tier">
+          <input type="checkbox" data-tree-field="exclusive" {{checked t.exclusive}} {{#unless @root.editable}}disabled{{/unless}}><span>Pick one</span></label>
+        {{#if @root.editable}}
+        <span class="tier-tools">
+          <button type="button" class="icon" data-action="moveTier" data-delta="-1" data-tooltip="Move up" {{#if t.first}}disabled{{/if}}><i class="fa-solid fa-arrow-up"></i></button>
+          <button type="button" class="icon" data-action="moveTier" data-delta="1" data-tooltip="Move down" {{#if t.last}}disabled{{/if}}><i class="fa-solid fa-arrow-down"></i></button>
+          <button type="button" class="icon" data-action="deleteTier" data-tooltip="Delete this tier"><i class="fa-solid fa-trash"></i></button>
+        </span>
+        {{/if}}
+      </header>
+      <div class="tree-drop" data-tier="{{t.index}}">
+        {{#each t.nodes as |n|}}
+        <div class="tree-node-edit {{#if n.missing}}missing{{/if}}" data-node-id="{{n.id}}" {{#if @root.editable}}draggable="true"{{/if}}>
+          <img src="{{n.img}}" alt="">
+          <a class="node-name" data-action="openNode" data-tooltip="{{#if n.missing}}This ability is missing; drop it in again{{else}}Open the ability{{/if}}">{{n.name}}</a>
+          <label class="node-xp" data-tooltip="XP cost"><input type="number" data-tree-field="xp" value="{{n.xp}}" min="0" {{#unless @root.editable}}disabled{{/unless}}><span>XP</span></label>
+          <select class="node-requires" data-tree-field="requires" data-tooltip="A perk that must be owned first" {{#unless @root.editable}}disabled{{/unless}}>
+            {{selectOptions n.requiresChoices selected=n.requires blank="No prerequisite"}}</select>
+          {{#if @root.editable}}<button type="button" class="icon" data-action="deleteNode" data-tooltip="Take it out of the tree"><i class="fa-solid fa-xmark"></i></button>{{/if}}
+        </div>
+        {{else}}
+        <p class="drop-hint">Drop abilities here</p>
+        {{/each}}
+      </div>
+    </li>
+    {{/each}}
+  </ol>
+  {{#if editable}}
+  <div class="tree-drop new-tier" data-tier="new">
+    <span><i class="fa-solid fa-plus"></i> Drop an ability here to start a new tier</span>
+    <button type="button" class="ghost" data-action="addTier">Add an empty tier</button>
+  </div>
+  {{/if}}
+</section>

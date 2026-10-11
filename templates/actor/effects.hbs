@@ -1,0 +1,38 @@
+<section class="tab effects {{tab.cssClass}}" data-group="primary" data-tab="effects">
+  <div class="panel">
+    <header class="panel-head">
+      <h3>Active effects</h3>
+      <span class="hint">Perks and gear change numbers through these. Target keys like system.vitals.hp.bonus</span>
+      {{#if editable}}<button type="button" class="ghost" data-action="createEffect"><i class="fa-solid fa-plus"></i> Add</button>{{/if}}
+    </header>
+    <ol class="item-list compact">
+      {{#each effects as |e|}}
+      <li class="item-row effect-row {{#if e.disabled}}disabled{{/if}}" data-effect-id="{{e.id}}" data-parent-id="{{e.itemId}}">
+        <div class="row-main">
+          <img class="item-img" src="{{e.img}}" alt="">
+          <div class="item-name">{{#if e.locked}}<span class="effect-name">{{e.name}}</span>{{else}}<a data-action="editEffect">{{e.name}}</a>{{/if}}<span class="item-sub">{{e.source}}{{#if e.suppressed}} · inactive: not fitted, worn or carried{{/if}}{{#if e.changes}} · {{e.changes}}{{/if}}</span></div>
+          <div class="row-controls">
+            {{#unless e.locked}}<button type="button" class="icon {{#unless e.disabled}}on{{/unless}}" data-action="toggleEffect" data-tooltip="Enabled"><i class="fa-solid fa-power-off"></i></button>{{/unless}}
+            {{#if e.owned}}<button type="button" class="icon" data-action="deleteEffect" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
+          </div>
+        </div>
+      </li>
+      {{else}}
+      <li class="empty-row">No effects. Status conditions are toggled on the Combat tab.</li>
+      {{/each}}
+    </ol>
+  </div>
+
+  <div class="panel reference">
+    <header class="panel-head"><h3>Useful effect keys</h3></header>
+    <dl class="key-list">
+      <dt>system.attributes.str.value</dt><dd>an attribute score (any of str, agi, tgh, cha, lck, int, per)</dd>
+      <dt>system.vitals.hp.bonus</dt><dd>maximum Health (also energy, armor, barrier, dodges)</dd>
+      <dt>system.bonuses.critical</dt><dd>Critical (also initiative, carry)</dd>
+      <dt>system.bonuses.move.run</dt><dd>a flat bonus to one speed (shift, run, sprint)</dd>
+      <dt>system.bonuses.defense</dt><dd>Defense outside armor, added to attacks against you</dd>
+      <dt>system.dr.ballistic</dt><dd>damage reduction of one type</dd>
+      <dt>system.skills.stealth.rank</dt><dd>a skill rank</dd>
+    </dl>
+  </div>
+</section>

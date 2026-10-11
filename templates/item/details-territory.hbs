@@ -1,0 +1,123 @@
+<section class="tab details {{tab.cssClass}}" data-group="primary" data-tab="details">
+  {{!-- A territory on the Strategy Layer (2026-10-08): its stats, neighbours and place on the map. --}}
+  <div class="form-grid">
+    <label><span>Type</span><select name="system.kind">{{selectOptions territory.kinds selected=system.kind}}</select></label>
+    <label><span>Held by</span><select name="system.control">{{selectOptions config.territoryControl selected=system.control}}</select></label>
+    <label data-tooltip="0 to {{territory.strengthMax}}"><span>Strength</span>
+      <input type="number" name="system.strength" value="{{system.strength}}" min="0" max="{{territory.strengthMax}}"></label>
+    <label data-tooltip="{{territory.heatResponse}}"><span>Heat</span>
+      <select name="system.heat">{{selectOptions territory.heatLevels selected=system.heat}}</select></label>
+    <label><span>Reputation</span><select name="system.reputation">{{selectOptions territory.reputationLevels selected=system.reputation}}</select></label>
+    <label data-tooltip="Heat from this turn's actions. Doc: it lands when the next turn starts."><span>Heat next turn</span>
+      <input type="number" name="system.heatPending" value="{{system.heatPending}}"></label>
+    <label class="check" data-tooltip="A tactical action or relevant event here this turn, so its Heat will not cool"><input type="checkbox" name="system.active" {{checked system.active}}>
+      <span>Action here this turn</span></label>
+    <label data-tooltip="The larger territory this one sits in, if the campaign drills down"><span>Part of</span>
+      <select name="system.parent">{{selectOptions territory.parents selected=system.parent blank="None"}}</select></label>
+  </div>
+  <label class="wide-field"><span>Modifiers</span>
+    <input type="text" name="system.modifiers" value="{{system.modifiers}}" placeholder="Havens, Megafauna"></label>
+
+  {{#if territory.isMegacity}}
+  <h4 class="section-title">Megacity objectives</h4>
+  <div class="territory-objectives">
+    {{#each territory.objectives as |o|}}
+    <label class="check"><input type="checkbox" name="system.objectives.{{o.key}}" {{checked o.taken}}><span>{{o.label}}</span></label>
+    {{/each}}
+    <span class="hint">{{territory.objectivesTaken}} of 3 taken. All three liberate it.</span>
+  </div>
+  {{/if}}
+
+  {{#if territory.isMegacity}}
+  <h4 class="section-title">Landmark</h4>
+  <div class="form-grid two">
+    <label data-tooltip="Doc: each Megacity has a unique landmark that can provide bonuses"><span>Landmark</span>
+      <input type="text" name="system.landmark" value="{{system.landmark}}" placeholder="Space Needle"></label>
+    <label data-tooltip="What it gives once the Megacity is liberated"><span>Bonus</span>
+      <input type="text" name="system.landmarkBonus" value="{{system.landmarkBonus}}" placeholder="What it gives the ODR"></label>
+  </div>
+  {{/if}}
+
+  <h4 class="section-title">Neighbors</h4>
+  <div class="territory-neighbors tree-drop" data-neighbor-drop>
+    {{#each territory.neighbors as |n|}}
+    <span class="neighbor-chip" data-territory-id="{{n.id}}">
+      <img src="{{n.img}}" alt=""><a data-action="openTerritory">{{n.name}}</a>
+      {{#if @root.editable}}<button type="button" class="icon" data-action="removeNeighbor" data-tooltip="Not neighbors"><i class="fa-solid fa-xmark"></i></button>{{/if}}
+    </span>
+    {{else}}
+    <p class="drop-hint">Drop the territories that border this one. Each is linked both ways.</p>
+    {{/each}}
+  </div>
+
+  {{!-- The weather on its card (Johnald, 2026-10-08): a climate, or the GM's own numbers for this territory. --}}
+  <h4 class="section-title">Weather</h4>
+  <div class="territory-weather">
+    <div class="tw-head">
+      <label class="tw-climate" data-tooltip="Sets the range and the odds of the weather on its card"><span class="mono-label">Climate</span>
+        <select name="system.climate" {{#if territory.weather.custom}}disabled{{/if}}>{{selectOptions territory.climates selected=system.climate}}</select></label>
+      {{#if editable}}
+      {{#if territory.weather.custom}}<button type="button" class="ghost" data-action="resetWeather" data-tooltip="Use the climate's weather again"><i class="fa-solid fa-rotate-left"></i> Back to the climate</button>
+      {{else}}<button type="button" class="ghost" data-action="customizeWeather" data-tooltip="Start from the climate's numbers and change them"><i class="fa-solid fa-sliders"></i> Customize</button>{{/if}}
+      {{/if}}
+    </div>
+    {{#if territory.weather.custom}}
+    <div class="tw-temps">
+      <label><span class="mono-label">Average</span><span class="tw-unit"><input type="number" data-weather-temp="base" value="{{territory.weather.base}}" {{#unless editable}}disabled{{/unless}}>&deg;{{territory.weather.unit}}</span></label>
+      <label data-tooltip="How far the seasons take it above and below the average"><span class="mono-label">Season swing</span><span class="tw-unit"><input type="number" min="0" data-weather-temp="swing" value="{{territory.weather.swing}}" {{#unless editable}}disabled{{/unless}}>&deg;{{territory.weather.unit}}</span></label>
+      <label data-tooltip="How far one turn can stray from the season"><span class="mono-label">Turn to turn</span><span class="tw-unit"><input type="number" min="0" data-weather-temp="spread" value="{{territory.weather.spread}}" {{#unless editable}}disabled{{/unless}}>&deg;{{territory.weather.unit}}</span></label>
+    </div>
+    <div class="tw-chances">
+      {{#each territory.weather.chances as |c|}}
+      <label class="tw-chance"><i class="fa-solid {{c.icon}}"></i><span class="tw-label">{{c.label}}</span>
+        <input type="number" min="0" name="system.weather.weights.{{c.key}}" value="{{c.weight}}" {{#unless @root.editable}}disabled{{/unless}}>
+        <span class="tw-share">{{c.share}}%</span></label>
+      {{/each}}
+    </div>
+    <p class="hint">Chances are shares of the total. At freezing, rain falls as snow; snow needs freezing, and heat haze needs {{territory.weather.hazeAt}}.</p>
+    {{else}}
+    <p class="hint">{{territory.weather.summary}}</p>
+    {{/if}}
+  </div>
+
+  {{!-- Each side's facilities, quick viewed on the card (Johnald, 2026-10-08). --}}
+  <h4 class="section-title">Facilities</h4>
+  <div class="territory-facilities">
+    {{#each territory.facilities as |side|}}
+    <div class="facility-list {{side.key}}" data-facility-side="{{side.key}}">
+      <header><span class="mono-label">{{side.label}}</span>
+        {{#if @root.editable}}<button type="button" class="ghost" data-action="addFacility" data-side="{{side.key}}"><i class="fa-solid fa-plus"></i> Add</button>{{/if}}</header>
+      {{#each side.auto as |a|}}<p class="facility-auto {{#if a.down}}down{{/if}}">{{a.name}} <small>{{a.note}}</small></p>{{/each}}
+      {{#each side.rows as |f|}}
+      <div class="facility-row" data-facility-index="{{f.index}}">
+        <input type="text" data-facility-field="name" value="{{f.name}}" placeholder="{{side.placeholder}}" {{#unless @root.editable}}disabled{{/unless}}>
+        <input type="text" data-facility-field="note" value="{{f.note}}" placeholder="Note" {{#unless @root.editable}}disabled{{/unless}}>
+        <label class="check" data-tooltip="Struck through on the card"><input type="checkbox" data-facility-field="down" {{checked f.down}} {{#unless @root.editable}}disabled{{/unless}}><span>{{side.down}}</span></label>
+        <label class="check" data-tooltip="Only the GM sees it on the card, until the players learn of it"><input type="checkbox" data-facility-field="hidden" {{checked f.hidden}} {{#unless @root.editable}}disabled{{/unless}}><span>GM only</span></label>
+        {{#if @root.editable}}<button type="button" class="icon" data-action="removeFacility" data-tooltip="Remove"><i class="fa-solid fa-xmark"></i></button>{{/if}}
+      </div>
+      {{else}}
+      {{#unless side.auto.length}}<p class="drop-hint">None yet.</p>{{/unless}}
+      {{/each}}
+    </div>
+    {{/each}}
+  </div>
+
+  {{!-- The territory card's intel (Johnald, 2026-10-08): a linked journal, or one named like the territory. --}}
+  <h4 class="section-title">Journal</h4>
+  <div class="territory-journal tree-drop" data-journal-drop>
+    {{#if territory.journal.linked}}
+    <span class="neighbor-chip"><i class="fa-solid fa-book-open"></i> <a data-action="openJournal">{{territory.journal.name}}</a>
+      {{#if editable}}<button type="button" class="icon" data-action="unlinkJournal" data-tooltip="Unlink it"><i class="fa-solid fa-xmark"></i></button>{{/if}}</span>
+    {{else}}
+    <p class="drop-hint">{{#if territory.journal.matched}}Showing <a data-action="openJournal">{{territory.journal.name}}</a>, named like this territory. {{/if}}Drop a journal entry or page here to show it on the territory's card.{{#unless territory.journal.matched}} With none, the card shows the description.{{/unless}}</p>
+    {{/if}}
+  </div>
+
+  <h4 class="section-title">On the map</h4>
+  <label class="wide-field" data-tooltip="The region on a War Room map that is this territory. Left blank, a region with the same name is used."><span>Drawn as</span>
+    <select name="system.region">{{selectOptions territory.regionChoices selected=system.region blank=territory.regionBlank}}</select></label>
+  <label class="wide-field" data-tooltip="The image across the top of the territory's card"><span>Header image</span>
+    <file-picker name="system.art" type="image" value="{{system.art}}"></file-picker></label>
+  {{#if system.art}}<img class="territory-art-preview" src="{{system.art}}" alt="">{{/if}}
+</section>

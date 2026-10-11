@@ -1,0 +1,9 @@
+<div class="irop-card event-chat-card kind-{{kindKey}}">
+  {{!-- A card revealed, played or discarded (Strategy Layer step 6, 2026-10-08). --}}
+  <header class="card-head with-img"><img src="{{img}}" alt="">
+    <div><span class="card-sub">{{kind}} {{action}}{{#if where}}: {{where}}{{/if}}</span><h3>{{name}}</h3></div></header>
+  {{#if text}}<div class="event-text">{{{text}}}</div>{{/if}}
+  {{#if effects}}<p class="event-effects">{{effects}}</p>{{/if}}
+  {{#if discardText}}<p class="event-effects">{{discardText}}</p>{{/if}}
+  {{#if until}}<p class="support-hint">{{until}}</p>{{/if}}
+</div>

@@ -1,0 +1,86 @@
+[
+  {
+    "name": "Armory Refit", "type": "project", "img": "icons/svg/sword.svg", "folder": ["Projects", "Research"],
+    "system": {
+      "kind": "research", "status": "available", "cost": 100,
+      "specialization": ["mechanics", "technology"], "advancement": "Weaponry, Armor", "unlocks": "Weapon and Armor Modifications",
+      "description": "<p>With the base up and running we've begun taking stock of our equipment's capabilities. While a majority of it survived intact some important tools did not. Sourcing sufficient replacements won't be too difficult and allow us to create some basic modifications and get the most out of what we have before we can create something new.</p>"
+    }
+  },
+  {
+    "name": "SAM Site", "type": "project", "img": "icons/svg/target.svg", "folder": ["Projects", "Engineering"],
+    "system": {
+      "kind": "engineering", "status": "available", "cost": 60, "builds": "regional",
+      "specialization": ["mechanics", "technology"],
+      "description": "<p>A Surface-to-Air Missile Site can interdict aircraft and force them to move in less than ideal ways to respond to problems safely. Increases the time it takes for GENESIS to respond via air and decreases the strength of Reprisals in this area.</p><p>Affects only the region it is built in.</p>"
+    }
+  },
+  {
+    "name": "Training Facility", "type": "project", "img": "icons/svg/statue.svg", "folder": ["Projects", "Engineering"],
+    "system": {
+      "kind": "engineering", "status": "available", "cost": 100, "builds": "base",
+      "specialization": ["tactics", "history"],
+      "description": "<p>Any ODR operative under 200 XP is immediately brought up to 200 XP. All new characters start at 200 XP.</p>"
+    }
+  },
+  {
+    "name": "Locate Research Salvage", "type": "project", "img": "icons/svg/item-bag.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "short", "status": "available", "cost": 20, "reveals": "Recover research salvage",
+      "description": "<p>Locate specific resources the ODR needs to achieve victory, often in greater quantities than what can be found on most missions.</p>" }
+  },
+  {
+    "name": "Find Alloy Salvage", "type": "project", "img": "icons/svg/item-bag.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "short", "status": "available", "cost": 20, "reveals": "Recover alloy salvage",
+      "description": "<p>Locate specific resources the ODR needs to achieve victory, often in greater quantities than what can be found on most missions.</p>" }
+  },
+  {
+    "name": "Locate Aetherite Stockpile", "type": "project", "img": "icons/svg/item-bag.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "short", "status": "available", "cost": 20, "reveals": "Raid the Aetherite stockpile",
+      "description": "<p>Locate specific resources the ODR needs to achieve victory, often in greater quantities than what can be found on most missions.</p>" }
+  },
+  {
+    "name": "Collect Intel", "type": "project", "img": "icons/svg/item-bag.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "short", "status": "available", "cost": 20, "reveals": "Seize the intelligence",
+      "description": "<p>Locate specific resources the ODR needs to achieve victory, often in greater quantities than what can be found on most missions.</p>" }
+  },
+  {
+    "name": "Locate Valuable Items", "type": "project", "img": "icons/svg/item-bag.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "short", "status": "available", "cost": 20, "reveals": "Recover the valuables",
+      "description": "<p>Locate specific resources the ODR needs to achieve victory, often in greater quantities than what can be found on most missions.</p>" }
+  },
+  {
+    "name": "Find Logistics Cache", "type": "project", "img": "icons/svg/item-bag.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "short", "status": "available", "cost": 20, "reveals": "Recover the Logistics cache",
+      "description": "<p>Locate specific resources the ODR needs to achieve victory, often in greater quantities than what can be found on most missions.</p>" }
+  },
+  {
+    "name": "Locate GENESIS Assets", "type": "project", "img": "icons/svg/eye.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "long", "status": "available", "cost": 50, "reveals": "Strike the GENESIS asset",
+      "description": "<p>Locate major assets, counter Dark Events, or stop a regional crisis.</p>" }
+  },
+  {
+    "name": "Counter Dark Events", "type": "project", "img": "icons/svg/eye.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "long", "status": "available", "cost": 50, "reveals": "",
+      "description": "<p>Locate major assets, counter Dark Events, or stop a regional crisis.</p>" }
+  },
+  {
+    "name": "Identify Source of Regional Crisis", "type": "project", "img": "icons/svg/eye.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "long", "status": "available", "cost": 50, "reveals": "Stop the regional crisis",
+      "description": "<p>Locate major assets, counter Dark Events, or stop a regional crisis.</p>" }
+  },
+  {
+    "name": "Locate Major Collaborator", "type": "project", "img": "icons/svg/eye.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "long", "status": "available", "cost": 50, "reveals": "Extract or eliminate the collaborator",
+      "description": "<p>Locate major assets, counter Dark Events, or stop a regional crisis.</p>" }
+  },
+  {
+    "name": "Identify Vulnerable Supply Depot", "type": "project", "img": "icons/svg/eye.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "long", "status": "available", "cost": 50, "reveals": "Hit the supply depot",
+      "description": "<p>Locate major assets, counter Dark Events, or stop a regional crisis.</p>" }
+  },
+  {
+    "name": "Cultivate Faction Favor", "type": "project", "img": "icons/svg/eye.svg", "folder": ["Projects", "Intelligence"],
+    "system": { "kind": "intelligence", "term": "long", "status": "available", "cost": 50, "reveals": "",
+      "description": "<p>Locate major assets, counter Dark Events, or stop a regional crisis.</p>" }
+  }
+]

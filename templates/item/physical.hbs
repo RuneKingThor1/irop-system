@@ -1,0 +1,21 @@
+<div class="form-grid physical">
+  {{#unless onShelf}}<label><span>Quantity</span><input type="number" name="system.quantity" value="{{system.quantity}}"></label>{{/unless}}
+  <label><span>Weight</span><input type="number" step="0.1" name="system.weight" value="{{system.weight}}"></label>
+  <label class="check" data-tooltip="Hidden by nature (a knife, a holdout pistol): it does not count toward concealment"><input type="checkbox" name="system.concealable" {{checked system.concealable}}><span>Concealable</span></label>
+  {{#unless onShelf}}
+  <label class="check"><input type="checkbox" name="system.equipped" {{checked system.equipped}}><span>Equipped</span></label>
+  <label class="check"><input type="checkbox" name="system.stowed" {{checked system.stowed}}><span>Stowed</span></label>
+  {{/unless}}
+</div>
+{{#if onShelf}}<p class="hint">On a store's shelf: how many the store has is its Stock there, on the store's Manage page.</p>{{/if}}
+{{!-- A price in each currency, and which may buy it (Johnald, 2026-10-10). A currency buys it only when ticked and priced. --}}
+<fieldset class="price-grid">
+  <legend>Price</legend>
+  {{#each config.currencies as |c key|}}
+  <div class="price-cell">
+    <label class="check" data-tooltip="Untick so {{c.label}} cannot buy it"><input type="checkbox" name="system.accepts.{{key}}" {{checked (lookup ../system.accepts key)}}><span>{{c.label}}</span></label>
+    <input type="number" name="system.prices.{{key}}" value="{{lookup ../system.prices key}}" min="0" step="1">
+  </div>
+  {{/each}}
+  <p class="hint">Its price in each currency, 0 for none. A store charges its preferred currency, and a player may pay with any other ticked one the item has a price in.</p>
+</fieldset>

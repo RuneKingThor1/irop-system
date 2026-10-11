@@ -1,0 +1,25 @@
+<div class="irop-dialog pool-dialog">
+  {{#if lede}}<p class="lede">{{lede}}</p>{{/if}}
+  <label class="row"><span>Difficulty</span>
+    <select name="difficulty">{{#each difficulties as |d|}}<option value="{{d.key}}" {{#if d.selected}}selected{{/if}}>{{d.label}}</option>{{/each}}</select></label>
+
+  <div class="dice-inputs">
+    {{#each dice as |d|}}
+    <label class="die-input polarity-{{d.polarity}}">
+      <span class="irop-die die-{{d.key}}"></span>
+      <span class="die-name">{{d.name}} <em>d{{d.sides}}</em></span>
+      <input type="number" name="pool.{{d.key}}" value="{{d.count}}" min="0" max="20">
+    </label>
+    {{/each}}
+  </div>
+  <p class="hint">Opposed by an NPC? Add its Aptitude dice to Difficulty and its Skill dice to Obstacle. The GM can spend banked Danger or Defeat to upgrade Difficulty dice into Obstacle dice.</p>
+
+  <div class="pool-preview"></div>
+  <p class="nigh-warning" hidden>
+    {{#if victoryHeld}}Nigh Impossible: someone in the squad holds a Victory, so the attempt is allowed.
+    {{else}}Nigh Impossible needs someone in the active squad to hold a Victory point, and nobody does.{{/if}}
+  </p>
+
+  <label class="row"><span>Roll mode</span>
+    <select name="mode">{{selectOptions modes selected=mode valueAttr="value" labelAttr="label"}}</select></label>
+</div>

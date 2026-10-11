@@ -1,0 +1,77 @@
+<div class="territory-card">
+  {{!-- Style A (Johnald, 2026-10-08): the territory card, floating over the map. The header is the GM's image,
+        or a banner in the holder's colour; the journal's intel sits under the numbers (Johnald, 2026-10-08). --}}
+  <header class="tc-header control-{{controlKey}} {{#if art}}with-art{{/if}} {{#if canEditArt}}editable{{/if}}"
+    {{#if canEditArt}}data-action="editArt" data-tooltip="Change the header image"{{/if}}>
+    {{#if art}}<img class="tc-art" src="{{art}}" alt="">{{/if}}
+    <div class="tc-header-text">
+      <span class="tc-name">{{name}}</span>
+      <span class="tc-sub">{{kind}}, {{control}}</span>
+    </div>
+    {{#if canEditArt}}<i class="fa-solid fa-image tc-art-edit" inert></i>{{/if}}
+    {{#if weather}}
+    {{!-- This turn's weather (Johnald, 2026-10-08: "something fun"). The GM can roll it again. --}}
+    <div class="tc-weather wx-{{weather.key}} {{#if canReroll}}rerollable{{/if}}" {{#if canReroll}}data-action="rerollWeather" data-tooltip="This turn's weather. Click for new weather."{{else}}data-tooltip="This turn's weather"{{/if}}>
+      <i class="fa-solid {{weather.icon}} wx-icon"></i>
+      <span class="wx-temp">{{weather.temp}}&deg;<small>{{weather.unit}}</small></span>
+      <span class="wx-text"><span class="wx-label">{{weather.label}}</span>
+        <span class="wx-detail">{{weather.other}}, wind {{weather.wind}} mph {{weather.direction}}{{#if weather.season}}, {{weather.season}}{{/if}}</span></span>
+    </div>
+    {{/if}}
+  </header>
+  <div class="tc-body">
+    <div class="tc-columns">
+    <div class="tc-stats">
+    <div class="tc-row"><span>Heat</span><span>{{heatLabel}}</span></div>
+    <div class="tc-pips" data-tooltip="{{heatResponse}}">{{#each heatPips as |on|}}<span class="tc-pip {{#if on}}on{{/if}}"></span>{{/each}}</div>
+    {{#if pending}}<p class="tc-pending" data-tooltip="Heat from this turn's actions lands when the next turn starts">Heat {{pending}}</p>{{/if}}
+    <div class="tc-row"><span>Strength</span><span>{{strength}} / {{strengthMax}}</span></div>
+    <div class="tc-track"><span style="width: {{strengthPct}}%"></span></div>
+    <div class="tc-row"><span>Reputation</span><span>{{reputation}}</span></div>
+    {{#if megacity}}<div class="tc-row"><span>Objectives taken</span><span>{{objectives}} of 3</span></div>{{/if}}
+    {{#if modifiers}}<p class="tc-mods">{{modifiers}}</p>{{/if}}
+    {{#if incursion}}<p class="tc-incursion"><i class="fa-solid fa-triangle-exclamation"></i> {{incursion}}</p>{{/if}}
+    {{#if base}}<p class="tc-base"><i class="fa-solid fa-flag"></i> Liberated: an ODR base</p>{{/if}}
+    {{#if landmark}}<p class="tc-landmark {{#unless base}}dormant{{/unless}}" {{#unless base}}data-tooltip="Its bonus once the Megacity is liberated"{{/unless}}><i class="fa-solid fa-landmark"></i> {{landmark}}{{#if landmarkBonus}}: {{landmarkBonus}}{{/if}}</p>{{/if}}
+    {{#each cards as |c|}}<p class="tc-event"><i class="fa-solid fa-layer-group"></i> {{c.name}} <small>{{c.until}}</small></p>{{/each}}
+    </div>
+    {{!-- Facilities at a glance (Johnald, 2026-10-08): each side's, struck through when destroyed or lost. --}}
+    <div class="tc-facilities">
+      <h4 class="tc-fac-head rebellion"><i class="fa-solid fa-people-group"></i> {{sides.rebellion.label}}</h4>
+      <ul class="tc-fac-list">
+        {{#each facilities.rebellion as |f|}}
+        <li class="{{#if f.down}}down{{/if}} {{#if f.auto}}auto{{/if}} {{#if f.hidden}}hidden-fac{{/if}}" {{#if f.down}}data-tooltip="{{@root.sides.rebellion.down}}"{{/if}}>
+          {{#if f.hidden}}<i class="fa-solid fa-eye-slash" data-tooltip="Only you see this"></i> {{/if}}<span class="fac-name">{{f.name}}</span>{{#if f.note}} <small>{{f.note}}</small>{{/if}}</li>
+        {{else}}<li class="none">None known</li>{{/each}}
+      </ul>
+      <h4 class="tc-fac-head genesis"><i class="fa-solid fa-tower-observation"></i> {{sides.genesis.label}}</h4>
+      <ul class="tc-fac-list">
+        {{#each facilities.genesis as |f|}}
+        <li class="{{#if f.down}}down{{/if}} {{#if f.auto}}auto{{/if}} {{#if f.hidden}}hidden-fac{{/if}}" {{#if f.down}}data-tooltip="{{#if f.auto}}Taken{{else}}{{@root.sides.genesis.down}}{{/if}}"{{/if}}>
+          {{#if f.hidden}}<i class="fa-solid fa-eye-slash" data-tooltip="Only you see this"></i> {{/if}}<span class="fac-name">{{f.name}}</span>{{#if f.note}} <small>{{f.note}}</small>{{/if}}</li>
+        {{else}}<li class="none">None known</li>{{/each}}
+      </ul>
+    </div>
+    </div>
+    {{#if neighbours.length}}
+    {{!-- The territories bordering it (Johnald, 2026-10-10), coloured by who holds them; each opens its card. --}}
+    <section class="tc-neighbours">
+      <h4 class="tc-intel-head">Neighboring {{units}}</h4>
+      <div class="tc-nb-list">{{#each neighbours as |n|}}<button type="button" class="tc-nb control-{{n.control}}" data-action="neighbour" data-id="{{n.id}}" data-tooltip="{{n.label}}. Open its card"><span class="tc-nb-dot"></span>{{n.name}}</button>{{/each}}</div>
+    </section>
+    {{/if}}
+    {{#if intel}}
+    <section class="tc-intel">
+      <h4 class="tc-intel-head">Intel{{#if intel.title}} <small>{{intel.title}}</small>{{/if}}</h4>
+      {{#if intel.hidden}}<p class="tc-classified"><i class="fa-solid fa-lock"></i> No intel on file.</p>
+      {{else}}<div class="tc-intel-text">{{{intel.html}}}</div>{{/if}}
+      {{#if intel.uuid}}<a class="tc-journal-link" data-action="openJournal" data-uuid="{{intel.uuid}}"><i class="fa-solid fa-book-open"></i> Open the journal</a>{{/if}}
+    </section>
+    {{/if}}
+    <div class="tc-actions">
+      {{#if canLiberate}}<button type="button" class="tc-open tc-liberate" data-action="liberate"><i class="fa-solid fa-flag"></i> Liberate</button>{{/if}}
+      {{#if canPlan}}<button type="button" class="tc-open" data-action="plan"><i class="fa-solid fa-crosshairs"></i> Plan a mission here</button>{{/if}}
+      {{#if canOpen}}<button type="button" class="tc-open" data-action="openSheet"><i class="fa-solid fa-file-lines"></i> Open its sheet</button>{{/if}}
+    </div>
+  </div>
+</div>

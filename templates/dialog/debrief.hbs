@@ -1,0 +1,22 @@
+<div class="irop-debrief">
+  {{!-- RULED 2026-10-08: mission rewards are entered at the debrief. --}}
+  <p class="hint">{{label}} in {{territory}}. {{#if rewards}}Rewards: {{rewards}}{{/if}}</p>
+  <div class="form-grid">
+    <label><span>Outcome</span><select name="outcome">{{selectOptions outcomes selected=defaults.outcome}}</select></label>
+    <label data-tooltip="Lands at the start of next turn"><span>Heat raised</span><select name="heat">{{selectOptions heatClasses selected=defaults.heat}}</select></label>
+    <label><span>Logistics gained</span><input type="number" name="logistics" value="0" min="0"></label>
+    <label><span>Intel gained</span><input type="number" name="intel" value="0" min="0"></label>
+    <label data-tooltip="Successful missions raise it; undeniable failures, or civilians hurt, lower it"><span>Reputation</span>
+      <select name="reputation">{{selectOptions reputationSteps selected=defaults.reputation}}</select></label>
+    <label data-tooltip="Each adds {{salvagePercent}}% of the research under way's cost"><span>Salvage recovered</span><input type="number" name="salvage" value="0" min="0"></label>
+  </div>
+  {{#if defaults.objectives.length}}
+  <label class="wide-field" data-tooltip="Doc: all three taken liberate the Megacity"><span>Objective taken</span>
+    <select name="objective"><option value="">None</option>{{#each defaults.objectives as |o|}}<option value="{{o.key}}">{{o.label}}</option>{{/each}}</select></label>
+  {{/if}}
+  {{#if defaults.incursion}}<p class="hint">A success breaks the Incursion. Anything else and it goes on, landing in its time.</p>{{/if}}
+  {{#if defaults.response}}
+  <label class="check-row" data-tooltip="It leaves play without its discard effect"><input type="checkbox" name="countered" checked> <span>Countered: take the card out of play</span></label>
+  {{/if}}
+  <label class="wide-field"><span>Notes</span><input type="text" name="notes" placeholder="What happened, for the log"></label>
+</div>

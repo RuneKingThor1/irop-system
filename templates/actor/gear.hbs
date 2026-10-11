@@ -1,0 +1,97 @@
+<section class="tab gear {{tab.cssClass}}" data-group="primary" data-tab="gear">
+
+  {{!-- Carried weight moved to the header, under Background, so it shows on every tab (Johnald, 2026-10-09). --}}
+
+  {{#if isOperative}}
+  <div class="panel wealth">
+    <header class="panel-head"><h3>Wealth</h3></header>
+    <div class="wealth-row">
+      <label><span class="mono-label">Credits</span><input type="number" name="system.wealth.credits" value="{{system.wealth.credits}}"></label>
+      <label><span class="mono-label">Valuables</span><input type="number" name="system.wealth.valuables" value="{{system.wealth.valuables}}"></label>
+      <label><span class="mono-label">Alien Alloys</span><input type="number" name="system.wealth.alloys" value="{{system.wealth.alloys}}"></label>
+    </div>
+  </div>
+  {{/if}}
+
+  <div class="panel">
+    <header class="panel-head">
+      <h3>Gear</h3>
+      {{!-- Players may make simple gear of their own, a trinket say (Johnald, 2026-10-10). --}}
+      {{#if editable}}<button type="button" class="ghost" data-action="createItem" data-type="gear" {{#unless gmEditable}}data-tooltip="Make a trinket of your own: you name, picture and describe it"{{/unless}}><i class="fa-solid fa-plus"></i> Add</button>{{/if}}
+    </header>
+    <ol class="item-list">
+      {{#each gear as |g|}}
+      <li class="item-row gear-row draggable" data-item-id="{{g.id}}">
+        <div class="row-main">
+          <img class="item-img" src="{{g.img}}" alt="">
+          <div class="item-name">
+            <a data-action="editItem">{{g.name}}</a>
+            <span class="item-sub" {{#if g.system.formula}}data-tooltip="{{g.formulaWords}}"{{/if}}>{{g.kindLabel}}{{#if g.system.formula}} · {{g.formulaText}}{{/if}}{{#if g.ammoText}} · {{g.ammoText}}{{/if}}</span>
+          </div>
+          <label class="qty" data-tooltip="Quantity">x <input type="number" data-item-field="system.quantity" value="{{g.system.quantity}}"></label>
+          <span class="stat-chip" data-tooltip="Weight each">{{g.system.weight}} wt</span>
+          <div class="row-controls">
+            {{#if g.system.formula}}<button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-hand-holding-medical"></i> Use</button>
+            {{else}}{{#if g.system.consumable}}<button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-hand"></i> Use</button>{{/if}}{{/if}}
+            <button type="button" class="icon" data-action="toggleStow" data-tooltip="Stow"><i class="fa-solid fa-box-archive"></i></button>
+            <button type="button" class="icon" data-action="postItem" data-tooltip="Post to chat"><i class="fa-solid fa-comment"></i></button>
+            {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
+          </div>
+        </div>
+      </li>
+      {{else}}
+      <li class="empty-row">No gear.</li>
+      {{/each}}
+    </ol>
+  </div>
+
+  <div class="panel">
+    <header class="panel-head">
+      <h3>Loose mods</h3>
+      {{#if gmEditable}}<button type="button" class="ghost" data-action="createItem" data-type="mod"><i class="fa-solid fa-plus"></i> Add</button>{{/if}}
+    </header>
+    <ol class="item-list compact">
+      {{#each looseMods as |m|}}
+      <li class="item-row mod-row draggable" data-item-id="{{m.id}}">
+        <div class="row-main">
+          <img class="item-img" src="{{m.img}}" alt="">
+          <div class="item-name"><a data-action="editItem">{{m.name}}</a><span class="item-sub">{{m.targetLabel}}</span></div>
+          <span class="stat-chip">{{m.system.weight}} wt</span>
+          <div class="row-controls">
+            <button type="button" class="icon" data-action="toggleStow" data-tooltip="Stow"><i class="fa-solid fa-box-archive"></i></button>
+            {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
+          </div>
+        </div>
+      </li>
+      {{else}}
+      <li class="empty-row">No loose mods.</li>
+      {{/each}}
+    </ol>
+  </div>
+
+  {{!-- Everything stowed, of any kind, out of its usual list and off the carried weight (Johnald, 2026-10-07). --}}
+  <div class="panel stowed-panel">
+    <header class="panel-head">
+      <h3 data-tooltip="Stowed items do not count toward carried weight">Stowed</h3>
+    </header>
+    <ol class="item-list compact">
+      {{#each stowed as |x|}}
+      <li class="item-row stowed-row draggable" data-item-id="{{x.id}}">
+        <div class="row-main">
+          <img class="item-img" src="{{x.img}}" alt="">
+          <div class="item-name"><a data-action="editItem">{{x.name}}</a><span class="item-sub">{{x.typeLabel}}</span></div>
+          {{#if x.showQty}}<label class="qty" data-tooltip="Quantity">x <input type="number" data-item-field="system.quantity" value="{{x.system.quantity}}"></label>{{/if}}
+          <span class="stat-chip" data-tooltip="Weight each">{{x.system.weight}} wt</span>
+          <div class="row-controls">
+            <button type="button" class="icon on" data-action="toggleStow" data-tooltip="Take out of stowage"><i class="fa-solid fa-box-open"></i></button>
+            <button type="button" class="icon" data-action="postItem" data-tooltip="Post to chat"><i class="fa-solid fa-comment"></i></button>
+            {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
+          </div>
+        </div>
+      </li>
+      {{else}}
+      <li class="empty-row">Nothing stowed.</li>
+      {{/each}}
+    </ol>
+  </div>
+</section>

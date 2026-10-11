@@ -1,0 +1,25 @@
+<section class="tab details {{tab.cssClass}}" data-group="primary" data-tab="details">
+  <div class="form-grid">
+    <label><span>Kind</span><select name="system.kind">{{selectOptions (object active="Active" passive="Passive") selected=system.kind}}</select></label>
+    <label><span>Source</span><select name="system.source">{{selectOptions config.abilitySources selected=system.source}}</select></label>
+    <label><span>Tree</span><input type="text" name="system.tree" value="{{system.tree}}" placeholder="Pointman"></label>
+    <label><span>Tier</span><input type="number" name="system.tier" value="{{system.tier}}"></label>
+    <label><span>Rank</span><input type="number" name="system.rank" value="{{system.rank}}"></label>
+    <label><span>Action</span><select name="system.actionType">{{selectOptions config.actionTypes selected=system.actionType}}</select></label>
+    <label><span>Energy cost</span><input type="number" name="system.energyCost" value="{{system.energyCost}}"></label>
+    <label data-tooltip="Tiles"><span>Range</span><input type="number" name="system.range" value="{{system.range}}"></label>
+    <label data-tooltip="Tiles"><span>Area</span><input type="number" name="system.area" value="{{system.area}}"></label>
+    <label data-tooltip="0 for unlimited"><span>Uses max</span><input type="number" name="system.uses.max" value="{{system.uses.max}}"></label>
+    <label><span>Uses left</span><input type="number" name="system.uses.value" value="{{system.uses.value}}"></label>
+  </div>
+  <label class="wide-field"><span>Prerequisites</span><input type="text" name="system.prerequisites" value="{{system.prerequisites}}" placeholder="None"></label>
+
+  <h4 class="section-title">Paraphysics</h4>
+  <div class="form-grid">
+    <label><span>Discipline</span><select name="system.paraphysics.discipline">{{selectOptions config.disciplines selected=system.paraphysics.discipline blank="Not paraphysical"}}</select></label>
+    <label class="check"><input type="checkbox" name="system.paraphysics.attack" {{checked system.paraphysics.attack}}><span>Makes an attack (CHA)</span></label>
+    <label data-tooltip="+40 makes the attack 40 easier"><span>Accuracy</span><input type="number" name="system.paraphysics.accuracy" value="{{system.paraphysics.accuracy}}"></label>
+    <label><span>Damage</span><input type="text" name="system.paraphysics.damage.formula" value="{{system.paraphysics.damage.formula}}" placeholder="2d4 + @cha.mod"></label>
+    <label><span>Damage type</span><select name="system.paraphysics.damage.type">{{selectOptions damageTypes selected=system.paraphysics.damage.type}}</select></label>
+  </div>
+</section>

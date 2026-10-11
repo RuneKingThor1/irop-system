@@ -1,0 +1,136 @@
+{
+  "id": "irop",
+  "title": "Insurrection: Retake Our Planet",
+  "description": "The native game system for Insurrection: Retake Our Planet. d100 roll under combat, DYNOSRS skill dice, operatives, the six ODR doctrines, and the gear of the resistance.",
+  "version": "0.1.0",
+  "authors": [
+    {
+      "name": "RuneKingThor1"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "14.368"
+  },
+  "esmodules": [
+    "module/irop.mjs"
+  ],
+  "styles": [
+    "styles/irop.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "documentTypes": {
+    "Actor": {
+      "operative": {
+        "htmlFields": [
+          "details.biography",
+          "details.notes"
+        ]
+      },
+      "npc": {
+        "htmlFields": [
+          "details.biography",
+          "details.notes"
+        ]
+      },
+      "store": {
+        "htmlFields": [
+          "description"
+        ]
+      }
+    },
+    "Item": {
+      "weapon": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "armor": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "gear": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "mod": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "ability": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "species": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "role": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "background": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "boon": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "mutation": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "skillTree": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "territory": {
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "project": {
+        "htmlFields": [
+          "description"
+        ]
+      }
+    },
+    "Card": {
+      "event": {
+        "htmlFields": [
+          "description"
+        ]
+      }
+    }
+  },
+  "grid": {
+    "type": 1,
+    "distance": 1,
+    "units": "tiles",
+    "diagonals": 0
+  },
+  "primaryTokenAttribute": "vitals.hp",
+  "secondaryTokenAttribute": "vitals.energy",
+  "initiative": "1d20 + @agi.mod + @lck.mod + @initiativeBonus",
+  "socket": true,
+  "url": "https://github.com/RuneKingThor1/irop-system",
+  "manifest": "https://github.com/RuneKingThor1/irop-system/releases/latest/download/system.json",
+  "download": "https://github.com/RuneKingThor1/irop-system/releases/latest/download/irop.zip"
+}

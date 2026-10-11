@@ -1,0 +1,116 @@
+[
+  {
+    "name": "Supply Drop",
+    "img": "icons/svg/chest.svg",
+    "description": "<p>A Resistance cell intercepts a GENESIS supply convoy and shares the haul.</p><p><em>Example card: replace it with your own.</em></p>",
+    "system": {
+      "kind": "event",
+      "effect": {
+        "logistics": 10
+      }
+    }
+  },
+  {
+    "name": "Distress Call",
+    "img": "icons/svg/sound.svg",
+    "description": "<p>A Resistance cell is pinned down and calling for help. The ODR can answer it as a Tactical Action before it leaves play.</p><p><em>Example card: replace it with your own.</em></p>",
+    "system": {
+      "kind": "event",
+      "persistent": true,
+      "negative": true,
+      "respond": true,
+      "discard": {
+        "reputation": -1
+      },
+      "discardText": "No one came. The people remember."
+    }
+  },
+  {
+    "name": "Uprising",
+    "img": "icons/svg/fire.svg",
+    "description": "<p>The people rise against their overseers. The Resistance's name spreads, and GENESIS notices.</p><p><em>Example card: replace it with your own.</em></p>",
+    "system": {
+      "kind": "event",
+      "persistent": true,
+      "effect": {
+        "reputation": 1
+      },
+      "discard": {
+        "heat": 1
+      },
+      "discardText": "GENESIS answers the uprising."
+    }
+  },
+  {
+    "name": "GENESIS Propaganda",
+    "img": "icons/svg/eye.svg",
+    "description": "<p>Broadcasts paint the Resistance as terrorists. Doc: GENESIS Propaganda lowers Reputation.</p><p><em>Example card: replace it with your own.</em></p>",
+    "system": {
+      "kind": "dark",
+      "negative": true,
+      "effect": {
+        "reputation": -1
+      }
+    }
+  },
+  {
+    "name": "Reprisal",
+    "img": "icons/svg/explosion.svg",
+    "description": "<p>GENESIS strikes back at a territory that defied it. Answer it as a Tactical Action, or pay when it leaves play.</p><p><em>Example card: replace it with your own.</em></p>",
+    "system": {
+      "kind": "dark",
+      "persistent": true,
+      "reprisal": true,
+      "negative": true,
+      "respond": true,
+      "discard": {
+        "logistics": -20
+      },
+      "discardText": "If not stopped, one Engineering upgrade here is destroyed."
+    }
+  },
+  {
+    "name": "Crackdown",
+    "img": "icons/svg/padlock.svg",
+    "description": "<p>GENESIS floods a territory with troops and checkpoints, when the GM chooses.</p><p><em>Example card: replace it with your own.</em></p>",
+    "system": {
+      "kind": "dark",
+      "discretionary": true,
+      "negative": true,
+      "effect": {
+        "strength": 1,
+        "heat": 1
+      }
+    }
+  },
+  {
+    "name": "Ion Storm",
+    "img": "icons/svg/lightning.svg",
+    "description": "<p>A storm of charged particles blinds sensors and radios across the region for a week. GENESIS patrols lose their eyes; so do the Resistance's listening posts.</p><p><em>Example card: replace it with your own.</em></p>",
+    "system": {
+      "kind": "world",
+      "worldwide": true,
+      "effect": {
+        "heat": -1,
+        "intel": -5
+      }
+    }
+  },
+  {
+    "name": "Refugee Column",
+    "img": "icons/svg/walk.svg",
+    "description": "<p>Thousands flee a collapsing district. GENESIS diverts troops to control the roads, and the Resistance shares what it can.</p><p><em>Example card: replace it with your own.</em></p>",
+    "system": {
+      "kind": "world",
+      "persistent": true,
+      "effect": {
+        "strength": -1,
+        "logistics": -5
+      },
+      "discard": {
+        "reputation": 1
+      },
+      "discardText": "The people remember who fed them."
+    }
+  }
+]

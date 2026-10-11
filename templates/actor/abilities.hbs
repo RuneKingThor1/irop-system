@@ -1,0 +1,123 @@
+<section class="tab abilities {{tab.cssClass}}" data-group="primary" data-tab="abilities">
+
+  <div class="panel">
+    <header class="panel-head">
+      <h3>Active abilities</h3>
+      {{#if gmEditable}}<button type="button" class="ghost" data-action="createItem" data-type="ability" data-kind="active"><i class="fa-solid fa-plus"></i> Add</button>{{/if}}
+    </header>
+    <ol class="item-list">
+      {{#each activeAbilities as |a|}}
+      {{!-- Click the name to drop down what the ability does, as spells do on the 5e sheet
+            (Johnald, 2026-10-08); the icon opens the ability itself. --}}
+      <li class="item-row ability-row draggable {{#if a.expanded}}expanded{{/if}}" data-item-id="{{a.id}}" {{#if a.accent}}style="--row-accent: {{a.accent}}"{{/if}}>
+        <div class="row-main">
+          <img class="item-img" src="{{a.img}}" alt="" data-action="editItem" data-tooltip="Open the ability">
+          <div class="item-name summary-toggle" data-action="toggleSummary" role="button" tabindex="0" aria-expanded="{{#if a.expanded}}true{{else}}false{{/if}}">
+            <span class="ability-name">{{a.name}}<i class="fa-solid fa-chevron-down summary-chevron" inert></i></span>
+            <span class="item-sub">{{a.sourceLabel}}{{#if a.system.tree}} · {{a.system.tree}}{{/if}}{{#if a.discipline}} · {{a.discipline}}{{/if}} · {{a.actionLabel}}</span>
+          </div>
+          {{#if a.system.energyCost}}<span class="stat-chip energy" data-tooltip="Energy cost">{{a.system.energyCost}} EN</span>{{/if}}
+          {{#if a.system.range}}<span class="stat-chip" data-tooltip="Range in tiles">{{a.system.range}} T</span>{{/if}}
+          {{#if a.system.area}}<span class="stat-chip" data-tooltip="Area in tiles">AOE {{a.system.area}}</span>{{/if}}
+          {{!-- Uses left, typed in on the sheet: the ability's own Details tab is the GM's (2026-10-10). --}}
+          {{#if a.system.uses.max}}<span class="stat-chip uses" data-tooltip="Uses left">{{#if @root.editable}}<input type="number" data-item-field="system.uses.value" value="{{a.system.uses.value}}" min="0" max="{{a.system.uses.max}}" step="1">{{else}}{{a.system.uses.value}}{{/if}}/{{a.system.uses.max}}</span>{{/if}}
+          <div class="row-controls">
+            <button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-bolt"></i> Use</button>
+            {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
+          </div>
+        </div>
+        <div class="ability-summary">
+          <div class="summary-body">
+            {{#if a.system.prerequisites}}<p class="summary-prereq"><span class="mono-label">Prerequisites</span> {{a.system.prerequisites}}</p>{{/if}}
+            {{#if a.descriptionHTML}}{{{a.descriptionHTML}}}{{else}}<p class="hint">No description yet.</p>{{/if}}
+          </div>
+        </div>
+      </li>
+      {{else}}
+      <li class="empty-row">No active abilities.</li>
+      {{/each}}
+    </ol>
+  </div>
+
+  <div class="panel">
+    <header class="panel-head">
+      <h3>Passive perks</h3>
+      {{#if gmEditable}}<button type="button" class="ghost" data-action="createItem" data-type="ability" data-kind="passive"><i class="fa-solid fa-plus"></i> Add</button>{{/if}}
+    </header>
+    {{!-- A grid of tiles, not a list (Johnald, 2026-10-08): a long career's perks stay compact.
+          Just the icon and name (Johnald, 2026-10-08); hover for what the perk does, click to open. --}}
+    <ol class="perk-grid">
+      {{#each passiveAbilities as |a|}}
+      <li class="perk-tile draggable" data-item-id="{{a.id}}" {{#if a.accent}}style="--row-accent: {{a.accent}}"{{/if}} {{#if a.tip}}data-tooltip="{{a.tip}}"{{/if}}>
+        <img src="{{a.img}}" alt="" data-action="editItem">
+        <a class="perk-tile-name" data-action="editItem">{{a.name}}</a>
+        <span class="perk-tile-controls">
+          <button type="button" class="icon" data-action="postItem" data-tooltip="Post to chat"><i class="fa-solid fa-comment"></i></button>
+          {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
+        </span>
+      </li>
+      {{else}}
+      <li class="empty-row">No passive perks.</li>
+      {{/each}}
+    </ol>
+  </div>
+
+  {{!-- Boons and Mutations, moved here from the Dossier (Johnald, 2026-10-08). NPCs keep theirs on their Notes tab. --}}
+  {{#if isOperative}}
+  {{#if (or showBoons showMutations)}}
+  <div class="{{#if (and showBoons showMutations)}}two-col{{/if}}">
+    {{#if showBoons}}
+    <div class="panel">
+      <header class="panel-head"><h3>Boons</h3>
+        {{#if strayBoons}}<span class="hint warn">Only Humans take boons; this species does not. Remove these.</span>{{/if}}</header>
+      <ol class="item-list compact">
+        {{#each boons as |b|}}
+        <li class="item-row draggable" data-item-id="{{b.id}}">
+          <div class="row-main">
+            <img class="item-img" src="{{b.img}}" alt="">
+            <div class="item-name"><a data-action="editItem">{{b.name}}</a></div>
+            <span class="stat-chip">{{b.text}}</span>
+            {{#if @root.editable}}<div class="row-controls"><button type="button" class="icon" data-action="deleteItem"><i class="fa-solid fa-trash"></i></button></div>{{/if}}
+          </div>
+        </li>
+        {{else}}<li class="empty-row">No boons.</li>{{/each}}
+      </ol>
+    </div>
+    {{/if}}
+    {{#if showMutations}}
+    <div class="panel">
+      <header class="panel-head"><h3>Mutations</h3>
+        {{#if strayMutations}}<span class="hint warn">Only Mutants carry mutations; this species does not. Remove these.</span>{{/if}}</header>
+      <ol class="item-list compact">
+        {{#each mutations as |m|}}
+        <li class="item-row draggable mutation-{{m.polarity}}" data-item-id="{{m.id}}">
+          <div class="row-main">
+            <img class="item-img" src="{{m.img}}" alt="">
+            <div class="item-name"><a data-action="editItem">{{m.name}}</a><span class="item-sub">{{m.polarity}}</span></div>
+            {{#if @root.editable}}<div class="row-controls"><button type="button" class="icon" data-action="deleteItem"><i class="fa-solid fa-trash"></i></button></div>{{/if}}
+          </div>
+        </li>
+        {{else}}<li class="empty-row">No mutations.</li>{{/each}}
+      </ol>
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+  {{/if}}
+
+  {{!-- Only for characters with the Paraphysical tag, or in edit mode (Johnald, 2026-10-08). --}}
+  {{#if showParaphysics}}
+  <div class="panel paraphysics">
+    <header class="panel-head"><h3>Paraphysics</h3></header>
+    <div class="discipline-row">
+      {{#each disciplines as |d|}}
+      <label class="discipline">
+        <span class="mono-label">{{d.label}}</span>
+        {{#if @root.editMode}}<input type="number" name="system.paraphysics.{{d.key}}" value="{{d.rank}}">
+        {{else}}<span class="stat-value">{{d.rank}}</span>{{/if}}
+      </label>
+      {{/each}}
+    </div>
+  </div>
+  {{/if}}
+</section>

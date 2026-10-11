@@ -1,0 +1,44 @@
+<section class="tab bio {{tab.cssClass}}" data-group="primary" data-tab="bio">
+  {{#if (or showBoons showMutations)}}
+  <div class="{{#if (and showBoons showMutations)}}two-col{{/if}}">
+    {{#if showBoons}}
+    <div class="panel">
+      <header class="panel-head"><h3>Boons</h3>
+        {{#if strayBoons}}<span class="hint warn">Only Humans take boons; this species does not.</span>{{/if}}</header>
+      <ol class="item-list compact">
+        {{#each boons as |b|}}
+        <li class="item-row draggable" data-item-id="{{b.id}}">
+          <div class="row-main"><img class="item-img" src="{{b.img}}" alt="">
+            <div class="item-name"><a data-action="editItem">{{b.name}}</a></div><span class="stat-chip">{{b.text}}</span>
+            {{#if @root.editable}}<div class="row-controls"><button type="button" class="icon" data-action="deleteItem"><i class="fa-solid fa-trash"></i></button></div>{{/if}}</div>
+        </li>
+        {{else}}<li class="empty-row">No boons.</li>{{/each}}
+      </ol>
+    </div>
+    {{/if}}
+    {{#if showMutations}}
+    <div class="panel">
+      <header class="panel-head"><h3>Mutations</h3>
+        {{#if strayMutations}}<span class="hint warn">Only mutants carry mutations; set a caste or a mutant species.</span>{{/if}}</header>
+      <ol class="item-list compact">
+        {{#each mutations as |m|}}
+        <li class="item-row draggable mutation-{{m.polarity}}" data-item-id="{{m.id}}">
+          <div class="row-main"><img class="item-img" src="{{m.img}}" alt="">
+            <div class="item-name"><a data-action="editItem">{{m.name}}</a><span class="item-sub">{{m.polarity}}</span></div>
+            {{#if @root.editable}}<div class="row-controls"><button type="button" class="icon" data-action="deleteItem"><i class="fa-solid fa-trash"></i></button></div>{{/if}}</div>
+        </li>
+        {{else}}<li class="empty-row">No mutations.</li>{{/each}}
+      </ol>
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+  <div class="panel">
+    <header class="panel-head"><h3>Description</h3></header>
+    <prose-mirror name="system.details.biography" value="{{system.details.biography}}" toggled>{{{biography}}}</prose-mirror>
+  </div>
+  <div class="panel">
+    <header class="panel-head"><h3>GM notes</h3></header>
+    <prose-mirror name="system.details.notes" value="{{system.details.notes}}" toggled>{{{notes}}}</prose-mirror>
+  </div>
+</section>

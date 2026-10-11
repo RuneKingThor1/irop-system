@@ -1,0 +1,26 @@
+<div class="irop-card support-card {{status}}">
+  {{!-- Support called in a tactical battle (Strategy Layer step 3, 2026-10-08). A player's request waits for the GM. --}}
+  <header class="card-head"><h3><i class="{{icon}}"></i> {{label}}</h3><span class="card-sub">Support, {{cost}} Logistics</span></header>
+  <p class="support-effect">{{effect}}</p>
+  {{#if note}}<p class="support-note"><span>Asked for</span> {{note}}</p>{{/if}}
+  {{#if pending}}
+  <p class="support-status">{{by}} requests it. Waiting for the GM.</p>
+  <div class="card-buttons">
+    <button type="button" data-irop-action="supportApprove" data-gm-only><i class="fa-solid fa-check"></i> Approve</button>
+    <button type="button" data-irop-action="supportDecline" data-gm-only><i class="fa-solid fa-xmark"></i> Decline</button>
+  </div>
+  {{/if}}
+  {{#if approved}}
+  <p class="support-status">{{#if gm}}Called in by the GM{{else}}Approved for {{by}}{{/if}}: {{cost}} Logistics spent, {{left}} left.</p>
+  {{#if canFire}}
+  {{#if markers}}
+  <p class="support-hint">Fire, then set the three strikes down on the map, one at a time: areas that do not overlap.</p>
+  {{else}}
+  <p class="support-hint">Mark three areas on the map that do not overlap, then fire.</p>
+  {{/if}}
+  <div class="card-buttons"><button type="button" data-irop-action="mortarFire"><i class="fa-solid fa-burst"></i> Fire the strikes</button></div>
+  {{/if}}
+  {{#if fired}}<p class="support-hint">Fired.</p>{{/if}}
+  {{/if}}
+  {{#if declined}}<p class="support-status">Declined. No Logistics spent.</p>{{/if}}
+</div>

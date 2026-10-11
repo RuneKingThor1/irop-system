@@ -1,0 +1,116 @@
+<section class="tab bio {{tab.cssClass}}" data-group="primary" data-tab="bio">
+
+  {{!-- RULED 2026-10-08: the Dossier holds the role's perk trees and the XP ledger, laid out as
+        the approved mockup (Option 1): XP across the top, the trees in tabs, tiers top to bottom.
+        Boons and Mutations moved to the Abilities tab, Notes to a tab of their own. --}}
+  {{#if isOperative}}
+  {{!-- One slim bar (Johnald, 2026-10-08): the three numbers inline, a meter of what is spent, Award at the end. --}}
+  <div class="xp-bar">
+    <span class="xp-title">Experience</span>
+    <div class="xp-stat" data-tooltip="Set by the GM">
+      <span class="mono-label">Earned</span>
+      {{#if (and editMode isGM)}}<input type="number" name="system.xp.earned" value="{{system.xp.earned}}">
+      {{else}}<span class="xp-num">{{system.xp.earned}}</span>{{/if}}
+    </div>
+    <div class="xp-stat" data-tooltip="Everything bought, from the ledger below">
+      <span class="mono-label">Spent</span><span class="xp-num">{{system.xp.spent}}</span>
+    </div>
+    <div class="xp-stat unspent {{#if (lt system.xp.unspent 0)}}over{{/if}}">
+      <span class="mono-label">Unspent</span><span class="xp-num">{{system.xp.unspent}}</span>
+    </div>
+    <div class="xp-meter" data-tooltip="{{xpSpentPct}}% of earned XP spent"><span class="xp-meter-fill" style="width: {{xpSpentPct}}%"></span></div>
+    {{#if isGM}}<button type="button" class="ghost" data-action="awardXp"><i class="fa-solid fa-plus"></i> Award XP</button>{{/if}}
+  </div>
+
+  {{#*inline "perkButton"}}
+  <button type="button" class="perk {{state}} {{#if canBuy}}buyable{{/if}} {{#if unmet}}unmet{{/if}}" data-action="perkNode" data-node-id="{{id}}" data-tooltip="{{reason}}">
+    <span class="perk-icon"><img src="{{img}}" alt="">{{#if unmet}}<i class="fa-solid fa-lock perk-lock" inert></i>{{/if}}</span>
+    <span class="perk-text"><span class="perk-name">{{name}}</span><span class="perk-sub">{{sub}}</span></span>
+  </button>
+  {{/inline}}
+  <div class="panel skill-trees">
+    <header class="panel-head"><h3>Perk Trees</h3>
+    </header>
+    {{#if trees.length}}
+    <nav class="tree-tabs">
+      {{#each trees as |t|}}
+      <a class="tree-tab {{#if t.active}}active{{/if}} {{#if t.lock}}locked{{/if}}" data-action="showTree" data-tree-id="{{t.id}}" {{#if t.lock}}data-tooltip="{{t.lock}}"{{/if}}>
+        {{#if t.lock}}<i class="fa-solid fa-lock"></i> {{/if}}{{t.label}}</a>
+      {{/each}}
+      {{#if crossTrain}}
+      <select class="cross-train" data-browse-tree data-tooltip="Look at another role's specialization">
+        <option value="">Other roles...</option>
+        {{#each crossTrain as |o|}}<option value="{{o.id}}" {{#if o.selected}}selected{{/if}}>{{o.label}}</option>{{/each}}
+      </select>
+      {{/if}}
+    </nav>
+    {{#each trees as |t|}}
+    <div class="tree-view {{#if t.active}}active{{/if}}" data-tree-id="{{t.id}}">
+      {{#if (or t.lock t.enterNote t.canReset)}}
+      <div class="tree-banner">
+        {{#if t.lock}}<span class="tree-lock"><i class="fa-solid fa-lock"></i> {{t.lock}}</span>{{/if}}
+        {{#if t.enterNote}}<span class="tree-note">{{t.enterNote}}</span>{{/if}}
+        {{#if t.canReset}}<button type="button" class="ghost" data-action="resetTree"><i class="fa-solid fa-rotate-left"></i> Reset this tree</button>{{/if}}
+      </div>
+      {{/if}}
+      {{#if t.freeForm}}
+      {{!-- No tiers (Johnald, 2026-10-08): lines of perks, each needing the one before, then the rest. --}}
+      {{#each t.lines as |line|}}
+      <div class="tree-line {{#if line.exclusive}}exclusive{{/if}}">
+        {{#each line.nodes as |n|}}
+        {{#if n.or}}<span class="tier-or">or</span>{{/if}}
+        {{#if n.chained}}<i class="fa-solid fa-chevron-right line-arrow" inert></i>{{/if}}
+        {{> perkButton n}}
+        {{/each}}
+      </div>
+      {{/each}}
+      {{#if t.singles.length}}
+      <div class="tree-singles">
+        {{#each t.singles as |n|}}{{> perkButton n}}{{/each}}
+      </div>
+      {{/if}}
+      {{#unless (or t.lines.length t.singles.length)}}<p class="empty-row">This tree has no perks yet.</p>{{/unless}}
+      {{else}}
+      {{#each t.tiers as |tier|}}
+      <div class="tree-tier {{#if tier.exclusive}}exclusive{{/if}}">
+        <span class="tier-label">Tier {{tier.number}}{{#if tier.exclusive}}<em>Pick one</em>{{/if}}</span>
+        <div class="tier-nodes">
+          {{#each tier.nodes as |n|}}
+          {{#if n.or}}<span class="tier-or">or</span>{{/if}}
+          {{> perkButton n}}
+          {{/each}}
+        </div>
+      </div>
+      {{else}}
+      <p class="empty-row">This tree has no perks yet.</p>
+      {{/each}}
+      {{/if}}
+    </div>
+    {{/each}}
+    {{else}}
+    <p class="empty-row">{{#if roleKey}}No perk trees for this role yet.{{else}}Drop a role on the sheet to see its perk trees.{{/if}}{{#if isGM}} A GM makes trees in the Items sidebar: create an item of type Perk Tree.{{/if}}</p>
+    {{/if}}
+  </div>
+
+  {{!-- Folds away on a click of its header, and stays as each user left it (Johnald, 2026-10-08). --}}
+  <div class="panel xp-ledger {{#if ledgerOpen}}open{{/if}}">
+    <header class="panel-head ledger-toggle" data-action="toggleLedger" role="button" tabindex="0" aria-expanded="{{#if ledgerOpen}}true{{else}}false{{/if}}">
+      <h3>Ledger</h3><span class="ledger-count">{{ledgerCount}}</span><i class="fa-solid fa-chevron-down summary-chevron" inert></i>
+    </header>
+    <div class="ledger-body"><div class="ledger-inner">
+    <ol class="xp-log">
+      {{#each xpLog as |e|}}
+      <li class="xp-entry {{#if e.award}}award{{/if}}" data-log-index="{{e.index}}">
+        <span class="xp-date">{{e.date}}</span>
+        <span class="xp-label">{{e.label}}</span>
+        <span class="xp-amount">{{e.amount}}</span>
+        {{#if @root.isGM}}<button type="button" class="icon" data-action="refundXp" data-tooltip="{{e.undoTip}}"><i class="fa-solid fa-rotate-left"></i></button>{{/if}}
+      </li>
+      {{else}}
+      <li class="empty-row">Nothing spent yet. In Play mode, click the next pip on an attribute or skill, or a perk above, to buy it.</li>
+      {{/each}}
+    </ol>
+    </div></div>
+  </div>
+  {{/if}}
+</section>

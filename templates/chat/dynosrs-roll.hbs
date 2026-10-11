@@ -1,0 +1,47 @@
+<div class="irop-card dynosrs-card outcome-{{outcome}}">
+  {{#if isPrivate}}
+  <header class="card-head"><h3>DYNOSRS check</h3></header>
+  <p class="private">Rolled privately.</p>
+  {{else}}
+  <header class="card-head">
+    <h3>{{label}}</h3>
+    <span class="card-sub">{{#if subtitle}}{{subtitle}} · {{/if}}{{poolText}}</span>
+  </header>
+
+  <ol class="dice-row">
+    {{#each dice as |d|}}
+    <li class="irop-die-face die-{{d.key}} polarity-{{d.polarity}}" data-tooltip="{{d.tooltip}}">
+      {{#each d.symbols as |s|}}<i class="{{s.icon}} sym-{{s.key}}" title="{{s.label}}"></i>{{else}}<span class="blank"></span>{{/each}}
+    </li>
+    {{/each}}
+  </ol>
+
+  <div class="result-banner">
+    <span class="result-word">{{outcomeLabel}}</span>
+    <span class="net">
+      {{#each net as |n|}}<span class="net-sym sym-{{n.key}}" data-tooltip="{{n.label}}"><i class="{{n.icon}}"></i>{{n.count}}</span>{{else}}<em>nothing left</em>{{/each}}
+    </span>
+  </div>
+  {{#if summary}}<p class="summary">{{summary}}</p>{{/if}}
+  {{#if victoriesSpent}}<p class="summary">Victory turned {{victoriesSpent}} failure{{#if (gt victoriesSpent 1)}}s{{/if}} into success.</p>{{/if}}
+
+  {{#if banking.length}}
+  <div class="banking">
+    {{#each banking as |b|}}
+    <div class="bank-row sym-{{b.symbol}}">
+      <span><i class="{{b.icon}}"></i> {{b.amount}} {{b.label}} {{#if b.gm}}for the GM{{/if}}, bank holds {{b.cap}}</span>
+      {{#if b.done}}<span class="banked">Banked</span>
+      {{else}}{{#if (or b.gm @root.canBank)}}<button type="button" data-irop-action="bank" data-symbol="{{b.symbol}}" data-amount="{{b.amount}}">Bank</button>{{/if}}{{/if}}
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  {{#if showDefeat}}
+  <div class="gm-option">
+    <span><i class="fa-solid fa-skull"></i> Defeat: the GM may turn this pass into a failure, or bank it.</span>
+    <button type="button" data-irop-action="applyDefeat">Fail it</button>
+  </div>
+  {{/if}}
+  {{/if}}
+</div>

@@ -1,0 +1,16 @@
+<div class="irop-card mission-card">
+  {{!-- The generated mission (Strategy Layer step 5, 2026-10-08): the week's Tactical Action and what waits there. --}}
+  <header class="card-head"><span class="card-sub">Mission briefing, turn {{week}}</span><h3>{{label}}</h3></header>
+  <p class="mission-where"><i class="fa-solid fa-location-dot"></i> <strong>{{territory}}</strong>{{#if kind}}, {{kind}}{{/if}}{{#if control}}, {{control}}{{/if}}</p>
+  <dl class="mission-intel">
+    {{#if date}}<dt>Date</dt><dd>{{date}}</dd>{{/if}}
+    <dt>Heat</dt><dd><strong>{{heat}}.</strong> {{heatResponse}}</dd>
+    <dt>Strength</dt><dd><strong>{{strength}} of {{strengthMax}}, {{band}}.</strong> {{bandText}}</dd>
+    <dt>Reputation</dt><dd><strong>{{reputation}}.</strong> {{reputationEffect}}</dd>
+    {{#if weather}}<dt>Weather</dt><dd>{{weather}}</dd>{{/if}}
+    {{#if modifiers}}<dt>Known</dt><dd>{{modifiers}}</dd>{{/if}}
+    {{#if rewards}}<dt>Rewards</dt><dd>{{rewards}}</dd>{{/if}}
+    {{#if heatClass}}<dt>Heat it draws</dt><dd>{{heatClass}}</dd>{{/if}}
+  </dl>
+  {{#if by}}<p class="support-hint">Chosen by {{by}}.</p>{{/if}}
+</div>

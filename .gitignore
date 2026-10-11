@@ -1,0 +1,5 @@
+# Built by pack.py, and by the release workflow for each version; never committed.
+irop.zip
+system.release.json
+__pycache__/
+node_modules/

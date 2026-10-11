@@ -1,0 +1,16 @@
+<div class="irop-card mission-card debrief outcome-{{outcome}}">
+  {{!-- The debrief (Strategy Layer step 5, 2026-10-08): rewards entered by the GM, landed in the War Room. --}}
+  <header class="card-head"><span class="card-sub">Debrief, turn {{week}}</span><h3>{{label}}</h3></header>
+  <p class="mission-where"><i class="fa-solid fa-location-dot"></i> <strong>{{territory}}</strong>: <span class="mission-outcome">{{outcomeLabel}}</span></p>
+  <ul class="debrief-lines">
+    {{#if logistics}}<li class="gain">+{{logistics}} Logistics</li>{{/if}}
+    {{#if intel}}<li class="gain">+{{intel}} Intel</li>{{/if}}
+    {{#if heatLabel}}<li class="heat">Heat: {{heatLabel}}</li>{{/if}}
+    {{#if reputationLabel}}<li>Reputation {{reputationLabel}}</li>{{/if}}
+    {{#if salvage}}<li>{{salvage}} salvage{{#if salvageNote}} {{salvageNote}}{{/if}}</li>{{/if}}
+    {{#if counteredNote}}<li class="gain">{{counteredNote}}</li>{{/if}}
+    {{#if objectiveNote}}<li class="gain">{{objectiveNote}}</li>{{/if}}
+    {{#if incursionNote}}<li class="{{#if (eq incursion "broken")}}gain{{else}}heat{{/if}}">{{incursionNote}}</li>{{/if}}
+  </ul>
+  {{#if notes}}<p class="support-note">{{notes}}</p>{{/if}}
+</div>

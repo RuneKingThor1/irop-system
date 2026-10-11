@@ -1,0 +1,2564 @@
+@import url("https://fonts.googleapis.com/css2?family=Jura:wght@400;500;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap");
+
+/* ==========================================================================
+   Insurrection: Retake Our Planet
+   One palette, carried over from the approved Sandbox skin. The role accent
+   (--irop-accent) is set per sheet from the operative's doctrine.
+   ========================================================================== */
+
+:root {
+  --irop-bg: #0a0c0f;
+  --irop-panel: #12161d;
+  --irop-panel-2: #171c25;
+  --irop-sunk: #0d1116;
+  --irop-line: #242c38;
+  --irop-line-bright: #33404f;
+  --irop-ink: #dce1e9;
+  --irop-ink-bright: #f4f7fb;
+  /* True white, kept out of the slate remap: the numbers on the coloured vital bars (Johnald, 2026-10-07). */
+  --irop-white: #f4f7fb;
+  --irop-white-dim: #dce1e9;
+  --irop-muted: #8a93a3;
+  --irop-faint: #5b6472;
+  --irop-orange: #ec8f33;
+  --irop-sky: #42abf2;
+  --irop-good: #5fb85f;
+  --irop-bad: #d64f4f;
+  --irop-warn: #d9b234;
+  --irop-grid: rgba(58, 92, 133, 0.12);
+
+  --irop-display: "Rajdhani", system-ui, sans-serif;
+  --irop-mono: "Share Tech Mono", ui-monospace, Consolas, monospace;
+
+  /* Small text, raised 2026-10-07 for readability (Johnald): labels such as
+     HEALTH and CRITICAL at 13px, secondary text at 12px, both in a lighter slate
+     than the old muted grey. Use these rather than a fixed size under 12px. */
+  --irop-label-size: 13px;
+  --irop-small-size: 12px;
+  --irop-label-ink: #aab3c1;
+
+  /* The two liveries, by name. ODR sky and navy, GENESIS black, red and gold are
+     the ruled values from docs/species/genesis-theme.html. ODR silver had no
+     value on record; it is the record terminal's tag silver. GENESIS grey is the
+     livery's muted ink, used only to outline the black die. */
+  --odr-sky: #42abf2;
+  --odr-navy: #0d1522;
+  --odr-silver: #b9c4c8;
+  --genesis-black: #070606;
+  --genesis-red: #c4121c;
+  --genesis-gold: #c9a45a;
+  --genesis-grey: #9a8f88;
+
+  /* DYNOSRS dice. RULED 2026-10-06: the player's dice in Eclipse colours, the
+     opposition's in GENESIS colours. Each die has a fill and an edge; the edge
+     only differs where the fill would vanish against a dark sheet (navy, black). */
+  --die-assistance: var(--odr-silver);
+  --die-assistance-edge: var(--odr-silver);
+  --die-aptitude: var(--odr-navy);
+  --die-aptitude-edge: var(--odr-sky);
+  --die-skill: var(--odr-sky);
+  --die-skill-edge: var(--odr-sky);
+  --die-hindrance: var(--genesis-black);
+  --die-hindrance-edge: var(--genesis-grey);
+  --die-difficulty: var(--genesis-red);
+  --die-difficulty-edge: var(--genesis-red);
+  --die-obstacle: var(--genesis-gold);
+  --die-obstacle-edge: var(--genesis-gold);
+
+  /* Symbols. */
+  --sym-success: #6fd06f;
+  --sym-failure: #e05656;
+  --sym-edge: #8fd3ff;
+  --sym-danger: #c58cff;
+  --sym-victory: #ffd34d;
+  --sym-defeat: #ff4d5a;
+}
+
+/* --------------------------------------------------------------------------
+   Window frame
+   -------------------------------------------------------------------------- */
+
+.application.irop {
+  /* RULED 2026-10-07 (Johnald): no white text in the system's windows. What was
+     white (ink and ink-bright) is the slate of the attribute score's ones digit.
+     Chat cards, outside these windows, keep their white. */
+  --irop-ink: var(--irop-muted);
+  --irop-ink-bright: var(--irop-muted);
+  --irop-accent: var(--irop-sky);
+  --input-background-color: var(--irop-sunk);
+  --input-border-color: var(--irop-line-bright);
+  --input-text-color: var(--irop-ink);
+  font-family: var(--irop-display);
+  color: var(--irop-ink);
+  background: var(--irop-bg);
+}
+
+/* Foundry gives the class .application only to windows with a frame, so the system's frameless
+   pieces (the War Room bar, the project strip, the date bar) and its chat cards never got the
+   accent above, and everything drawn in it was invisible: the project strip's bars filled with no
+   colour (bug, 2026-10-08). They take the same accent here. */
+.irop-war-room-bar, .irop-project-strip, .irop-date-bar, .irop-card { --irop-accent: var(--irop-sky); }
+
+/* Scrollbars wear the role colour (Johnald, 2026-10-08). Core sets scrollbar-color on every
+   element inside a cascade layer, so this plain rule wins; --irop-accent is set per sheet
+   from the doctrine (ODR sky when there is none). */
+.application.irop, .application.irop * { scrollbar-color: var(--irop-accent) transparent; }
+
+.application.irop .window-header {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--irop-accent) 22%, var(--irop-panel)), var(--irop-panel));
+  border-bottom: 1px solid var(--irop-line-bright);
+  color: var(--irop-ink-bright);
+  font-family: var(--irop-mono);
+  letter-spacing: 0.04em;
+}
+
+.application.irop .window-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(var(--irop-grid) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, var(--irop-grid) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--irop-bg);
+}
+
+.irop input[type="text"],
+.irop input[type="number"],
+.irop select {
+  background: var(--irop-sunk);
+  border: 1px solid var(--irop-line-bright);
+  color: var(--irop-ink);
+  font-family: var(--irop-display);
+  font-size: 14px;
+  border-radius: 3px;
+  height: 26px;
+  padding: 0 6px;
+}
+.irop input[type="number"] { text-align: center; }
+.irop input:focus, .irop select:focus { border-color: var(--irop-accent); box-shadow: 0 0 0 1px var(--irop-accent); outline: none; }
+.irop input:disabled { opacity: 0.6; }
+
+/* Buttons are styled inside the window body only. Foundry's title bar buttons carry their
+   Font Awesome icon on the button itself (class fa-solid), and a font-family set here would
+   replace the icon font and blank them. :where() scopes without adding specificity, so
+   class rules such as .skill-roll, .attr-roll, .pip and .status still override these. */
+.irop :where(.window-content) button {
+  font-family: var(--irop-display);
+  font-weight: 600;
+  color: var(--irop-ink);
+  background: var(--irop-panel-2);
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1;
+}
+.irop :where(.window-content) button:hover:not(:disabled) { border-color: var(--irop-accent); color: var(--irop-ink-bright); box-shadow: 0 0 6px color-mix(in srgb, var(--irop-accent) 45%, transparent); }
+.irop :where(.window-content) button:disabled { cursor: default; }
+
+.irop .mono-label {
+  font-family: var(--irop-mono);
+  font-size: var(--irop-label-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--irop-label-ink);
+}
+.irop .hint { color: var(--irop-muted); font-size: var(--irop-label-size); font-style: normal; }
+.irop .hint.warn { color: var(--irop-warn); }
+.irop .stat-value { font-family: var(--irop-mono); font-size: 16px; color: var(--irop-ink-bright); }
+
+/* --------------------------------------------------------------------------
+   Header
+   -------------------------------------------------------------------------- */
+
+.irop .irop-header {
+  display: grid;
+  /* The portrait column follows the vitals column's height (set by the sheet). */
+  grid-template-columns: var(--irop-portrait, 112px) 1fr 300px;
+  gap: 12px;
+  padding: 12px 14px 10px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--irop-accent) 10%, var(--irop-panel)), var(--irop-panel));
+  border-bottom: 2px solid var(--irop-accent);
+  flex: 0 0 auto;
+}
+.irop .portrait {
+  width: var(--irop-portrait, 112px);
+  height: var(--irop-portrait, 112px);
+  object-fit: cover;
+  object-position: 50% 0;
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px var(--irop-bg), 0 0 14px color-mix(in srgb, var(--irop-accent) 35%, transparent);
+  cursor: pointer;
+}
+.irop .portrait.small { width: 64px; height: 64px; }
+.irop .identity { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.irop .name-row { display: flex; gap: 8px; align-items: center; }
+.irop .actor-name {
+  flex: 1;
+  height: 38px !important;
+  font-size: 26px !important;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--irop-ink-bright) !important;
+  text-align: left !important;
+}
+.irop .actor-name:hover { border-color: var(--irop-line) !important; }
+.irop .mode-toggle { height: 28px; padding: 0 10px; display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.irop .mode-toggle.active { background: color-mix(in srgb, var(--irop-orange) 25%, var(--irop-panel-2)); border-color: var(--irop-orange); }
+.irop .subline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.irop .field-inline { display: flex; gap: 6px; align-items: center; }
+.irop .field-inline.grow { flex: 1; }
+.irop .field-inline.grow input { flex: 1; }
+/* Role, Species and Background as a labelled list, one to a line (Johnald, 2026-10-08), the
+   labels lined up with Callsign's. The role wears the role colour. */
+.irop .identity .subline:not(.npc-line) .mono-label { min-width: 92px; }
+.irop .identity-list { margin: 0; display: flex; flex-direction: column; }
+.irop .identity-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  min-height: 34px;
+  border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 70%, transparent);
+}
+.irop .identity-row:last-child { border-bottom: none; }
+.irop .identity-row dt { margin: 0; }
+.irop .identity-row dd { margin: 0; min-width: 0; display: flex; align-items: center; gap: 4px; }
+.irop .identity-link { min-width: 0; display: inline-flex; align-items: center; gap: 8px; color: var(--irop-ink-bright); }
+.irop .identity-link img { flex: none; width: 28px; height: 28px; border: 1px solid var(--irop-line-bright); border-radius: 4px; object-fit: cover; }
+.irop .identity-link span { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irop .identity-link:hover span { color: var(--irop-accent); }
+.irop .identity-row.role .identity-link span { color: var(--irop-accent); }
+.irop .identity-row.role .identity-link img { border-color: var(--irop-accent); }
+.irop .identity-empty { font-size: 14px; color: var(--irop-faint); font-style: italic; }
+/* Edit mode buttons on a line: remove, and the starting skills (2026-10-08). */
+.irop :where(.window-content) .identity-btn {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--irop-muted);
+  font-size: 12px;
+  line-height: 1;
+}
+.irop :where(.window-content) .identity-btn:hover { color: var(--irop-ink-bright); background: var(--irop-panel-2); }
+.irop :where(.window-content) .identity-btn.pick { color: var(--irop-accent); }
+/* The background's perk, a star beside the background (2026-10-10). */
+.irop :where(.window-content) .identity-btn.perk { color: var(--irop-warn); }
+
+/* Background perks on the background's sheet (2026-10-10). */
+.irop .background-perks .perk-list { list-style: none; margin: 6px 0 8px; padding: 6px; min-height: 44px; display: flex; flex-direction: column; gap: 4px;
+  border: 1px dashed var(--irop-line); border-radius: 4px; }
+.irop .background-perks .perk-list.drag-over { border-color: var(--irop-accent); background: color-mix(in srgb, var(--irop-accent) 8%, transparent); }
+.irop .background-perks .perk-entry { display: flex; align-items: center; gap: 8px; padding: 3px 4px; background: var(--irop-sunk); border-radius: 3px; }
+.irop .background-perks .perk-entry img { flex: none; width: 28px; height: 28px; border: 1px solid var(--irop-line-bright); border-radius: 3px; object-fit: cover; }
+.irop .background-perks .perk-name { flex: 1; min-width: 0; font-weight: 600; color: var(--irop-ink-bright); cursor: pointer; }
+.irop .background-perks .perk-name:hover { color: var(--irop-accent); }
+.irop .background-perks .perk-entry.missing .perk-name { color: var(--irop-muted); text-decoration: line-through; }
+.irop .background-perks .perk-missing { font-size: 12px; color: var(--irop-warn); }
+.irop .background-perks .empty-row { color: var(--irop-faint); font-style: italic; padding: 6px 4px; }
+
+/* Picking a background perk (2026-10-10): one per row, its text beneath its name. */
+.irop-background-perk-dialog .perk-choices { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+.irop-background-perk-dialog .perk-choice { display: grid; grid-template-columns: auto 36px 1fr; gap: 10px; align-items: start; padding: 8px 10px;
+  border: 1px solid var(--irop-line); border-radius: 4px; background: var(--irop-sunk); cursor: pointer; }
+.irop-background-perk-dialog .perk-choice:has(input:checked) { border-color: var(--irop-sky); background: color-mix(in srgb, var(--irop-sky) 10%, var(--irop-sunk)); }
+.irop-background-perk-dialog .perk-choice input { margin-top: 10px; }
+.irop-background-perk-dialog .perk-choice img { width: 36px; height: 36px; border: 1px solid var(--irop-line-bright); border-radius: 3px; object-fit: cover; }
+.irop-background-perk-dialog .perk-choice-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.irop-background-perk-dialog .perk-choice-body strong { font-size: 16px; color: var(--irop-ink-bright); }
+.irop-background-perk-dialog .perk-choice-meta { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.06em; text-transform: uppercase; color: var(--irop-label-ink); }
+.irop-background-perk-dialog .perk-description p { margin: 4px 0 0; color: var(--irop-muted); }
+
+.irop .vitals { display: flex; flex-direction: column; gap: 4px; }
+/* The identity and vitals columns hug their content, so the portrait (sized to the taller
+   of the two) can shrink back as well as grow; stretched, they would only ever match it. */
+.irop .irop-header:not(.item-header) > .identity, .irop .irop-header:not(.item-header) > .vitals { align-self: start; }
+.irop .vital-head { display: flex; justify-content: space-between; align-items: center; }
+.irop .bonus-input { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop .bonus-input input { width: 38px; height: 18px; font-size: var(--irop-small-size); }
+.irop .vital-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr 22px;
+  align-items: center;
+  height: 22px;
+  background: var(--irop-sunk);
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.irop .vital-bar .fill { position: absolute; inset: 0 auto 0 0; opacity: 0.55; transition: width 200ms; }
+.irop .vital-hp .fill { background: linear-gradient(90deg, #7a1f24, #d64f4f); }
+/* Energy green, barrier ODR blue to match the token's barrier field (Johnald, 2026-10-10). */
+.irop .vital-energy .fill { background: linear-gradient(90deg, #2a5e2a, #5fb85f); }
+.irop .vital-armor .fill { background: linear-gradient(90deg, #4a4f57, #a7b0bd); }
+.irop .vital-barrier .fill { background: linear-gradient(90deg, #1d5f95, #42abf2); }
+.irop .vital-bar .step { position: relative; z-index: 1; height: 20px; width: 22px; padding: 0; border: none; background: transparent; font-size: 10px; color: var(--irop-white-dim); }
+.irop .vital-bar .step:hover:not(:disabled) { color: var(--irop-white); }
+.irop .vital-values { position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; gap: 2px; font-family: var(--irop-mono); }
+.irop .vital-values input { width: 40px; height: 18px; background: transparent; border: none; font-family: var(--irop-mono); font-size: 14px; color: var(--irop-white); text-align: right; }
+.irop .vital-values .max { font-size: 13px; color: var(--irop-white-dim); }
+
+.irop .tracks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin-top: 4px; }
+.irop .track { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.irop .track.luck-track { grid-column: 1 / -1; }
+
+/* Pips: luck, banks, ranks, dodges. */
+.irop .pips { display: inline-flex; gap: 3px; align-items: center; }
+.irop .pip {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 2px;
+  background: var(--irop-sunk);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: transparent;
+  transform: rotate(45deg);
+}
+.irop .pip > i { transform: rotate(-45deg); }
+.irop .pip.filled { background: var(--irop-accent); border-color: var(--irop-accent); color: var(--irop-bg); box-shadow: 0 0 6px color-mix(in srgb, var(--irop-accent) 60%, transparent); }
+.irop .pip.luck.filled { background: var(--irop-good); border-color: var(--irop-good); }
+.irop .pip.edge, .irop .pip.victory { width: 16px; height: 16px; }
+.irop .pip.edge.filled { background: var(--sym-edge); border-color: var(--sym-edge); }
+.irop .pip.victory.filled { background: var(--sym-victory); border-color: var(--sym-victory); }
+.irop .pips .none { font-family: var(--irop-mono); color: var(--irop-faint); font-style: normal; }
+
+/* --------------------------------------------------------------------------
+   Tabs
+   -------------------------------------------------------------------------- */
+
+.irop .sheet-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 10px;
+  background: var(--irop-panel);
+  border-bottom: 1px solid var(--irop-line);
+  flex: 0 0 auto;
+}
+.irop .sheet-tabs > a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px 6px;
+  font-family: var(--irop-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--irop-muted);
+  border-bottom: 2px solid transparent;
+  text-shadow: none;
+}
+.irop .sheet-tabs > a:hover { color: var(--irop-ink-bright); }
+.irop .sheet-tabs > a.active { color: var(--irop-accent); border-bottom-color: var(--irop-accent); }
+
+.irop .tab { display: none; }
+.irop .tab.active { display: block; flex: 1 1 auto; overflow-y: auto; padding: 12px 14px 18px; }
+
+/* --------------------------------------------------------------------------
+   Panels and shared rows
+   -------------------------------------------------------------------------- */
+
+.irop .panel {
+  background: color-mix(in srgb, var(--irop-panel) 88%, transparent);
+  border: 1px solid var(--irop-line);
+  border-radius: 4px;
+  padding: 8px 10px 10px;
+  margin-bottom: 12px;
+}
+.irop .panel-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; border-bottom: 1px solid var(--irop-line); padding-bottom: 4px; }
+/* The title takes the slack, so a header's buttons stay at the right with or without a hint beside it. */
+.irop .panel-head h3 { margin: 0 auto 0 0; border: none; font-size: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--irop-ink-bright); }
+.irop .panel-head .hint { flex: 1; }
+.irop :where(.window-content) button.ghost { background: transparent; height: 22px; padding: 0 8px; font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }
+.irop .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.irop .two-col > .panel { margin-bottom: 0; }
+
+.irop .item-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.irop .item-row { background: var(--irop-sunk); border: 1px solid var(--irop-line); border-left: 3px solid var(--row-accent, var(--irop-line-bright)); border-radius: 3px; }
+.irop .item-row.equipped { border-left-color: var(--irop-accent); }
+.irop .item-row.stowed, .irop .item-row.disabled { opacity: 0.5; }
+.irop .row-main { display: flex; align-items: center; gap: 8px; padding: 4px 6px; min-height: 36px; }
+.irop .item-img { width: 30px; height: 30px; border: 1px solid var(--irop-line); border-radius: 3px; object-fit: cover; flex: 0 0 auto; }
+.irop .compact .item-img { width: 24px; height: 24px; }
+.irop .compact .row-main { min-height: 30px; }
+.irop .item-name { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.irop .item-name a { font-weight: 700; font-size: 15px; color: var(--irop-ink-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irop .item-name a:hover { color: var(--irop-accent); text-shadow: none; }
+.irop .item-sub { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irop .stat-chip {
+  font-family: var(--irop-mono);
+  font-size: var(--irop-small-size);
+  padding: 2px 6px;
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 2px;
+  color: var(--irop-ink);
+  background: var(--irop-panel);
+  white-space: nowrap;
+}
+.irop .stat-chip em { color: var(--irop-orange); font-style: normal; }
+.irop .stat-chip.energy { border-color: var(--die-skill); color: var(--die-skill); }
+/* Uses left, typed in on the sheet (2026-10-10). */
+.irop .stat-chip.uses input { width: 32px; height: 18px; padding: 0 2px; font-size: 13px; text-align: center; }
+.irop .row-controls { display: flex; gap: 4px; align-items: center; }
+.irop :where(.window-content) button.icon { width: 24px; height: 24px; padding: 0; background: transparent; border-color: transparent; color: var(--irop-muted); font-size: 12px; }
+.irop :where(.window-content) button.icon:hover { color: var(--irop-ink-bright); }
+.irop :where(.window-content) button.icon.on { color: var(--irop-accent); }
+.irop :where(.window-content) button.attack, .irop :where(.window-content) button.equip-toggle { height: 26px; padding: 0 10px; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+.irop :where(.window-content) button.attack { background: color-mix(in srgb, var(--irop-accent) 18%, var(--irop-panel-2)); border-color: color-mix(in srgb, var(--irop-accent) 70%, var(--irop-line)); }
+.irop :where(.window-content) button.equip-toggle.on { color: var(--irop-accent); border-color: var(--irop-accent); }
+.irop .empty-row { color: var(--irop-faint); font-size: 13px; padding: 6px 4px; list-style: none; }
+/* Weapon and armor rows: labelled boxes in fixed columns, so each value sits under the
+   same heading on every row (Johnald, 2026-10-08). The controls keep a fixed width for
+   the same reason, whether or not a row has an Attack button. */
+.irop .item-stats { display: grid; gap: 4px; flex: none; }
+.irop .weapon-stats { grid-template-columns: 70px 96px 78px 54px 100px; }
+.irop .armor-stats { grid-template-columns: 70px 72px 56px 72px 62px; }
+.irop .deploy-stats { grid-template-columns: 70px 62px; }
+.irop .deploy-row .row-controls { min-width: 196px; justify-content: flex-end; }
+/* Weapon sections (Ranged, Melee, Special, Explosives): titled like the skill groups. */
+.irop .item-group + .item-group { margin-top: 8px; }
+.irop .item-stat .value input { width: 40px; height: 20px; font-size: 14px; }
+.irop .weapon-row .row-controls { min-width: 196px; justify-content: flex-end; }
+.irop .armor-row .row-controls { min-width: 150px; justify-content: flex-end; }
+.irop .item-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 38px;
+  padding: 2px 4px;
+  background: var(--irop-panel);
+  border: 1px solid var(--irop-line);
+  border-radius: 2px;
+}
+.irop .item-stat .label { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.06em; text-transform: uppercase; color: var(--irop-label-ink); }
+.irop .item-stat .value { display: inline-flex; align-items: center; gap: 2px; font-family: var(--irop-display); font-size: 15px; font-weight: 700; line-height: 1.1; color: var(--irop-ink-bright); white-space: nowrap; }
+.irop .item-stat.type .value { font-size: 13px; color: var(--irop-orange); }
+/* A value changed by loaded special ammo: gold, the ammo slot's color. */
+.irop .item-stat.from-ammo { border-color: color-mix(in srgb, var(--irop-warn) 60%, var(--irop-line)); }
+.irop .item-stat.from-ammo .value { color: var(--irop-warn); }
+.irop .item-stat.dim .value { color: var(--irop-faint); font-weight: 600; }
+.irop .item-stat.ammo input { width: 34px; }
+.irop .item-stat.ammo .of { font-size: 13px; color: var(--irop-muted); }
+.irop :where(.window-content) .item-stat.ammo button.icon { width: 18px; height: 18px; font-size: 11px; }
+.irop .qty { display: inline-flex; align-items: center; gap: 3px; font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); }
+.irop .qty input { width: 44px; height: 22px; }
+
+/* Mod slots are squares (Johnald, 2026-10-08): a fitted mod shows its icon, with its name
+   on hover and an unfit button in the corner; an empty slot is a dashed square. */
+.irop .mod-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 6px 6px 44px;
+  border-top: 1px dashed var(--irop-line);
+}
+.irop .mod-chip, .irop .mod-slot {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+.irop .mod-chip { border: 1px solid var(--irop-orange); background: var(--irop-panel); box-shadow: 0 0 6px color-mix(in srgb, var(--irop-orange) 30%, transparent); }
+.irop .mod-chip img { width: 100%; height: 100%; object-fit: cover; border: none; border-radius: 2px; }
+.irop :where(.window-content) .mod-chip button.icon {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  border-radius: 50%;
+  background: var(--irop-bg);
+  border: 1px solid var(--irop-orange);
+  color: var(--irop-orange);
+  opacity: 0;
+}
+.irop :where(.window-content) .mod-chip:hover button.icon,
+.irop :where(.window-content) .mod-chip:focus-within button.icon { opacity: 1; }
+.irop .mod-slot { border: 1px dashed var(--irop-line-bright); background: transparent; color: var(--irop-faint); font-size: 12px; }
+
+/* Special ammo, ranged weapons only (Johnald, 2026-10-08): one gold rectangle after the mod
+   squares, so it never reads as a mod. Empty, it is a dashed button that opens a picker. */
+.irop :where(.window-content) .ammo-slot {
+  position: relative;
+  width: 160px;
+  height: 34px;
+  margin: 0 0 0 8px;
+  padding: 0 8px 0 4px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed color-mix(in srgb, var(--irop-warn) 55%, var(--irop-line-bright));
+  border-radius: 3px;
+  background: transparent;
+  color: color-mix(in srgb, var(--irop-warn) 70%, var(--irop-muted));
+  font-family: var(--irop-mono);
+  font-size: var(--irop-small-size);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.irop :where(.window-content) .ammo-slot:not(.loaded) { justify-content: center; }
+.irop :where(.window-content) .ammo-slot.loaded {
+  border-style: solid;
+  border-color: var(--irop-warn);
+  background: var(--irop-panel);
+  color: var(--irop-ink-bright);
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--irop-warn) 30%, transparent);
+}
+.irop .ammo-slot img { width: 26px; height: 26px; object-fit: cover; border: none; border-radius: 2px; }
+.irop .ammo-slot .ammo-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--irop-display); font-size: 14px; font-weight: 700; }
+.irop .ammo-slot .ammo-count { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-warn); }
+.irop :where(.window-content) .ammo-slot button.icon {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  border-radius: 50%;
+  background: var(--irop-bg);
+  border: 1px solid var(--irop-warn);
+  color: var(--irop-warn);
+  opacity: 0;
+}
+/* Launcher slots (2026-10-08): narrower rectangles, four to a grenade launcher. A loaded
+   one is a fire button with an unload x in its corner. */
+.irop :where(.window-content) .ammo-slot.projectile { width: 128px; }
+.irop :where(.window-content) .ammo-slot .fire {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+}
+.irop :where(.window-content) .ammo-slot .fire:hover { color: var(--irop-warn); box-shadow: none; }
+.irop :where(.window-content) .ammo-slot:hover button.icon,
+.irop :where(.window-content) .ammo-slot:focus-within button.icon { opacity: 1; }
+.irop .mod-tray.drag-over, .irop .mod-tray:has(.mod-slot):hover { border-top-color: var(--irop-orange); }
+
+/* --------------------------------------------------------------------------
+   Attributes tab
+   -------------------------------------------------------------------------- */
+
+.irop .attributes { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 12px; }
+.irop .attribute { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.irop .attr-roll {
+  width: 100%;
+  /* Foundry gives every button a fixed one line height, which hid the name. */
+  height: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px 6px;
+  background: linear-gradient(180deg, var(--irop-panel-2), var(--irop-sunk));
+  border: 1px solid var(--irop-line-bright);
+  border-top: 2px solid var(--irop-accent);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+.irop .attr-roll .name { font-family: var(--irop-mono); font-size: var(--irop-label-size); letter-spacing: 0.06em; text-transform: uppercase; color: var(--irop-ink); }
+.irop .attr-roll .score { font-size: 32px; font-weight: 700; color: var(--irop-ink-bright); line-height: 1; }
+/* The tens are the attribute modifier, shown in the role color; the ones step back in slate. */
+.irop .attr-roll .score .tens { color: var(--irop-accent); }
+.irop .attr-roll .score .ones { color: var(--irop-muted); }
+.irop .attr-base { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); display: flex; align-items: center; gap: 3px; }
+.irop .attr-base input { width: 44px; height: 20px; }
+/* A boon: an ODR Silver glow inside the box. Kept on hover alongside the hover glow. */
+.irop .attr-roll.boon {
+  border-color: color-mix(in srgb, var(--odr-silver) 55%, var(--irop-line-bright));
+  border-top-color: var(--irop-accent);
+  box-shadow: inset 0 0 14px color-mix(in srgb, var(--odr-silver) 45%, transparent), inset 0 0 2px var(--odr-silver);
+}
+.irop .attr-roll.boon:hover:not(:disabled) {
+  box-shadow: inset 0 0 14px color-mix(in srgb, var(--odr-silver) 45%, transparent), inset 0 0 2px var(--odr-silver),
+    0 0 6px color-mix(in srgb, var(--irop-accent) 45%, transparent);
+}
+.irop .advance-pips .pip { width: 9px; height: 9px; }
+
+.irop .derived { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.irop .stat {
+  /* Initiative and Dodge are buttons: undo Foundry's fixed button height so they match the rest. */
+  height: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  min-width: 92px;
+  background: var(--irop-sunk);
+  border: 1px solid var(--irop-line);
+  border-radius: 3px;
+  text-align: left;
+  align-items: flex-start;
+}
+.irop .stat.wide { flex: 1; }
+/* One number to a box: it fills the space under the label, centred and large. */
+.irop .stat.big .stat-value {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--irop-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+/* Dodge's value is its pips: larger, to sit with the big numbers. */
+.irop .stat.big .stat-value.pips { gap: 6px; }
+.irop .stat.big .stat-value.pips .pip { width: 16px; height: 16px; }
+/* Every box in the attributes row has its label top and centre (Johnald, 2026-10-07). */
+.irop .derived > .stat:not(.bonuses) { justify-content: flex-start; align-items: center; text-align: center; }
+/* A separator under each label, in this row and on the attribute boxes: a tapered line in the
+   role color, thickest in the middle, fading to nothing at the edges (Johnald, 2026-10-07). */
+.irop .derived > .stat:not(.bonuses) > .mono-label,
+.irop .attr-roll .name { align-self: stretch; display: block; }
+.irop .derived > .stat:not(.bonuses) > .mono-label::after,
+.irop .attr-roll .name::after {
+  content: "";
+  display: block;
+  height: 3px;
+  margin-top: 4px;
+  background: linear-gradient(90deg, transparent, var(--irop-accent) 50%, transparent);
+  clip-path: polygon(0 50%, 50% 0, 100% 50%, 50% 100%);
+}
+.irop :where(.window-content) button.stat { cursor: pointer; }
+.irop .stat.over .stat-value { color: var(--irop-bad); }
+.irop .stat.bonuses { flex-direction: row; flex-wrap: wrap; gap: 8px; align-items: center; }
+.irop .stat.bonuses label { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-label-ink); display: flex; align-items: center; gap: 3px; }
+.irop .stat.bonuses input { width: 42px; height: 20px; }
+
+/* Movement: the three speeds as small attribute boxes, so they read at a glance. */
+.irop .stat.movement { gap: 5px; }
+.irop .speeds { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.irop .speed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 4px 5px;
+  background: linear-gradient(180deg, var(--irop-panel-2), var(--irop-sunk));
+  border: 1px solid var(--irop-line-bright);
+  border-top: 2px solid var(--irop-accent);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.irop .speed .abbr { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.12em; text-transform: uppercase; color: var(--irop-accent); }
+.irop .speed .score { font-size: 24px; font-weight: 700; color: var(--irop-ink-bright); line-height: 1; }
+.irop .speed .cost { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-label-ink); }
+
+/* Skill groups on a two column grid: Physical and Social side by side, Knowledge wide beneath
+   them with its list flowing down two columns. */
+.irop .skill-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+.irop .skill-group.wide { grid-column: 1 / -1; }
+.irop .skill-group.wide .skill-list { columns: 2; column-gap: 18px; }
+.irop .skill-group.wide .skill-row { break-inside: avoid; }
+/* Group titles: Physical, Knowledge, Social, with a role colored line that fades out to the right. */
+.irop .skill-group-title, .irop .item-group-title {
+  margin: 4px 0 2px;
+  padding-bottom: 3px;
+  border: none;
+  font-family: var(--irop-mono);
+  font-size: var(--irop-label-size);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--irop-accent);
+  background: linear-gradient(90deg, var(--irop-accent), transparent) bottom / 100% 1px no-repeat;
+}
+.irop .skill-list { list-style: none; margin: 0; padding: 0; }
+.irop .skill-row { display: grid; grid-template-columns: 1fr auto 118px; align-items: center; gap: 8px; padding: 2px 0; border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 60%, transparent); }
+/* The name sits flush left; its linked attribute, in a small box, sits flush right against the pips (Johnald, 2026-10-07). */
+.irop .skill-roll { width: 100%; display: flex; justify-content: flex-start; align-items: center; gap: 8px; background: transparent; border: none; padding: 3px 2px; text-align: left; font-size: 15px; }
+.irop .skill-roll:hover:not(:disabled) { box-shadow: none; color: var(--irop-accent); }
+.irop .skill-roll .attr {
+  flex: none;
+  margin-left: auto;
+  min-width: 38px;
+  padding: 2px 5px;
+  font-family: var(--irop-mono);
+  font-size: var(--irop-small-size);
+  line-height: 1;
+  text-align: center;
+  color: var(--irop-label-ink);
+  background: var(--irop-sunk);
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 2px;
+}
+.irop .rank-pips .pip:disabled { cursor: default; }
+.irop .pool { display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* --------------------------------------------------------------------------
+   DYNOSRS dice, small (pool previews) and chat faces
+   -------------------------------------------------------------------------- */
+
+/* The die is drawn in its edge colour, with the fill laid inside it, so a dark
+   fill (navy, black) still shows its shape as an outline. */
+.irop-die {
+  position: relative;
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  background: var(--die-edge, var(--die-color));
+}
+.irop-die::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--die-color);
+  clip-path: inherit;
+  border-radius: inherit;
+}
+/* Shapes follow the die size: d12 hexagon, d10 diamond, d8 square. Skill is the
+   d12 and Aptitude the d10 since 2026-10-06. */
+.irop-die.die-skill { --die-color: var(--die-skill); --die-edge: var(--die-skill-edge); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+.irop-die.die-aptitude { --die-color: var(--die-aptitude); --die-edge: var(--die-aptitude-edge); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.irop-die.die-assistance { --die-color: var(--die-assistance); --die-edge: var(--die-assistance-edge); border-radius: 2px; transform: scale(0.85); }
+.irop-die.die-obstacle { --die-color: var(--die-obstacle); --die-edge: var(--die-obstacle-edge); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+.irop-die.die-difficulty { --die-color: var(--die-difficulty); --die-edge: var(--die-difficulty-edge); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.irop-die.die-hindrance { --die-color: var(--die-hindrance); --die-edge: var(--die-hindrance-edge); border-radius: 2px; transform: scale(0.85); }
+
+/* --------------------------------------------------------------------------
+   Combat tab
+   -------------------------------------------------------------------------- */
+
+/* Defense and the dodges, at the top of the Damage reduction panel (Johnald, 2026-10-07). */
+.irop .defense-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.irop :where(.window-content) .defense-bar button { height: 30px; padding: 0 12px; display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.irop .defense-readout { margin-right: auto; font-family: var(--irop-mono); font-size: var(--irop-label-size); color: var(--irop-label-ink); text-transform: uppercase; letter-spacing: 0.08em; }
+.irop .defense-readout strong { margin-left: 4px; font-family: var(--irop-display); font-size: 22px; font-weight: 700; color: var(--irop-ink-bright); letter-spacing: 0; }
+
+.irop .dr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.irop .dr-cell { display: flex; flex-direction: column; align-items: center; padding: 4px; background: var(--irop-sunk); border: 1px solid var(--irop-line); border-radius: 3px; }
+.irop .dr-cell.has { border-color: var(--irop-line-bright); }
+.irop .dr-cell .dr-total { font-family: var(--irop-mono); font-size: 16px; color: var(--irop-faint); }
+.irop .dr-cell.has .dr-total { color: var(--irop-ink-bright); }
+.irop .dr-cell input { width: 44px; height: 20px; margin: 2px 0; }
+
+.irop .status-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; }
+.irop .status { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px; background: var(--irop-sunk); border-color: var(--irop-line); font-size: 13px; font-weight: 500; color: var(--irop-muted); text-align: left; }
+.irop .status img { width: 18px; height: 18px; border: none; opacity: 0.5; filter: grayscale(1); }
+.irop .status.active { color: var(--irop-ink-bright); border-color: var(--irop-orange); background: color-mix(in srgb, var(--irop-orange) 16%, var(--irop-sunk)); }
+.irop .status.active img { opacity: 1; filter: none; }
+/* A status's X (2026-10-10), at the button's right end. */
+.irop .status .status-x {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--irop-orange);
+  color: var(--irop-bg);
+  font-family: var(--irop-mono);
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Abilities, gear, dossier, effects
+   -------------------------------------------------------------------------- */
+
+.irop .discipline-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.irop .discipline { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px; background: var(--irop-sunk); border: 1px solid var(--irop-line); border-radius: 3px; }
+.irop .discipline input { width: 52px; }
+
+/* Carried weight in the header, under Background, so it shows on every tab (Johnald, 2026-10-09). Its label
+   lines up with Role, Species and Background; the bar turns red over capacity. */
+.irop .carry-line {
+  display: grid;
+  grid-template-columns: 92px auto minmax(60px, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  border-top: 1px solid color-mix(in srgb, var(--irop-line) 70%, transparent);
+}
+.irop .carry-line .carry-value { font-family: var(--irop-mono); font-size: 15px; color: var(--irop-label-ink); white-space: nowrap; }
+.irop .carry-line .carry-value b { font-size: 17px; color: var(--irop-ink-bright); }
+.irop .carry-line .carry-meter { height: calc(var(--irop-label-size) * 1.2); background: var(--irop-sunk); border: 1px solid var(--irop-line-bright); border-radius: 2px; overflow: hidden; }
+.irop .carry-line .carry-meter .fill { display: block; height: 100%; background: var(--irop-accent); }
+.irop .carry-line.over .carry-value, .irop .carry-line.over .carry-value b { color: var(--irop-bad); }
+/* Under it, what shows at a checkpoint and where that passes (2026-10-10). */
+.irop .conceal-line { display: grid; grid-template-columns: 92px auto minmax(60px, 1fr); align-items: center; gap: 10px; min-height: 28px; }
+.irop .conceal-line .carry-value small { font-size: 13px; color: var(--irop-muted); }
+.irop .conceal-checks { display: flex; gap: 6px; flex-wrap: wrap; }
+.irop .conceal-chip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid; border-radius: 3px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.irop .conceal-chip.pass { color: var(--irop-good); border-color: color-mix(in srgb, var(--irop-good) 55%, transparent); background: color-mix(in srgb, var(--irop-good) 10%, transparent); }
+.irop .conceal-chip.caught { color: var(--irop-bad); border-color: color-mix(in srgb, var(--irop-bad) 55%, transparent); background: color-mix(in srgb, var(--irop-bad) 10%, transparent); }
+.irop .carry-line.over .carry-meter .fill { background: var(--irop-bad); }
+/* As thick as the Carried label's line beside it. */
+.irop .wealth-row, .irop .xp-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.irop .wealth-row label, .irop .xp-row label, .irop .xp-unspent { display: flex; flex-direction: column; gap: 3px; }
+.irop .xp-unspent.over .stat-value { color: var(--irop-bad); }
+
+.irop .drop-hint { margin: 10px 0 4px; color: var(--irop-faint); font-size: 13px; text-align: center; }
+.irop .mutation-positive { border-left-color: var(--irop-good); }
+.irop .mutation-negative { border-left-color: var(--irop-bad); }
+
+.irop prose-mirror { min-height: 120px; background: var(--irop-sunk); border: 1px solid var(--irop-line); border-radius: 3px; padding: 6px 10px; color: var(--irop-ink); }
+/* Foundry lays the editor out as a column: opened, its text sits in a box that fills what the menu
+   leaves. A plain block (as this rule once had) left that box no height, so an opened editor had
+   nowhere to type (bug, Johnald, 2026-10-10: "I cannot type into the field"). */
+.irop prose-mirror { display: flex; flex-direction: column; }
+.irop prose-mirror .editor-content { color: var(--irop-ink); }
+/* The pencil that opens it always shows, not only on hover; an empty one says what to do. */
+.irop :where(.window-content) prose-mirror.inactive button.toggle:enabled { display: block; }
+.irop :where(.window-content) prose-mirror.inactive:has(button.toggle:enabled) .editor-content:empty::before {
+  content: "Nothing written yet. Press the pencil to write.";
+  color: var(--irop-faint);
+  font-style: italic;
+}
+
+.irop .reference .key-list { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+.irop .reference dt { font-family: var(--irop-mono); color: var(--irop-sky); }
+.irop .reference dd { margin: 0; color: var(--irop-muted); }
+
+/* --------------------------------------------------------------------------
+   Item sheet
+   -------------------------------------------------------------------------- */
+
+.irop.item-sheet .irop-header { grid-template-columns: 64px 1fr; }
+.irop .item-header .identity { justify-content: center; }
+.irop .type-stamp { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.14em; text-transform: uppercase; color: var(--irop-accent); }
+.irop .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 10px; margin-bottom: 12px; }
+.irop .form-grid label { display: flex; flex-direction: column; gap: 3px; }
+.irop .form-grid label > span { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-label-ink); }
+.irop .form-grid label.check { flex-direction: row; align-items: center; gap: 6px; padding-top: 14px; }
+.irop .form-grid label.check > span { font-size: var(--irop-small-size); }
+.irop .form-grid input, .irop .form-grid select { width: 100%; }
+.irop .wide-field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.irop .wide-field > span { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-label-ink); }
+.irop .section-title { margin: 6px 0 6px; font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.12em; text-transform: uppercase; color: var(--irop-accent); border-bottom: 1px solid var(--irop-line); padding-bottom: 3px; }
+.irop .range-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; background: none; border: none; }
+.irop .range-table th, .irop .range-table td { padding: 3px; text-align: center; font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); background: none; border: none; }
+.irop .range-table input { width: 100%; }
+.irop .attr-block { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 10px; }
+.irop .attr-block label { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.irop .attr-block input { width: 100%; }
+.irop .tab.description prose-mirror { min-height: 360px; }
+
+/* A background's perks as banners under its description (Johnald, 2026-10-10): gold, as the
+   perk's star beside a character's background, each a ribbon with a notched end. */
+.irop .tab.description.has-extras prose-mirror { min-height: 90px; }
+/* A background's description as players read it: the editor's box, with nothing to edit (2026-10-10). */
+.irop .item-description-read { background: var(--irop-sunk); border: 1px solid var(--irop-line); border-radius: 3px; padding: 8px 12px; color: var(--irop-ink); line-height: 1.5; }
+.irop .item-description-read p { margin: 0 0 6px; }
+.irop .item-description-read p:last-child { margin-bottom: 0; }
+.irop .perk-banners { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.irop .description-section-title {
+  display: flex; align-items: baseline; gap: 12px; margin: 0 0 4px; padding-bottom: 5px;
+  border-bottom: 1px solid var(--irop-line);
+  font-family: var(--irop-display); font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--irop-label-ink);
+}
+/* What the Details tab holds, read only, on the Description tab (2026-10-10): stats, or a role's dossier. */
+.irop .item-facts { margin-top: 16px; }
+/* The starting skills above them (2026-10-10): one chip each, in the ODR blue. */
+.irop .background-skills { margin-top: 16px; }
+.irop .skill-chips { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.irop .skill-chips li {
+  padding: 3px 11px; border: 1px solid var(--irop-line-bright); border-left: 3px solid var(--irop-sky); border-radius: 3px;
+  background: color-mix(in srgb, var(--irop-sky) 8%, var(--irop-sunk));
+  font-size: 14px; font-weight: 600; color: var(--irop-ink-bright);
+}
+.irop .background-skills .hint.warn { margin: 6px 0 0; }
+.irop .perk-banner {
+  display: grid; grid-template-columns: 46px 1fr; gap: 12px; align-items: start;
+  padding: 10px 34px 10px 12px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--irop-warn) 16%, var(--irop-panel)) 0%, var(--irop-panel) 60%);
+  border-left: 3px solid var(--irop-warn);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 50%, 100% 100%, 0 100%);
+}
+.irop .perk-banner.taken { background: linear-gradient(90deg, color-mix(in srgb, var(--irop-warn) 30%, var(--irop-panel)) 0%, var(--irop-panel) 70%); }
+.irop .perk-banner-icon { width: 46px; height: 46px; border: 1px solid color-mix(in srgb, var(--irop-warn) 55%, var(--irop-line)); border-radius: 3px; object-fit: cover; }
+.irop .perk-banner-body { min-width: 0; }
+.irop .perk-banner-body header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.irop .perk-banner-body h4 { margin: 0; font-family: var(--irop-display); font-size: 17px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--irop-ink-bright); border: none; }
+.irop .perk-banner-meta { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.06em; text-transform: uppercase; color: var(--irop-label-ink); }
+.irop .perk-banner-taken { margin-left: auto; font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-warn); }
+.irop .perk-banner-text { margin-top: 4px; font-size: 14px; line-height: 1.45; color: var(--irop-ink); }
+.irop .perk-banner-text p { margin: 0 0 4px; }
+.irop .perk-banner-text p:last-child { margin-bottom: 0; }
+
+/* --------------------------------------------------------------------------
+   Roll dialogs
+   -------------------------------------------------------------------------- */
+
+.irop-roll-dialog .irop-dialog { display: flex; flex-direction: column; gap: 10px; }
+/* Reset character (Johnald, 2026-10-08): the warning, and the button that does it, in red. */
+.irop-roll-dialog.irop-reset-dialog .reset-warning { margin: 0; font-weight: 700; color: var(--irop-bad); }
+.irop-roll-dialog.irop-reset-dialog button.irop-danger { background: color-mix(in srgb, var(--irop-bad) 30%, var(--irop-sunk)); border-color: var(--irop-bad); color: #F4F7FB; }
+.irop-roll-dialog.irop-reset-dialog button.irop-danger:hover { background: color-mix(in srgb, var(--irop-bad) 50%, var(--irop-sunk)); }
+.irop-roll-dialog .lede { margin: 0; color: var(--irop-muted); }
+.irop-roll-dialog .lede strong { color: var(--irop-ink-bright); }
+.irop-roll-dialog .row { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 8px; }
+.irop-roll-dialog .row .hint { grid-column: 2; }
+.irop-roll-dialog fieldset { border: 1px solid var(--irop-line); border-radius: 3px; padding: 6px 8px 8px; margin: 0; }
+.irop-roll-dialog legend { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.1em; text-transform: uppercase; color: var(--irop-muted); padding: 0 4px; }
+.irop-roll-dialog .choice-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.irop-roll-dialog .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--irop-line-bright); border-radius: 12px; cursor: pointer; }
+.irop-roll-dialog .pill:has(input:checked) { border-color: var(--irop-accent, var(--irop-sky)); background: color-mix(in srgb, var(--irop-sky) 15%, transparent); }
+.irop-roll-dialog .pill em, .irop-roll-dialog .toggle-list em { font-family: var(--irop-mono); font-style: normal; font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop-roll-dialog .toggle-list { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
+.irop-roll-dialog .toggle-list label { display: flex; align-items: center; gap: 6px; }
+.irop-roll-dialog .toggle-list label span { flex: 1; }
+.irop-roll-dialog .attack-head { display: flex; gap: 10px; align-items: center; }
+.irop-roll-dialog .attack-head img { width: 44px; height: 44px; border: 1px solid var(--irop-line-bright); border-radius: 3px; }
+.irop-roll-dialog .attack-head div { display: flex; flex-direction: column; }
+.irop-roll-dialog .attack-head strong { font-size: 18px; }
+.irop-roll-dialog .dice-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.irop-roll-dialog .die-input { display: grid; grid-template-columns: 18px 1fr 54px; align-items: center; gap: 6px; }
+.irop-roll-dialog .die-input .irop-die { width: 16px; height: 16px; }
+.irop-roll-dialog .die-input em { font-family: var(--irop-mono); font-style: normal; font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop-roll-dialog .die-input.polarity-negative .die-name { color: #e8b3b6; }
+.irop-roll-dialog .pool-preview { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; padding: 6px; background: rgba(0, 0, 0, 0.25); border-radius: 3px; }
+.irop-roll-dialog .pool-preview .irop-die { width: 18px; height: 18px; }
+.irop-roll-dialog .nigh-warning { margin: 0; color: var(--irop-warn); font-weight: 600; }
+
+/* --------------------------------------------------------------------------
+   Chat cards. Self contained dark panels, readable on light or dark chat.
+   -------------------------------------------------------------------------- */
+
+.irop-card {
+  --card-accent: var(--irop-sky);
+  font-family: var(--irop-display);
+  color: var(--irop-ink);
+  background: var(--irop-panel);
+  border: 1px solid var(--irop-line-bright);
+  border-left: 3px solid var(--card-accent);
+  border-radius: 3px;
+  padding: 6px 8px 8px;
+  /* Two pixels over Foundry's chat text (Johnald, 2026-10-08: card text larger). */
+  font-size: calc(1em + 2px);
+}
+.irop-card .card-head { display: flex; flex-direction: column; gap: 1px; margin-bottom: 6px; border-bottom: 1px solid var(--irop-line); padding-bottom: 4px; }
+.irop-card .card-head.with-img { flex-direction: row; gap: 8px; align-items: center; }
+.irop-card .card-head img { width: 36px; height: 36px; border: 1px solid var(--irop-line-bright); border-radius: 3px; }
+.irop-card h3 { margin: 0; border: none; font-size: 17px; font-weight: 700; color: var(--irop-ink-bright); letter-spacing: 0.02em; }
+.irop-card .card-sub { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop-card .private { color: var(--irop-faint); font-style: italic; }
+.irop-card .summary { margin: 4px 0 0; font-size: 15px; color: var(--irop-muted); }
+.irop-card .stat-chip { font-family: var(--irop-mono); font-size: 14px; padding: 1px 6px; border: 1px solid var(--irop-line-bright); border-radius: 2px; }
+
+.irop-card .result-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: var(--irop-sunk);
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 2px;
+}
+.irop-card .result-word { font-size: 20px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.irop-card.outcome-pass .result-word, .irop-card.success .result-word { color: var(--irop-good); }
+.irop-card.outcome-fail .result-word, .irop-card.failure .result-word { color: var(--irop-bad); }
+.irop-card.outcome-stalemate .result-word { color: var(--irop-warn); }
+.irop-card.outcome-pass { --card-accent: var(--irop-good); }
+.irop-card.outcome-fail { --card-accent: var(--irop-bad); }
+.irop-card.outcome-stalemate { --card-accent: var(--irop-warn); }
+.irop-card.success { --card-accent: var(--irop-good); }
+.irop-card.failure { --card-accent: var(--irop-bad); }
+.irop-card .margin { font-family: var(--irop-mono); font-size: 14px; color: var(--irop-muted); }
+
+.irop-card .dice-row { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.irop-die-face {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /* Tinted with the die's fill, outlined in its edge: navy and black faces read
+     as dark faces with a sky or grey rim. */
+  background: color-mix(in srgb, var(--die-color) 24%, var(--irop-sunk));
+  border: 2px solid var(--die-edge, var(--die-color));
+  border-radius: 4px;
+  font-size: 12px;
+}
+.irop-die-face.die-skill { --die-color: var(--die-skill); --die-edge: var(--die-skill-edge); border-radius: 9px; }
+.irop-die-face.die-aptitude { --die-color: var(--die-aptitude); --die-edge: var(--die-aptitude-edge); }
+.irop-die-face.die-assistance { --die-color: var(--die-assistance); --die-edge: var(--die-assistance-edge); border-width: 1px; }
+.irop-die-face.die-obstacle { --die-color: var(--die-obstacle); --die-edge: var(--die-obstacle-edge); border-radius: 9px; }
+.irop-die-face.die-difficulty { --die-color: var(--die-difficulty); --die-edge: var(--die-difficulty-edge); }
+.irop-die-face.die-hindrance { --die-color: var(--die-hindrance); --die-edge: var(--die-hindrance-edge); border-width: 1px; }
+.irop-die-face .blank { width: 8px; height: 2px; background: var(--irop-faint); }
+
+.irop-card .sym-SUCCESS { color: var(--sym-success); }
+.irop-card .sym-FAILURE { color: var(--sym-failure); }
+.irop-card .sym-EDGE { color: var(--sym-edge); }
+.irop-card .sym-DANGER { color: var(--sym-danger); }
+.irop-card .sym-VICTORY { color: var(--sym-victory); }
+.irop-card .sym-DEFEAT { color: var(--sym-defeat); }
+.irop-card .net { display: flex; gap: 8px; font-family: var(--irop-mono); font-size: 17px; }
+.irop-card .net em { color: var(--irop-faint); font-size: 14px; }
+.irop-card .net-sym { display: inline-flex; gap: 3px; align-items: center; }
+
+.irop-card .banking, .irop-card .gm-option { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.irop-card .bank-row, .irop-card .gm-option { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 15px; }
+.irop-card button {
+  height: 24px;
+  line-height: 22px;
+  padding: 0 10px;
+  font-family: var(--irop-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--irop-ink);
+  background: var(--irop-panel-2);
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 3px;
+  width: auto;
+  flex: 0 0 auto;
+}
+.irop-card button:hover:not(:disabled) { border-color: var(--card-accent); color: var(--irop-ink-bright); }
+.irop-card .banked { font-family: var(--irop-mono); font-size: 14px; color: var(--irop-good); }
+.irop-card .card-buttons { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+
+.irop-card .d100-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; font-family: var(--irop-mono); }
+.irop-card .d100-natural { font-size: 24px; color: var(--irop-ink-bright); padding: 0 6px; border: 1px solid var(--irop-line-bright); border-radius: 3px; background: var(--irop-sunk); }
+.irop-card .d100-mod { font-size: 16px; }
+.irop-card .harder { color: var(--irop-bad); }
+.irop-card .easier { color: var(--irop-good); }
+.irop-card .d100-eq, .irop-card .d100-vs { color: var(--irop-faint); font-size: 14px; }
+.irop-card .d100-total { font-size: 24px; color: var(--irop-ink-bright); }
+.irop-card .d100-target { font-size: 16px; color: var(--card-accent); }
+.irop-card .mod-breakdown { list-style: none; margin: 4px 0 0; padding: 0; font-size: 14px; }
+.irop-card .mod-breakdown li { display: flex; justify-content: space-between; border-bottom: 1px dotted var(--irop-line); color: var(--irop-muted); }
+.irop-card .mod-breakdown li span:last-child { font-family: var(--irop-mono); }
+
+.irop-card.damage-card { --card-accent: var(--irop-orange); }
+.irop-card .damage-line { display: flex; align-items: baseline; gap: 10px; }
+.irop-card .damage-total { font-family: var(--irop-mono); font-size: 32px; color: var(--irop-ink-bright); }
+.irop-card .damage-type { font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--irop-orange); }
+.irop-card.critical .damage-type::after { content: " / critical"; color: var(--sym-victory); }
+.irop-card .dice-roll { margin-top: 4px; }
+.irop-card .dice-formula { font-family: var(--irop-mono); font-size: 14px; color: var(--irop-muted); }
+.irop-card .damage-props, .irop-card .card-stats { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.irop-card .card-description { font-size: 15px; color: var(--irop-ink); }
+.irop-card .card-description p { margin: 4px 0; }
+
+.irop-scatter .scatter-result { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.irop-scatter .scatter-arrow { font-size: 22px; color: var(--irop-orange); transform: rotate(var(--dir)); }
+
+/* --------------------------------------------------------------------------
+   Banks window and its sidebar button
+   -------------------------------------------------------------------------- */
+
+.irop-banks .window-content { padding: 10px 12px; overflow-y: auto; }
+.irop-banks .bank-group { margin-bottom: 10px; }
+.irop-banks .bank-line { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 60%, transparent); }
+.irop-banks .bank-line img { width: 24px; height: 24px; border: 1px solid var(--irop-line); border-radius: 3px; object-fit: cover; }
+.irop-banks .bank-name { flex: 1; font-weight: 600; }
+.irop-banks .bank-name.sym-DANGER { color: var(--sym-danger); }
+.irop-banks .bank-name.sym-DEFEAT { color: var(--sym-defeat); }
+.irop-banks .bank-count { font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); min-width: 36px; text-align: right; }
+.irop-banks .bank-pips { display: inline-flex; gap: 3px; }
+.irop-banks .bank-pip { width: 10px; height: 10px; transform: rotate(45deg); border: 1px solid var(--irop-line-bright); background: var(--irop-sunk); }
+.irop-banks .bank-pip.danger.filled { background: var(--sym-danger); border-color: var(--sym-danger); }
+.irop-banks .bank-pip.defeat.filled { background: var(--sym-defeat); border-color: var(--sym-defeat); }
+.irop-banks .bank-pip.edge.filled { background: var(--sym-edge); border-color: var(--sym-edge); }
+.irop-banks .bank-pip.victory.filled { background: var(--sym-victory); border-color: var(--sym-victory); }
+/* The squad's drop zone, lit while an operative is dragged over the window. */
+.irop-banks .squad-drop {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px dashed var(--irop-line-bright);
+  border-radius: 3px;
+  text-align: center;
+  font-size: var(--irop-small-size);
+  color: var(--irop-muted);
+}
+.irop-banks .banks-body.drag-over .squad-drop { border-color: var(--irop-accent); color: var(--irop-accent); background: color-mix(in srgb, var(--irop-accent) 8%, transparent); }
+.irop-banks .bank-actions { display: flex; gap: 8px; }
+
+/* The ledger on the Training tab (2026-10-08). Its header folds it away, easing shut like the
+   ability drop downs. */
+.irop .ledger-toggle { cursor: pointer; align-items: center; }
+.irop .ledger-toggle:hover h3 { color: var(--irop-accent); }
+.irop .ledger-count { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop .xp-ledger.open .summary-chevron { transform: rotate(180deg); color: var(--irop-accent); }
+.irop .xp-ledger:not(.open) .panel-head { margin-bottom: 0; padding-bottom: 0; border-bottom-color: transparent; }
+.irop .ledger-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.2s ease; }
+.irop .xp-ledger.open .ledger-body { grid-template-rows: 1fr; }
+.irop .ledger-inner { overflow: hidden; min-height: 0; }
+.irop .xp-log { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
+.irop .xp-entry { display: grid; grid-template-columns: 92px minmax(0, 1fr) 64px 24px; align-items: center; gap: 8px; padding: 3px 4px; border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 60%, transparent); }
+.irop .xp-date { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop .xp-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.irop .xp-amount { font-family: var(--irop-mono); font-size: 14px; text-align: right; color: var(--irop-label-ink); }
+.irop .xp-entry.award .xp-amount { color: var(--irop-good); }
+/* The Experience bar on the Training tab (Johnald, 2026-10-08): one slim row, not three boxes. */
+.irop .xp-bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 12px;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--irop-panel) 88%, transparent);
+  border: 1px solid var(--irop-line);
+  border-left: 3px solid var(--irop-accent);
+  border-radius: 4px;
+}
+.irop .xp-title { font-family: var(--irop-display); font-size: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--irop-ink-bright); }
+.irop .xp-stat { display: flex; align-items: baseline; gap: 6px; }
+/* A thin upright rule between Earned, Spent and Unspent, like a pipe (Johnald, 2026-10-08). */
+.irop .xp-stat + .xp-stat { position: relative; padding-left: 18px; }
+.irop .xp-stat + .xp-stat::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 22px;
+  transform: translateY(-50%);
+  background: var(--irop-line-bright);
+}
+.irop .xp-stat input { width: 70px; height: 24px; text-align: center; }
+.irop .xp-num { font-family: var(--irop-display); font-size: 20px; font-weight: 700; line-height: 1; color: var(--irop-ink-bright); }
+.irop .xp-stat.unspent .xp-num { color: var(--irop-accent); }
+.irop .xp-stat.over .xp-num { color: var(--irop-bad); }
+.irop .xp-meter { flex: 1; min-width: 60px; height: 10px; background: var(--irop-sunk); border: 1px solid var(--irop-line); border-radius: 5px; overflow: hidden; }
+.irop .xp-meter-fill { display: block; height: 100%; background: color-mix(in srgb, var(--irop-accent) 70%, transparent); }
+/* A pip that can be bought with XP right now. */
+.irop :where(.window-content) .pip.buyable { border-color: var(--irop-accent); box-shadow: 0 0 6px color-mix(in srgb, var(--irop-accent) 45%, transparent); cursor: pointer; }
+.irop .notes-panel prose-mirror { min-height: 420px; }
+.irop-banks .bank-actions button { flex: 1; height: 30px; display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
+/* Banks and Support share a row in the Actors sidebar (step 3, 2026-10-08). */
+.irop-banks-button, .irop-support-button { flex: 1 1 calc(50% - 4px); }
+.irop .attr-block.speeds { grid-template-columns: repeat(3, 1fr); }
+
+/* --------------------------------------------------------------------------
+   Personnel Record drawer
+   Slides out from the side of the operative sheet. The window frame normally
+   clips everything to its edge, so this sheet lets its frame overflow; the
+   body keeps its own clipping, so tabs and scrolling are unaffected.
+   -------------------------------------------------------------------------- */
+
+.application.irop.operative { overflow: visible; }
+.application.irop.operative > .window-header { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+/* The dark theme blurs window bodies, and a backdrop filter traps positioned
+   children inside the body, which would clip the drawer. This sheet paints an
+   opaque body of its own, so the blur adds nothing here. */
+.application.irop.operative .window-content { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.application.minimized .irop-record-dock { display: none; }
+
+/* Record only: what someone who can see an operative but does not own it gets
+   (RULED 2026-10-06). The record is the whole window body: no gutter, no drawer. */
+.application.irop.operative.record-only { overflow: hidden; }
+.application.irop.operative.record-only .window-content { padding-left: 0; }
+.application.irop.operative.record-only .irop-record-dock { display: flex; flex: 1; min-height: 0; }
+.application.irop.operative.record-only .irop-record {
+  position: static;
+  width: auto;
+  flex: 1;
+  min-height: 0;
+  visibility: visible;
+  pointer-events: auto;
+  clip-path: none;
+  transform: none;
+  transition: none;
+  border: none;
+  box-shadow: none;
+}
+
+/* A slim gutter down the sheet's left edge holds the record button, so the
+   whole sheet body moves over to make room for it. */
+.application.irop.operative { --irop-record-gutter: 37px; }
+.application.irop.operative .window-content { padding-left: var(--irop-record-gutter); }
+
+/* The dock has no box of its own: the gutter and the drawer inside it are
+   placed against the window. */
+.irop .irop-record-dock {
+  --rec-bg: #0e171e;
+  --rec-panel: rgba(37, 82, 96, 0.9);
+  --rec-band: #2a5b69;
+  --rec-line: #cfe3ea;
+  --rec-line-dim: rgba(207, 227, 234, 0.35);
+  --rec-label: #f2f7f9;
+  --rec-value: #a3d8e8;
+  --rec-tag: #b9c4c8;
+  --rec-tag-ink: #13212a;
+  --rec-plus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='46' height='46'%3E%3Cpath d='M23 18.5v9M18.5 23h9' stroke='%23a3d8e8' stroke-opacity='0.32' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+
+/* The gutter: below the title bar, full height, always visible whatever tab is
+   open. A div rather than the button itself, since a button does not stretch
+   between top and bottom offsets. */
+.irop .record-gutter {
+  position: absolute;
+  top: var(--header-height, 36px);
+  bottom: 0;
+  left: 0;
+  width: var(--irop-record-gutter, 37px);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, #0a1016, #111c25);
+  border-right: 1px solid var(--irop-line-bright);
+}
+
+/* The button, centred on the sheet's middle: a tab with the arrows. */
+.irop .irop-record-dock .record-bar {
+  /* 3px of gutter either side. */
+  width: calc(var(--irop-record-gutter, 37px) - 6px);
+  height: 136px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--rec-plus) 0 0 / 46px 46px, var(--rec-band);
+  border: 1px solid var(--rec-line-dim);
+  border-radius: 3px;
+  color: var(--rec-label);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.irop .irop-record-dock .record-bar:hover,
+.irop .irop-record-dock.open .record-bar { background-color: color-mix(in srgb, var(--rec-band) 70%, var(--rec-line)); border-color: var(--rec-line); color: #fff; box-shadow: 0 0 10px rgba(163, 216, 232, 0.35); }
+.irop .irop-record-dock .record-bar i { font-size: 14px; line-height: 1; }
+.irop .irop-record-dock .record-bar .bar-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--irop-mono);
+  font-size: var(--irop-small-size);
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+/* The drawer, off the sheet's left edge. Closed, it is clipped away against
+   the sheet; opening slides it out from behind it. */
+.irop .irop-record {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  width: 460px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--rec-plus) 0 0 / 46px 46px, var(--rec-bg);
+  border: 1px solid var(--rec-line-dim);
+  border-right: 3px solid var(--rec-line);
+  box-shadow: 0 0 28px rgba(0, 0, 0, 0.65);
+  font-family: "Jura", var(--irop-display);
+  color: var(--rec-label);
+  visibility: hidden;
+  pointer-events: none;
+  clip-path: inset(0 0 0 100%);
+  transform: translateX(48px);
+  transition: clip-path 260ms ease, transform 260ms ease, visibility 0s linear 260ms;
+}
+.irop .irop-record-dock.open .irop-record {
+  visibility: visible;
+  pointer-events: auto;
+  /* Open, the clip reaches past the box so the drop shadow shows. */
+  clip-path: inset(-40px -40px -40px -40px);
+  transform: none;
+  transition: clip-path 260ms ease, transform 260ms ease;
+}
+.irop .record-body { flex: 1; overflow-y: auto; padding: 0 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+
+/* Detached into a window of its own (Foundry 14, bug fix, Johnald, 2026-10-10). The window
+   ends at the sheet's edges, so off the left edge the drawer was cut off. There the sheet makes
+   room in its window and the record opens out as usual (#roomInWindow); only when no room can be
+   made (record-inside) does it open inside the sheet: from the gutter, over the sheet's left
+   side, below the title bar. */
+.application.irop.operative.record-inside:not(.record-only) .irop-record {
+  top: var(--header-height, 36px);
+  right: auto;
+  left: var(--irop-record-gutter, 37px);
+  max-width: calc(100% - var(--irop-record-gutter, 37px));
+  z-index: 2;
+  clip-path: inset(0 100% 0 0);
+  transform: translateX(-48px);
+}
+.application.irop.operative.record-inside:not(.record-only) .irop-record-dock.open .irop-record {
+  /* The shadow falls on the sheet, to the right; the title bar above stays clear. */
+  clip-path: inset(0 -40px 0 0);
+  transform: none;
+}
+/* Detached, the sheet glides over to make room for the record, and back, in step with the
+   drawer's slide (the twitch fix, Johnald, 2026-10-10; #glide): as a translate, which the browser
+   slides as one picture; with its width too, in a wide window, as left and width together. */
+.application.irop.operative.irop-gliding { transition: translate 260ms ease; }
+.application.irop.operative.irop-gliding.irop-resizing { transition: left 260ms ease, width 260ms ease; }
+/* While the sheet moves into its window, Foundry measures it; the drawer is left out. */
+.application.irop.operative.irop-detaching:not(.record-only) .irop-record { display: none !important; }
+
+/* Header band with the raised notch, title, record number and status log. */
+.irop .record-head { margin: 0 -14px; position: sticky; top: 0; z-index: 2; filter: drop-shadow(0 1.5px 0 var(--rec-line)); }
+.irop .record-head-band {
+  position: relative;
+  min-height: 118px;
+  padding: 10px 14px 0;
+  background: var(--rec-plus) 0 0 / 46px 46px, var(--rec-band);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 74% 100%, 66% 72%, 33% 72%, 25% 100%, 0 100%);
+}
+.irop .record-title { display: flex; flex-direction: column; gap: 2px; padding-right: 128px; }
+.irop .record-name { font-size: 17px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rec-label); line-height: 1.1; }
+.irop .record-number { display: flex; align-items: center; gap: 6px; font-size: 20px; letter-spacing: 0.08em; color: var(--rec-label); }
+.irop .record-cursor { width: 7px; height: 18px; background: var(--rec-label); animation: irop-record-blink 1.2s steps(2, start) infinite; }
+@keyframes irop-record-blink { to { visibility: hidden; } }
+.irop .record-log {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 112px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--irop-mono);
+  font-size: 8px;
+  line-height: 1.35;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--rec-label);
+  opacity: 0.85;
+}
+.irop .record-log .sep { opacity: 0.6; }
+.irop .record-head-tabs { position: absolute; left: 14px; bottom: -2px; display: flex; gap: 6px; }
+
+/* Tag buttons with the clipped corner, and the plain Read only tag in the same shape. */
+.irop .irop-record .record-tag {
+  height: 20px;
+  margin-bottom: 10px;
+  padding: 0 14px 0 8px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--rec-tag);
+  color: var(--rec-tag-ink);
+  font-family: "Jura", var(--irop-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 88% 100%, 0 100%);
+}
+.irop .irop-record .record-btn {
+  height: 20px;
+  padding: 0 14px 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--rec-tag);
+  color: var(--rec-tag-ink);
+  border: none;
+  border-radius: 0;
+  font-family: "Jura", var(--irop-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 88% 100%, 0 100%);
+  box-shadow: none;
+}
+.irop .irop-record .record-btn:hover { background: var(--rec-label); color: var(--rec-tag-ink); box-shadow: none; }
+.irop .irop-record .record-btn.small { height: 18px; font-size: 10px; }
+
+/* Panels. */
+.irop .record-panel {
+  background: var(--rec-plus) 0 0 / 46px 46px, var(--rec-panel);
+  border: 1.5px solid var(--rec-line);
+  padding: 10px 12px 12px;
+}
+.irop .record-panel h4 {
+  margin: 0 0 8px;
+  padding: 0;
+  border: none;
+  font-family: "Jura", var(--irop-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rec-label);
+}
+.irop .record-panel dl { margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.irop .record-line { display: flex; align-items: baseline; gap: 6px; min-height: 20px; }
+.irop .record-line dt { flex: 0 0 auto; font-weight: 700; font-size: 13px; color: var(--rec-label); white-space: nowrap; }
+.irop .record-line dd { margin: 0; flex: 1; min-width: 0; font-size: 14px; color: var(--rec-value); letter-spacing: 0.03em; }
+.irop .record-line dd em { font-style: normal; opacity: 0.6; }
+.irop .record-line dd a { color: var(--rec-value); text-decoration: underline dotted; }
+.irop .record-line dd.kin { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+/* Inputs read as printed values until touched. */
+.irop .irop-record input[type="text"],
+.irop .irop-record textarea {
+  width: 100%;
+  height: 20px;
+  padding: 0 2px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed transparent;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: "Jura", var(--irop-display);
+  font-size: 14px;
+  color: var(--rec-value);
+  text-align: left;
+  letter-spacing: 0.03em;
+}
+.irop .irop-record textarea { height: auto; min-height: 20px; resize: vertical; line-height: 1.35; }
+.irop .irop-record input[type="text"]::placeholder,
+.irop .irop-record textarea::placeholder { color: var(--rec-value); opacity: 0.35; }
+.irop .irop-record input[type="text"]:hover:not(:disabled),
+.irop .irop-record textarea:hover:not(:disabled) { border-bottom-color: var(--rec-line-dim); }
+.irop .irop-record input[type="text"]:focus,
+.irop .irop-record textarea:focus { border-bottom-color: var(--rec-line); box-shadow: none; outline: none; background: rgba(0, 0, 0, 0.18); }
+.irop .irop-record input:disabled, .irop .irop-record textarea:disabled { opacity: 1; }
+
+/* Top: the portrait alone, large. */
+.irop .record-identity { display: flex; justify-content: center; }
+.irop .record-portrait {
+  width: 100%;
+  height: 300px;
+  object-fit: cover;
+  object-position: 50% 18%;
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px var(--rec-line-dim), 0 8px 22px rgba(0, 0, 0, 0.55);
+}
+
+/* Middle: basic info beside biometrics. Basic info takes the wider share. */
+.irop .record-pair { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; align-items: stretch; }
+.irop .record-fields dl { gap: 4px; }
+/* Where Biometrics was (Johnald, 2026-10-08): the doctrine's emblem on the top half, the
+   rank's insignia on the bottom, split by a rule. The emblem glows in the role colour. */
+.irop .record-insignia { display: flex; flex-direction: column; padding-top: 6px; padding-bottom: 6px; }
+.irop .record-emblem, .irop .record-rank { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.irop .record-rank { border-top: 1px solid var(--rec-line-dim); margin-top: 6px; padding-top: 8px; }
+.irop .record-insignia h4 { align-self: stretch; text-align: center; margin-bottom: 2px; }
+.irop .record-emblem-img {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+  border: none;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--record-role, var(--rec-value)) 55%, transparent));
+}
+.irop .record-emblem-none { font-size: 60px; color: var(--rec-line-dim); }
+.irop .record-rank-img { width: 64px; height: 64px; border: none; filter: drop-shadow(0 0 6px rgba(163, 216, 232, 0.3)); }
+.irop .record-insignia-name { font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--rec-value); }
+.irop .record-insignia-name.doctrine { color: var(--record-role, var(--rec-value)); }
+.irop .record-stack { align-self: stretch; display: flex; flex-direction: column; gap: 2px; }
+.irop .record-fields .record-stack { margin-top: 8px; }
+.irop .record-stack > span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rec-label); }
+
+/* Bio: the dated service log. */
+.irop .record-bio-head { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 4px; }
+.irop .record-bio-head h5 {
+  margin: 0;
+  font-family: "Jura", var(--irop-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rec-label);
+  opacity: 0.85;
+}
+
+/* The long Biography, printed in the record's voice. */
+.irop .irop-record prose-mirror.record-biography {
+  min-height: 60px;
+  padding: 2px 0;
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--rec-line-dim);
+  border-radius: 0;
+  color: var(--rec-value);
+  font-family: "Jura", var(--irop-display);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.irop .irop-record prose-mirror.record-biography .editor-content { color: var(--rec-value); padding-left: 10px; }
+.irop .irop-record prose-mirror.record-biography p { margin: 0 0 6px; }
+.irop .irop-record prose-mirror.record-biography.active { background: rgba(0, 0, 0, 0.22); border-left-color: var(--rec-line); min-height: 220px; }
+
+/* Section sits under Profession, as in the reference record. */
+.irop .record-line.indent dt { padding-left: 18px; }
+.irop .record-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.irop .record-entry { display: grid; grid-template-columns: 12px 108px 1fr 18px; gap: 4px; align-items: start; }
+.irop .record-entry::before { content: "-"; color: var(--rec-value); line-height: 20px; text-align: center; }
+.irop .record-entry .record-date { font-weight: 700; color: var(--rec-label); }
+.irop .irop-record .record-entry button.icon { width: 18px; height: 20px; padding: 0; background: transparent; border: none; color: var(--rec-value); opacity: 0.6; font-size: 11px; }
+.irop .irop-record .record-entry button.icon:hover { opacity: 1; box-shadow: none; }
+.irop .record-empty { color: var(--rec-value); opacity: 0.6; font-size: 13px; padding: 4px 0; }
+
+/* --------------------------------------------------------------------------
+   Skill trees (RULED 2026-10-08). On the Dossier: tabs, then tiers top to
+   bottom, the approved mockup's Option 1. Owned perks wear the role color,
+   buyable ones an accent edge, locked ones dim, ruled out ones struck through.
+   -------------------------------------------------------------------------- */
+
+.irop .skill-trees .panel-head .hint { flex: 0 1 auto; text-align: right; }
+.irop .tree-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid var(--irop-line); }
+.irop .tree-tab {
+  padding: 4px 12px;
+  font-family: var(--irop-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--irop-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.irop .tree-tab:hover { color: var(--irop-ink-bright); }
+.irop .tree-tab.active { color: var(--irop-accent); border-bottom-color: var(--irop-accent); }
+.irop .tree-tab.locked { color: var(--irop-faint); }
+.irop .tree-tab.locked.active { color: var(--irop-muted); border-bottom-color: var(--irop-line-bright); }
+.irop .tree-tabs .cross-train { margin-left: auto; width: auto; max-width: 230px; height: 26px; font-size: var(--irop-small-size); }
+.irop .tree-banner { display: flex; align-items: center; gap: 10px; padding: 5px 8px; background: var(--irop-sunk); border: 1px solid var(--irop-line); border-radius: 3px; font-size: var(--irop-small-size); color: var(--irop-label-ink); }
+.irop .tree-banner .tree-lock { color: var(--irop-muted); }
+.irop :where(.window-content) .tree-banner button { margin-left: auto; }
+.irop .tree-view { display: none; flex-direction: column; gap: 6px; }
+.irop .tree-view.active { display: flex; }
+.irop .tree-tier { display: flex; align-items: center; gap: 8px; }
+.irop .tree-tier .tier-label {
+  flex: none;
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--irop-mono);
+  font-size: var(--irop-small-size);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--irop-label-ink);
+}
+.irop .tree-tier .tier-label em { font-style: normal; color: var(--irop-accent); }
+.irop .tier-nodes { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.irop .tier-or { flex: none; font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop :where(.window-content) button.perk {
+  flex: 1 1 0;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  text-align: left;
+  line-height: 1.25;
+  background: var(--irop-sunk);
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 3px;
+  color: var(--irop-ink);
+}
+.irop :where(.window-content) button.perk img { flex: none; width: 34px; height: 34px; border: none; border-radius: 3px; object-fit: cover; }
+.irop .perk-text { min-width: 0; display: flex; flex-direction: column; }
+.irop .perk-name { font-family: var(--irop-display); font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.irop .perk-sub { font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop :where(.window-content) button.perk.owned {
+  background: color-mix(in srgb, var(--irop-accent) 16%, var(--irop-sunk));
+  border-color: var(--irop-accent);
+}
+.irop :where(.window-content) button.perk.owned .perk-name { color: var(--irop-ink-bright); }
+.irop :where(.window-content) button.perk.owned .perk-sub { color: var(--irop-accent); }
+.irop :where(.window-content) button.perk.buyable { border: 1px solid var(--irop-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--irop-accent) 45%, transparent); }
+.irop :where(.window-content) button.perk.buyable:hover { box-shadow: 0 0 8px color-mix(in srgb, var(--irop-accent) 45%, transparent); }
+.irop :where(.window-content) button.perk.locked { opacity: 0.5; }
+.irop :where(.window-content) button.perk.excluded { opacity: 0.4; }
+.irop :where(.window-content) button.perk.excluded .perk-name { text-decoration: line-through; }
+
+/* Passive perks as a grid of tiles (Johnald, 2026-10-08), so a long career's perks stay compact.
+   The role colour runs along each tile's top; its buttons show on hover. */
+.irop .perk-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.irop .perk-grid .empty-row { grid-column: 1 / -1; }
+.irop .perk-tile {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  background: var(--irop-sunk);
+  border: 1px solid var(--irop-line);
+  border-top: 2px solid var(--row-accent, var(--irop-line-bright));
+  border-radius: 3px;
+}
+.irop .perk-tile img { flex: none; width: 38px; height: 38px; border: none; border-radius: 3px; object-fit: cover; cursor: pointer; }
+.irop .perk-tile-name {
+  min-width: 0;
+  font-family: var(--irop-display);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--irop-ink);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.irop .perk-tile-controls { position: absolute; top: 1px; right: 1px; display: flex; background: var(--irop-sunk); border-radius: 3px; opacity: 0; transition: opacity 0.12s; }
+.irop .perk-tile:hover .perk-tile-controls, .irop .perk-tile:focus-within .perk-tile-controls { opacity: 1; }
+.irop :where(.window-content) .perk-tile-controls button.icon { width: 22px; height: 22px; font-size: 12px; }
+
+/* Active abilities drop their text down on a click of the name, as spells do on the 5e
+   sheet (Johnald, 2026-10-08). The height eases open through a grid row going 0fr to 1fr. */
+.irop .summary-toggle { cursor: pointer; }
+.irop .summary-toggle .ability-name { display: flex; align-items: center; gap: 6px; min-width: 0; font-weight: 700; font-size: 15px; color: var(--irop-ink-bright); }
+.irop .summary-toggle:hover .ability-name { color: var(--irop-accent); }
+.irop .summary-chevron { font-size: 12px; color: var(--irop-muted); transition: transform 0.18s; }
+.irop .ability-row.expanded .summary-chevron { transform: rotate(180deg); color: var(--irop-accent); }
+.irop .ability-summary { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.2s ease; }
+.irop .ability-row.expanded .ability-summary { grid-template-rows: 1fr; }
+.irop .summary-body { overflow: hidden; min-height: 0; padding: 0 10px 0 50px; font-size: 14px; line-height: 1.4; color: var(--irop-ink); }
+.irop .ability-row.expanded .summary-body { padding: 2px 10px 8px 50px; border-top: 1px solid color-mix(in srgb, var(--irop-line) 70%, transparent); }
+.irop .summary-body p { margin: 4px 0; }
+.irop .summary-prereq .mono-label { margin-right: 6px; }
+.irop .ability-row img[data-action="editItem"] { cursor: pointer; }
+
+/* A free form tree, like the Generalist perks (Johnald, 2026-10-08): no tiers. Lines of perks,
+   an arrow from each to the next it opens, then the single perks in a grid. */
+.irop .tree-line { display: flex; align-items: center; gap: 6px; }
+.irop .line-arrow { flex: none; font-size: 12px; color: var(--irop-muted); }
+.irop .tree-singles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; margin-top: 4px; }
+
+/* A perk whose written requirements are not met (an attribute score, a skill rank) wears a
+   lock on its icon (Johnald, 2026-10-08). */
+.irop .perk-icon { position: relative; flex: none; display: flex; }
+.irop .perk-lock {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--irop-sunk);
+  border: 1px solid var(--irop-warn);
+  color: var(--irop-warn);
+  font-size: 12px;
+}
+
+/* A perk's text, in the window that opens on a click. */
+.irop-perk-dialog .perk-description { max-height: 320px; overflow-y: auto; }
+.irop-perk-dialog .perk-description p { margin: 0 0 6px; }
+
+/* The tree editor, on a Skill Tree item. */
+.irop .tree-editor { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.irop .tree-tier-edit { border: 1px solid var(--irop-line); border-radius: 3px; background: var(--irop-panel); padding: 6px 8px; }
+.irop .tree-tier-edit header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.irop .tree-tier-edit .tier-label { font-family: var(--irop-mono); font-size: var(--irop-label-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-accent); }
+.irop .tree-tier-edit label.check { display: flex; align-items: center; gap: 5px; font-size: var(--irop-small-size); }
+.irop .tree-tier-edit .tier-tools { margin-left: auto; display: flex; }
+.irop .tree-drop { min-height: 36px; display: flex; flex-direction: column; gap: 4px; border: 1px dashed transparent; border-radius: 3px; }
+.irop .tree-drop.drag-over { border-color: var(--irop-accent); background: color-mix(in srgb, var(--irop-accent) 8%, transparent); }
+.irop .tree-drop .drop-hint { margin: 6px 0; }
+.irop .tree-node-edit { display: grid; grid-template-columns: 30px minmax(0, 1fr) 84px 170px 24px; align-items: center; gap: 8px; padding: 3px 4px; background: var(--irop-sunk); border: 1px solid var(--irop-line); border-radius: 3px; }
+.irop .tree-node-edit[draggable] { cursor: grab; }
+.irop .tree-node-edit img { width: 30px; height: 30px; border: none; object-fit: cover; }
+.irop .tree-node-edit .node-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.irop .tree-node-edit.missing .node-name { color: var(--irop-bad); }
+.irop .tree-node-edit .node-xp { display: flex; align-items: center; gap: 4px; font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop .tree-node-edit .node-xp input { width: 54px; text-align: center; }
+.irop .tree-node-edit .node-requires { width: 100%; }
+.irop .tree-drop.new-tier { flex-direction: row; align-items: center; justify-content: space-between; padding: 10px; border-color: var(--irop-line-bright); color: var(--irop-muted); font-size: var(--irop-small-size); }
+
+/* --------------------------------------------------------------------------
+   Strategy Layer (2026-10-08): the territory sheet and the rules window.
+   -------------------------------------------------------------------------- */
+
+.irop .territory-objectives { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.irop .territory-objectives label.check { display: flex; align-items: center; gap: 6px; }
+.irop .territory-neighbors { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px; margin-bottom: 10px; border-color: var(--irop-line-bright); }
+.irop .territory-neighbors .drop-hint { flex: 1; }
+.irop .neighbor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 3px;
+  background: var(--irop-sunk);
+  border: 1px solid var(--irop-line-bright);
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.irop .neighbor-chip img { width: 22px; height: 22px; border: none; border-radius: 50%; object-fit: cover; }
+
+/* The settings scroll, Save stays in view (Johnald, 2026-10-09: it needed a scroll bar). */
+.irop-strategy-rules .window-content { padding: 0; overflow: hidden; }
+.irop-strategy-rules .strategy-rules { display: flex; flex-direction: column; flex: 1; height: 100%; min-height: 0; }
+.irop-strategy-rules .rules-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 14px; }
+.irop-strategy-rules .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin-bottom: 12px; }
+.irop-strategy-rules .rule-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.irop-strategy-rules .rule-field input { width: 70px; flex: none; text-align: center; }
+.irop-strategy-rules .rule-field select { width: 130px; flex: none; }
+.irop-strategy-rules .rule-field input[type="checkbox"] { width: auto; }
+.irop-strategy-rules .rules-actions { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 8px 14px 10px; border-top: 1px solid var(--irop-line); background: var(--irop-panel-2); }
+
+/* The War Room (Strategy Layer step 2, 2026-10-08), Johnald's Style A: a slim bar
+   along the top of a War Room scene, and a territory card floating over the map. */
+/* Frameless: Foundry gives it no window box, so it is placed and layered here, over the map. */
+.irop-war-room-bar { position: fixed; z-index: 60; margin: 0; padding: 0; background: transparent; border: none; box-shadow: none; min-width: 0; }
+.irop .war-room-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--irop-panel) 94%, transparent);
+  border: 1px solid var(--irop-line-bright);
+  border-bottom: 2px solid var(--irop-accent);
+  border-radius: 4px;
+  font-family: var(--irop-display);
+  font-size: 14px;
+  color: var(--irop-label-ink);
+  white-space: nowrap;
+}
+.irop .war-room-bar b { font-size: 17px; font-weight: 700; color: var(--irop-ink-bright); margin-left: 3px; }
+.irop .war-room-bar .wr-sep { width: 1px; height: 22px; background: var(--irop-line-bright); }
+.irop .war-room-bar .wr-layers, .irop .war-room-bar .wr-tools { display: flex; align-items: center; gap: 4px; }
+.irop .war-room-bar .wr-note { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); margin-right: 4px; }
+.irop-war-room-bar .war-room-bar button { height: 24px; min-height: 0; padding: 0 9px; font-size: 13px; line-height: 1; }
+.irop-war-room-bar .war-room-bar button.wr-chip { border-radius: 12px; background: var(--irop-sunk); }
+.irop-war-room-bar .war-room-bar button.wr-chip.active { background: color-mix(in srgb, var(--irop-accent) 25%, var(--irop-sunk)); border-color: var(--irop-accent); color: var(--irop-ink-bright); }
+.irop-war-room-bar .war-room-bar button.wr-tool.icon { width: 26px; padding: 0; }
+/* The stock reads as text but opens the ledger (step 3). */
+.irop-war-room-bar .war-room-bar button.wr-stock { height: auto; padding: 0 2px; background: none; border: none; font-size: 14px; color: var(--irop-label-ink); cursor: pointer; }
+.irop-war-room-bar .war-room-bar button.wr-stock:hover { color: var(--irop-accent); }
+.irop-war-room-bar .war-room-bar button.wr-stock:hover b { color: var(--irop-accent); }
+
+/* Logistics and Intel (Strategy Layer step 3, 2026-10-08): the ledger and the Support window. */
+/* Roomier, with larger text (Johnald, 2026-10-10): wider margins inside the window, text up
+   two to four points throughout, and the windows 80px wider to keep it on one line. */
+.irop-resource-ledger .window-content, .irop-support .window-content { padding: 18px 22px 20px; overflow-y: auto; }
+.irop .resource-ledger, .irop .support-body { display: flex; flex-direction: column; gap: 14px; font-size: 16px; }
+.irop .rl-stocks { display: flex; align-items: center; gap: 24px; padding-bottom: 10px; border-bottom: 2px solid var(--irop-accent); }
+.irop .rl-stock { display: flex; align-items: baseline; gap: 8px; color: var(--irop-label-ink); font-size: 17px; }
+.irop .rl-stock i { color: var(--irop-accent); }
+.irop .rl-value { font-size: 30px; font-weight: 700; color: var(--irop-ink-bright); }
+/* Set in from the window's edge (Johnald, 2026-10-10: it sat too close). */
+.irop .rl-week { margin-left: auto; margin-right: 12px; font-family: var(--irop-mono); font-size: 14px; color: var(--irop-muted); }
+.irop .rl-entry { display: grid; grid-template-columns: 112px 88px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+.irop .rl-entry input, .irop .rl-entry select { height: 32px; font-size: 15px; }
+.irop :where(.window-content) .rl-entry button { height: 32px; padding: 0 12px; white-space: nowrap; font-size: 15px; }
+.irop .rl-weeks { display: flex; flex-direction: column; gap: 12px; max-height: 460px; overflow-y: auto; }
+.irop .rl-week-head { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--irop-line); }
+.irop .rl-week-name { font-weight: 700; color: var(--irop-ink-bright); letter-spacing: 0.04em; text-transform: uppercase; font-size: 15px; }
+.irop .rl-net { display: flex; gap: 12px; font-family: var(--irop-mono); font-size: 14px; }
+.irop .rl-net .gain, .irop .rl-line.gain .rl-amount { color: var(--irop-good); }
+.irop .rl-net .loss, .irop .rl-line.loss .rl-amount { color: var(--irop-bad); }
+.irop .rl-lines { list-style: none; margin: 0; padding: 0; }
+.irop .rl-line { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 26px; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 60%, transparent); }
+.irop .rl-icon { color: var(--irop-muted); text-align: center; }
+.irop .rl-reason { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--irop-ink); }
+.irop .rl-amount { font-family: var(--irop-mono); font-size: 17px; text-align: right; white-space: nowrap; }
+.irop .rl-amount small { font-size: 14px; color: var(--irop-muted); }
+.irop .rl-footer { display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid var(--irop-line); }
+.irop :where(.window-content) .rl-footer button { width: auto; height: 34px; padding: 0 16px; font-size: 15px; }
+
+.irop .support-stock { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 2px solid var(--irop-accent); font-size: 17px; color: var(--irop-label-ink); }
+.irop .support-stock b { font-size: 28px; color: var(--irop-ink-bright); margin-left: 6px; }
+.irop .support-stock i { color: var(--irop-accent); }
+.irop :where(.window-content) .support-stock button { width: auto; height: 32px; padding: 0 14px; font-size: 15px; }
+.irop .support-body > .hint { margin: 0; color: var(--irop-muted); font-size: 15px; line-height: 1.4; }
+.irop .support-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; max-height: 560px; overflow-y: auto; }
+.irop .support-option { padding: 12px 14px; background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-left: 3px solid var(--irop-accent); border-radius: 3px; }
+.irop .support-option.short { border-left-color: var(--irop-line-bright); opacity: 0.75; }
+.irop .so-head { display: flex; align-items: center; gap: 10px; }
+.irop .so-icon { width: 22px; text-align: center; color: var(--irop-accent); font-size: 18px; }
+.irop .so-name { flex: 1; font-size: 18px; font-weight: 700; color: var(--irop-ink-bright); }
+.irop .so-cost { font-family: var(--irop-mono); font-size: 17px; color: var(--irop-ink-bright); white-space: nowrap; }
+.irop .so-cost small { font-size: 14px; color: var(--irop-muted); }
+.irop :where(.window-content) .so-head button { width: auto; flex: none; height: 32px; padding: 0 14px; font-size: 15px; }
+.irop .so-effect { margin: 8px 0 0; font-size: 15px; line-height: 1.45; color: var(--irop-label-ink); }
+.irop .so-short { margin: 6px 0 0; font-family: var(--irop-mono); font-size: 14px; color: var(--irop-bad); }
+/* The request it opens, the same size of text. */
+.irop-support-dialog .window-content { padding: 18px 22px; font-size: 16px; }
+.irop-support-dialog .hint { color: var(--irop-muted); font-size: 15px; }
+/* The popup asking for a status's X (2026-10-10): its rules above, the number below. */
+.irop-status-dialog .window-content { padding: 16px 20px; font-size: 15px; }
+.irop-status-dialog .hint { margin: 0 0 12px; color: var(--irop-muted); line-height: 1.45; }
+.irop-status-dialog input[type="number"] { width: 90px; font-size: 16px; }
+
+/* Support and Mortar Strike chat cards. */
+.irop-card.support-card.pending { --card-accent: var(--irop-warn); }
+.irop-card.support-card.approved { --card-accent: var(--irop-good); }
+.irop-card.support-card.declined { --card-accent: var(--irop-bad); }
+.irop-card.support-card h3 i { color: var(--card-accent); margin-right: 2px; }
+.irop-card .support-effect { margin: 0 0 6px; font-size: 15px; line-height: 1.4; color: var(--irop-label-ink); }
+.irop-card .support-note { margin: 0 0 6px; font-size: 15px; }
+.irop-card .support-note span { font-family: var(--irop-mono); font-size: 14px; color: var(--irop-muted); margin-right: 4px; }
+.irop-card .support-status { margin: 0; font-weight: 600; color: var(--card-accent); }
+.irop-card .support-hint { margin: 4px 0 0; font-size: 14px; color: var(--irop-muted); }
+.irop-card.mortar-card { --card-accent: var(--irop-orange); }
+.irop-card .mortar-strikes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+/* Blast markers (2026-10-09): what Scatter did with the marker. */
+.irop-card .scatter-note { margin: 6px 0 0; font-size: 14px; color: var(--irop-label-ink); }
+.irop-card .scatter-note i { color: var(--card-accent); margin-right: 3px; }
+.irop-card .mortar-strike { display: grid; grid-template-columns: 62px 34px minmax(0, 1fr) auto; align-items: center; gap: 6px; font-size: 15px; }
+.irop-card .ms-n { font-weight: 700; color: var(--irop-ink-bright); }
+.irop-card .ms-roll { font-family: var(--irop-mono); font-size: 17px; text-align: center; padding: 0 3px; border: 1px solid var(--irop-line-bright); border-radius: 3px; background: var(--irop-sunk); }
+.irop-card .mortar-strike.scatters .ms-roll { color: var(--irop-warn); border-color: var(--irop-warn); }
+.irop-card .mortar-strike:not(.scatters) .ms-result { color: var(--irop-good); }
+
+/* The card (Johnald, 2026-10-08): a header image the GM sets, edge to edge, with the name over it; the
+   numbers below; then the territory's journal as intel, scrolling in its own box. */
+.irop-territory-card .window-content { padding: 0; }
+.irop .territory-card { display: flex; flex-direction: column; font-size: 18px; line-height: 1.35; }
+.irop .territory-card .tc-header {
+  position: relative; display: flex; align-items: flex-end; min-height: 104px; padding: 12px 14px 10px; overflow: hidden;
+  --tc-band: #C4121C;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--tc-band) 55%, var(--irop-panel)), var(--irop-panel) 75%);
+  border-bottom: 2px solid var(--tc-band);
+}
+.irop .territory-card .tc-header.control-contested { --tc-band: #D9B234; }
+.irop .territory-card .tc-header.control-liberated { --tc-band: #42ABF2; }
+/* Its neighbours (Johnald, 2026-10-10): a chip each, a dot in its holder's colour, opening its card. */
+.irop .territory-card .tc-neighbours { padding: 8px 16px 2px; }
+.irop .territory-card .tc-nb-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.irop :where(.window-content) .territory-card button.tc-nb { display: inline-flex; align-items: center; gap: 6px; width: auto; height: auto; min-height: 0; padding: 3px 10px 3px 8px; border: 1px solid var(--irop-line-bright); border-radius: 12px; background: var(--irop-sunk); font-size: 15px; line-height: 1.2; color: var(--irop-ink-bright); cursor: pointer; }
+.irop :where(.window-content) .territory-card button.tc-nb:hover { border-color: var(--irop-accent); }
+.irop .territory-card .tc-nb .tc-nb-dot { width: 8px; height: 8px; border-radius: 50%; background: #C4121C; flex: none; }
+.irop .territory-card .tc-nb.control-contested .tc-nb-dot { background: #D9B234; }
+.irop .territory-card .tc-nb.control-liberated .tc-nb-dot { background: #42ABF2; }
+.irop .territory-card .tc-header.with-art { height: 190px; padding-top: 0; }
+.irop .territory-card .tc-header.editable { cursor: pointer; }
+.irop .territory-card .tc-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: none; border-radius: 0; margin: 0; }
+.irop .territory-card .tc-header.with-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(8, 10, 14, 0.92), rgba(8, 10, 14, 0.15) 60%, transparent); }
+.irop .territory-card .tc-header-text { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 2px; }
+.irop .territory-card .tc-name { font-size: 26px; font-weight: 700; line-height: 1.05; letter-spacing: 0.03em; color: #F4F7FB; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+.irop .territory-card .tc-sub { margin: 0; font-family: var(--irop-mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #DCE1E9; }
+.irop .territory-card .tc-art-edit { position: absolute; z-index: 1; top: 8px; left: 10px; padding: 5px; border-radius: 3px; background: rgba(8, 10, 14, 0.6); color: #DCE1E9; opacity: 0; transition: opacity 0.15s; }
+.irop .territory-card .tc-header.editable:hover .tc-art-edit { opacity: 1; }
+.irop .territory-card .tc-body { display: flex; flex-direction: column; gap: 5px; padding: 12px 16px 14px; }
+/* This turn's weather (Johnald, 2026-10-08): a frosted badge in the header's corner. */
+.irop .territory-card .tc-weather {
+  position: absolute; z-index: 2; top: 10px; right: 10px; max-width: 62%;
+  display: flex; align-items: center; gap: 9px; padding: 6px 11px 6px 9px;
+  border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(8, 10, 14, 0.58); backdrop-filter: blur(4px); color: #F4F7FB;
+}
+.irop .territory-card .tc-weather.rerollable { cursor: pointer; }
+.irop .territory-card .tc-weather.rerollable:hover { border-color: #42ABF2; }
+.irop .territory-card .wx-icon { font-size: 26px; width: 30px; text-align: center; color: #B8C0CC; }
+.irop .territory-card .wx-temp { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: 0.01em; white-space: nowrap; }
+.irop .territory-card .wx-temp small { font-size: 14px; font-weight: 600; margin-left: 1px; color: #DCE1E9; }
+.irop .territory-card .wx-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.irop .territory-card .wx-label { font-size: 14.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irop .territory-card .wx-detail { font-family: var(--irop-mono); font-size: 12px; color: #DCE1E9; }
+.irop .territory-card .wx-clear .wx-icon, .irop .territory-card .wx-partly .wx-icon { color: #F5C542; }
+.irop .territory-card .wx-rain .wx-icon { color: #6FB3F2; }
+.irop .territory-card .wx-storm .wx-icon { color: #E8B04A; }
+.irop .territory-card .wx-snow .wx-icon { color: #E6F2FF; }
+.irop .territory-card .wx-fog .wx-icon, .irop .territory-card .wx-smog .wx-icon { color: #9AA3B0; }
+.irop .territory-card .wx-wind .wx-icon, .irop .territory-card .wx-dust .wx-icon { color: #D9B98A; }
+.irop .territory-card .wx-haze .wx-icon { color: #F28C38; }
+.irop .territory-card .wx-paraStorm { border-color: rgba(176, 124, 242, 0.6); }
+.irop .territory-card .wx-paraStorm .wx-icon { color: #B07CF2; animation: irop-para 2.4s ease-in-out infinite; }
+@keyframes irop-para { 50% { color: #E3CCFF; text-shadow: 0 0 10px #B07CF2; } }
+@media (prefers-reduced-motion: reduce) { .irop .territory-card .wx-paraStorm .wx-icon { animation: none; } }
+/* 600 wide (Johnald, 2026-10-08): the numbers on the left, each side's facilities on the right. */
+.irop .territory-card .tc-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.irop .territory-card .tc-stats { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.irop .territory-card .tc-facilities { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-left: 16px; border-left: 1px solid var(--irop-line); }
+.irop .territory-card .tc-fac-head { margin: 0; padding: 0; border: none; font-family: var(--irop-mono); font-size: 12px; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; }
+.irop .territory-card .tc-fac-head.rebellion { color: #42ABF2; }
+.irop .territory-card .tc-fac-head.genesis { color: #E86A5F; margin-top: 8px; }
+.irop .territory-card .tc-fac-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.irop .territory-card .tc-fac-list li { font-size: 16.5px; line-height: 1.35; color: var(--irop-ink-bright); }
+.irop .territory-card .tc-fac-list li small { font-size: 14px; color: var(--irop-muted); }
+.irop .territory-card .tc-fac-list li.down .fac-name { text-decoration: line-through; color: var(--irop-muted); }
+.irop .territory-card .tc-fac-list li.hidden-fac { color: var(--irop-label-ink); }
+.irop .territory-card .tc-fac-list li.hidden-fac i { color: var(--irop-muted); font-size: 12px; }
+.irop .territory-card .tc-fac-list li.none { color: var(--irop-faint); font-style: italic; font-size: 15.5px; }
+.irop .territory-card .tc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.irop :where(.window-content) .territory-card .tc-actions .tc-open { flex: 1 1 0; margin-top: 0; white-space: nowrap; }
+
+/* The territory sheet's facility lists. */
+.irop .territory-facilities { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-bottom: 12px; }
+.irop .facility-list header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.irop .facility-list.rebellion header .mono-label { color: #42ABF2; }
+.irop .facility-list.genesis header .mono-label { color: #E86A5F; }
+.irop .facility-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto auto 24px; gap: 6px; align-items: center; margin-bottom: 4px; }
+.irop .facility-row label.check { display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
+.irop .facility-auto { margin: 0 0 4px; font-size: 13.5px; color: var(--irop-label-ink); }
+.irop .facility-auto small { color: var(--irop-muted); }
+.irop .facility-auto.down { text-decoration: line-through; color: var(--irop-muted); }
+.irop .territory-card .tc-intel { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--irop-line); }
+.irop .territory-card .tc-intel-head { margin: 0 0 6px; padding: 0; border: none; font-family: var(--irop-mono); font-size: 12px; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; color: var(--irop-accent); }
+.irop .territory-card .tc-intel-head small { font-family: var(--irop-display); font-size: 14px; letter-spacing: 0.02em; text-transform: none; color: var(--irop-label-ink); margin-left: 4px; }
+.irop .territory-card .tc-intel-text { max-height: 260px; overflow-y: auto; padding-right: 6px; font-size: 16.5px; line-height: 1.5; color: var(--irop-ink); }
+.irop .territory-card .tc-intel-text p { margin: 0 0 8px; }
+.irop .territory-card .tc-intel-text img { max-width: 100%; border: none; }
+.irop .territory-card .tc-intel-text h1, .irop .territory-card .tc-intel-text h2, .irop .territory-card .tc-intel-text h3 { font-size: 18px; margin: 8px 0 4px; border: none; color: var(--irop-ink-bright); }
+.irop .territory-card .tc-classified { margin: 0; font-family: var(--irop-mono); font-size: 15px; color: var(--irop-muted); }
+.irop .territory-card .tc-journal-link { display: inline-block; margin-top: 6px; font-size: 16px; color: var(--irop-accent); cursor: pointer; }
+
+/* The territory sheet: its header image and journal. */
+.irop .territory-art-preview { display: block; width: 100%; max-height: 140px; object-fit: cover; border: 1px solid var(--irop-line); border-radius: 3px; margin: 0 0 10px; }
+.irop .territory-journal { margin-bottom: 10px; }
+.irop .territory-card .tc-row { display: flex; justify-content: space-between; align-items: center; color: var(--irop-label-ink); }
+.irop .territory-card .tc-row span:last-child { color: var(--irop-ink-bright); font-weight: 700; }
+.irop .territory-card .tc-pips { display: flex; gap: 4px; margin-bottom: 6px; }
+.irop .territory-card .tc-pip { flex: 1; height: 12px; border-radius: 2px; background: var(--irop-line-bright); }
+.irop .territory-card .tc-pip.on { background: #E24B4A; }
+.irop .territory-card .tc-track { height: 10px; border-radius: 4px; background: var(--irop-sunk); border: 1px solid var(--irop-line); margin-bottom: 6px; overflow: hidden; }
+.irop .territory-card .tc-track span { display: block; height: 100%; background: #A32D2D; }
+.irop .territory-card .tc-mods { margin: 4px 0 0; font-size: 16px; color: var(--irop-label-ink); }
+.irop :where(.window-content) .territory-card .tc-open { margin-top: 10px; height: 34px; font-size: 17px; }
+.irop :where(.window-content) .facility-list header button { width: auto; height: 22px; }
+.irop :where(.window-content) .facility-row button.icon { width: 24px; height: 24px; padding: 0; }
+.irop-territory-card .window-header .window-title { font-size: 18px; }
+
+/* The Strategy Layer box in a scene's own settings. */
+.irop-war-room-config legend { font-weight: 600; }
+
+/* --------------------------------------------------------------------------
+   The turn and the ODR phase (Strategy Layer steps 4 and 5, 2026-10-08).
+   -------------------------------------------------------------------------- */
+
+/* The ODR board. */
+.irop-odr-board .window-content { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.irop .odr-board { display: flex; flex-direction: column; height: 100%; min-height: 0; font-size: 14px; }
+.irop .odr-head { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-bottom: 2px solid var(--irop-accent); color: var(--irop-label-ink); white-space: nowrap; }
+.irop .odr-head b { font-size: 18px; color: var(--irop-ink-bright); margin-left: 3px; }
+.irop .odr-phase { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.1em; text-transform: uppercase; color: var(--irop-accent); }
+.irop .odr-stock i { color: var(--irop-accent); }
+.irop .odr-gm { margin-left: auto; display: flex; gap: 6px; }
+.irop :where(.window-content) .odr-gm button { width: auto; height: 28px; padding: 0 12px; white-space: nowrap; }
+.irop .odr-tabs { display: flex; gap: 2px; padding: 6px 10px 0; border-bottom: 1px solid var(--irop-line); }
+.irop .odr-tab { padding: 6px 12px; border: 1px solid transparent; border-bottom: none; border-radius: 3px 3px 0 0; color: var(--irop-label-ink); cursor: pointer; }
+.irop .odr-tab:hover { color: var(--irop-ink-bright); }
+.irop .odr-tab.active { color: var(--irop-ink-bright); border-color: var(--irop-line-bright); background: var(--irop-panel-2); }
+.irop .odr-tab.active i { color: var(--irop-accent); }
+.irop .odr-badge { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); margin-left: 4px; }
+.irop .odr-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 14px 14px; }
+.irop .odr-section { margin-bottom: 12px; }
+.irop .odr-section .section-title { display: flex; align-items: center; gap: 8px; }
+.irop :where(.window-content) .odr-section .section-title button { width: auto; height: 22px; margin-left: auto; }
+.irop .odr-empty { margin: 4px 0 8px; padding: 10px 12px; border: 1px dashed var(--irop-line-bright); border-radius: 3px; color: var(--irop-muted); }
+
+.irop .odr-slot { margin-bottom: 8px; padding: 10px 12px; background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-left: 3px solid var(--irop-accent); border-radius: 3px; display: flex; flex-direction: column; gap: 6px; }
+.irop .os-head { display: flex; align-items: center; gap: 10px; }
+.irop .os-head img { width: 36px; height: 36px; border: 1px solid var(--irop-line-bright); border-radius: 3px; object-fit: cover; flex: none; }
+.irop .os-icon { width: 36px; text-align: center; font-size: 20px; color: var(--irop-accent); }
+.irop .os-title { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.irop .os-name { font-size: 16px; font-weight: 700; color: var(--irop-ink-bright); cursor: pointer; }
+.irop .os-sub { font-size: 12px; color: var(--irop-muted); }
+.irop :where(.window-content) .os-head button { width: auto; height: 26px; flex: none; }
+.irop .os-progress, .irop .project-meter { display: flex; align-items: center; gap: 10px; }
+.irop .os-track { flex: 1; height: 10px; border-radius: 4px; background: var(--irop-sunk); border: 1px solid var(--irop-line); overflow: hidden; }
+.irop .os-track span { display: block; height: 100%; background: var(--irop-accent); }
+.irop .os-count { font-family: var(--irop-mono); font-size: 14px; color: var(--irop-ink-bright); white-space: nowrap; }
+.irop .os-weekly { margin: 0; font-family: var(--irop-mono); font-size: 13px; color: var(--irop-good); cursor: help; }
+.irop .os-warn { margin: 0; color: var(--irop-warn); font-size: 13px; }
+.irop .os-line { margin: 0; font-size: 13px; color: var(--irop-ink); }
+.irop .os-line .label, .irop-card.project-card .label { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); margin-right: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+.irop .os-team { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.irop .os-soldier { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px 1px 8px; border: 1px solid var(--irop-line-bright); border-radius: 12px; font-size: 13px; }
+.irop .os-soldier small { font-family: var(--irop-mono); font-size: 12px; color: var(--irop-good); }
+.irop :where(.window-content) .os-soldier button { width: 20px; height: 20px; padding: 0; border: none; background: none; }
+.irop .os-assign, .irop .os-spend, .irop .os-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.irop .os-assign select { height: 26px; width: auto; max-width: 220px; }
+.irop .os-spend input { width: 90px; height: 26px; }
+.irop :where(.window-content) .os-assign button, .irop :where(.window-content) .os-spend button, .irop :where(.window-content) .os-actions button { width: auto; height: 26px; padding: 0 10px; white-space: nowrap; }
+.irop .os-desc, .irop .or-desc { font-size: 13px; color: var(--irop-label-ink); }
+.irop .os-desc summary, .irop .or-desc summary, .irop .odr-done summary { cursor: pointer; font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop .os-desc p, .irop .or-desc p { margin: 4px 0; }
+.irop .tactical-slot.status-briefed { border-left-color: var(--irop-warn); }
+.irop .tactical-slot.status-done { border-left-color: var(--irop-good); }
+
+.irop .odr-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.irop .odr-row { display: flex; align-items: flex-start; gap: 10px; padding: 7px 4px; border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 60%, transparent); }
+.irop .odr-row img { width: 30px; height: 30px; border: 1px solid var(--irop-line); border-radius: 3px; object-fit: cover; flex: none; }
+.irop .odr-row .or-icon { width: 30px; text-align: center; color: var(--irop-accent); padding-top: 4px; }
+.irop .odr-row.hidden-project { opacity: 0.6; }
+.irop .odr-row.done { opacity: 0.8; }
+.irop .odr-choice.revealed .or-icon { color: var(--irop-warn); }
+.irop .or-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.irop .or-name { font-weight: 700; color: var(--irop-ink-bright); cursor: pointer; }
+.irop .or-sub { font-size: 12px; color: var(--irop-muted); }
+.irop .or-flag { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-warn); text-transform: uppercase; letter-spacing: 0.06em; }
+.irop .or-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.irop :where(.window-content) .or-actions button { width: auto; height: 26px; padding: 0 10px; white-space: nowrap; }
+.irop :where(.window-content) .or-actions button.icon { width: 26px; padding: 0; }
+/* A shut button lets its wrapper show why. */
+.irop :where(.window-content) .or-start button:disabled { pointer-events: none; }
+.irop .odr-log { list-style: none; margin: 0; padding: 0; }
+.irop .odr-log li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto auto; gap: 8px; padding: 4px 2px; border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 60%, transparent); font-size: 13px; }
+.irop .odr-log li.empty-row { display: block; }
+.irop .ol-week { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); }
+.irop .ol-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.irop .odr-log .outcome-success .ol-outcome { color: var(--irop-good); }
+.irop .odr-log .outcome-partial .ol-outcome { color: var(--irop-warn); }
+.irop .odr-log .outcome-failure .ol-outcome { color: var(--irop-bad); }
+.irop .ol-gains { font-family: var(--irop-mono); font-size: 12px; color: var(--irop-good); }
+
+/* The turn report. */
+.irop-turn-report .window-content { padding: 0; overflow-y: auto; }
+/* Larger text, Johnald 2026-10-10 ("a little hard to read"): the body 16px, nothing under 14px,
+   with a little more room; the window 60px wider to hold it. The chat card's banner is not changed. */
+.irop .turn-report { display: flex; flex-direction: column; font-size: 16px; }
+.irop .tr-banner, .irop-card .week-banner {
+  display: flex; align-items: baseline; justify-content: space-between; padding: 12px 16px;
+  background: linear-gradient(90deg, color-mix(in srgb, #C4121C 35%, var(--irop-panel)), var(--irop-panel));
+  border-bottom: 2px solid #C4121C;
+}
+.irop .tr-week, .irop-card .week-no { font-size: 24px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--irop-ink-bright); }
+.irop .tr-phase, .irop-card .week-phase { font-family: var(--irop-mono); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: #E8B04A; }
+.irop .tr-banner { padding: 14px 20px; }
+.irop .tr-week { font-size: 26px; }
+.irop .tr-phase { font-size: 15px; }
+.irop .turn-report .section-title { font-size: 14px; margin-top: 10px; }
+.irop .tr-manual, .irop .tr-warn { margin: 10px 20px 0; padding: 8px 12px; border-radius: 3px; font-size: 15px; line-height: 1.4; }
+.irop .tr-manual { background: color-mix(in srgb, var(--irop-accent) 10%, transparent); border: 1px solid var(--irop-accent); }
+.irop .tr-warn { background: color-mix(in srgb, var(--irop-warn) 10%, transparent); border: 1px solid var(--irop-warn); color: var(--irop-ink-bright); }
+.irop .tr-body { padding: 10px 20px; max-height: 560px; overflow-y: auto; }
+.irop .tr-lines { list-style: none; margin: 0 0 8px; padding: 0; }
+.irop .tr-line { display: flex; flex-direction: column; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 60%, transparent); }
+.irop .tr-line label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.irop .tr-line input { flex: none; margin: 0; }
+.irop .tr-text { font-weight: 600; }
+.irop .tr-line.tone-up .tr-text { color: #E86A5F; }
+.irop .tr-line.tone-down .tr-text { color: var(--irop-good); }
+.irop .tr-line.tone-done .tr-text { color: var(--irop-accent); }
+.irop .tr-detail { margin: 2px 0 0 28px; font-size: 14px; line-height: 1.4; color: var(--irop-muted); }
+.irop .tr-quiet { color: var(--irop-muted); font-style: italic; }
+.irop .tr-due { margin: 6px 0; font-size: 15px; }
+.irop .tr-due i { color: var(--irop-warn); margin-right: 4px; }
+.irop .tr-actions { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--irop-line); }
+.irop .tr-actions .hint { flex: 1; color: var(--irop-muted); font-size: 14px; }
+.irop :where(.window-content) .tr-actions button { width: auto; height: 34px; padding: 0 14px; white-space: nowrap; font-size: 15px; }
+
+/* The project strip along the bottom of a War Room map. Frameless, like the bar. */
+.irop-project-strip { position: fixed; z-index: 60; margin: 0; padding: 0; background: transparent; border: none; box-shadow: none; min-width: 0; }
+.irop .project-strip {
+  display: flex; gap: 4px; padding: 4px; max-width: calc(100vw - 40px);
+  background: color-mix(in srgb, var(--irop-panel) 94%, transparent);
+  border: 1px solid var(--irop-line-bright); border-top: 2px solid var(--irop-accent); border-radius: 4px;
+  font-family: var(--irop-display); font-size: 13px; color: var(--irop-label-ink);
+}
+.irop-project-strip .project-strip button.ps-seg {
+  display: flex; align-items: center; gap: 8px; width: auto; height: auto; min-height: 0; padding: 4px 10px;
+  background: var(--irop-sunk); border: 1px solid var(--irop-line); border-radius: 3px; color: var(--irop-label-ink); white-space: nowrap; line-height: 1.2;
+}
+.irop-project-strip .project-strip button.ps-seg:hover { border-color: var(--irop-accent); color: var(--irop-ink-bright); }
+.irop .ps-kind { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-muted); }
+.irop .ps-kind i { color: var(--irop-accent); }
+.irop .ps-item { display: inline-flex; align-items: center; gap: 5px; }
+.irop .ps-name { color: var(--irop-ink-bright); font-weight: 600; max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.irop .ps-bar { width: 46px; height: 6px; border-radius: 3px; background: var(--irop-line); overflow: hidden; }
+.irop .ps-bar span { display: block; height: 100%; background: var(--irop-accent); }
+.irop .ps-num { font-family: var(--irop-mono); font-size: 12px; }
+.irop .ps-none { color: var(--irop-faint); font-style: italic; }
+.irop .ps-status { font-family: var(--irop-mono); font-size: 12px; color: var(--irop-warn); }
+
+/* A new week: a banner across the screen, gone in three seconds. */
+.irop-week-banner {
+  position: fixed; left: 0; right: 0; top: 34%; z-index: 9999; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, #0D1116 88%, transparent) 20%, color-mix(in srgb, #0D1116 88%, transparent) 80%, transparent);
+  border-top: 1px solid #C4121C; border-bottom: 1px solid #C4121C;
+  font-family: var(--irop-display); color: #F4F7FB;
+  animation: irop-week-banner 3.2s ease forwards;
+}
+.irop-week-banner .wb-week { font-size: 44px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+.irop-week-banner .wb-phase { font-family: var(--irop-mono); font-size: 15px; letter-spacing: 0.3em; text-transform: uppercase; color: #42ABF2; }
+@keyframes irop-week-banner {
+  0% { opacity: 0; transform: scaleY(0.2); }
+  12% { opacity: 1; transform: scaleY(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .irop-week-banner { animation: none; } }
+
+/* Chat: the week report, the mission briefing and debrief, a project complete. */
+.irop-card.week-card { --card-accent: #C4121C; padding: 0 0 8px; }
+.irop-card .week-banner { padding: 8px 10px; margin-bottom: 6px; }
+.irop-card .week-no { font-size: 18px; }
+.irop-card .week-lines { margin: 0 10px; padding-left: 16px; font-size: 15px; }
+.irop-card .week-lines .tone-up { color: #E86A5F; }
+.irop-card .week-lines .tone-down { color: var(--irop-good); }
+.irop-card .week-lines .tone-done { color: var(--irop-accent); }
+.irop-card .week-quiet, .irop-card .week-next { margin: 4px 10px; font-size: 15px; color: var(--irop-muted); }
+.irop-card .week-due { margin: 6px 10px 0; font-size: 15px; }
+.irop-card .week-due p { margin: 2px 0; }
+.irop-card .week-due i { color: var(--irop-warn); }
+.irop-card.mission-card { --card-accent: var(--irop-warn); }
+.irop-card.mission-card.debrief.outcome-success { --card-accent: var(--irop-good); }
+.irop-card.mission-card.debrief.outcome-failure { --card-accent: var(--irop-bad); }
+.irop-card .mission-where { margin: 0 0 6px; }
+.irop-card .mission-where i { color: var(--card-accent); }
+.irop-card .mission-outcome { font-weight: 700; color: var(--card-accent); }
+.irop-card .mission-intel { display: grid; grid-template-columns: 76px 1fr; gap: 3px 8px; margin: 0; font-size: 15px; }
+.irop-card .mission-intel dt { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.irop-card .mission-intel dd { margin: 0; }
+.irop-card .debrief-lines { margin: 0; padding-left: 16px; font-size: 15px; }
+.irop-card .debrief-lines .gain { color: var(--irop-good); }
+.irop-card .debrief-lines .heat { color: #E86A5F; }
+.irop-card.project-card { --card-accent: var(--irop-accent); }
+.irop-card.project-card h3 i { color: var(--card-accent); }
+.irop-card.project-card p { margin: 3px 0; font-size: 15px; }
+
+/* The debrief dialog. */
+.irop-debrief-dialog .form-grid { grid-template-columns: 1fr 1fr; }
+
+/* The project sheet. */
+.irop .project-meter { margin-bottom: 10px; }
+.irop .project-skills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.irop :where(.window-content) .project-skills .skill-chip { width: auto; height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; background: var(--irop-sunk); color: var(--irop-muted); }
+.irop :where(.window-content) .project-skills .skill-chip.on { background: color-mix(in srgb, var(--irop-accent) 25%, var(--irop-sunk)); border-color: var(--irop-accent); color: var(--irop-ink-bright); }
+
+/* The territory card and sheet, steps 4 and 5. */
+.irop .territory-card .tc-pending { margin: -2px 0 4px; font-family: var(--irop-mono); font-size: 15px; color: #E86A5F; }
+.irop .territory-card .tc-upgrades { margin: 4px 0 0; font-size: 16px; color: var(--irop-label-ink); }
+.irop .territory-card .tc-upgrades i { color: var(--irop-accent); margin-right: 3px; }
+.irop .territory-upgrades { display: flex; flex-wrap: wrap; gap: 6px; }
+.irop .ev-warn { margin: 10px 14px 0; padding: 8px 10px; border: 1px solid var(--irop-warn); border-radius: 3px; background: color-mix(in srgb, var(--irop-warn) 10%, transparent); color: var(--irop-ink-bright); font-size: 13px; }
+
+/* --------------------------------------------------------------------------
+   Event and Dark Event cards (Strategy Layer step 6, 2026-10-08).
+   -------------------------------------------------------------------------- */
+
+/* The Events window. */
+.irop-events .window-content { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.irop .events-body { display: flex; flex-direction: column; height: 100%; min-height: 0; font-size: 14px; }
+.irop .ev-setup { margin: 10px 14px 0; padding: 10px 12px; border: 1px dashed var(--irop-accent); border-radius: 3px; display: flex; flex-direction: column; gap: 8px; }
+.irop .ev-setup p { margin: 0; }
+.irop :where(.window-content) .ev-setup button { width: auto; align-self: flex-start; height: 30px; padding: 0 14px; }
+.irop .ev-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 14px 14px; }
+.irop .ev-section { margin-bottom: 12px; }
+.irop .ev-card { display: flex; gap: 12px; padding: 10px; margin-bottom: 8px; background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-left: 3px solid #42ABF2; border-radius: 3px; }
+.irop .ev-card.kind-dark { border-left-color: #C4121C; }
+.irop .ev-card.kind-world { border-left-color: #B8C0CC; }
+.irop .ev-img { width: 64px; height: 90px; object-fit: cover; border: 1px solid var(--irop-line-bright); border-radius: 4px; flex: none; }
+.irop .ev-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.irop .ev-name { font-size: 16px; font-weight: 700; color: var(--irop-ink-bright); }
+.irop .ev-kind { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.irop .ev-card.kind-dark .ev-kind i { color: #C4121C; }
+.irop .ev-card.kind-event .ev-kind i { color: #42ABF2; }
+.irop .ev-card.kind-world .ev-kind i { color: #B8C0CC; }
+.irop .ev-flag { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: #E8B04A; text-transform: uppercase; letter-spacing: 0.06em; margin-left: 6px; }
+.irop .ev-where { margin: 0; font-size: 15px; color: var(--irop-label-ink); }
+.irop .ev-where i { color: var(--irop-muted); }
+.irop .ev-text { font-size: 15px; color: var(--irop-ink); }
+.irop .ev-text p { margin: 2px 0; }
+.irop .ev-discard { margin: 0; font-size: 15px; color: var(--irop-label-ink); }
+.irop .ev-discard .label { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
+.irop .ev-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.irop .ev-actions select { height: 26px; width: auto; max-width: 220px; }
+.irop :where(.window-content) .ev-actions button { width: auto; height: 26px; padding: 0 10px; white-space: nowrap; }
+.irop .ev-decks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.irop .ev-deck { display: flex; gap: 10px; align-items: flex-start; padding: 8px; background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-radius: 3px; }
+.irop .ev-deck img { width: 56px; height: 78px; border: none; border-radius: 4px; cursor: pointer; flex: none; }
+.irop .ev-deck-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.irop .ev-count { font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); }
+
+/* The card sheet. */
+.event-card-sheet .window-content { padding: 10px 14px 14px; overflow-y: auto; }
+.irop .event-card-sheet-body { display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.irop .ec-head { display: flex; gap: 12px; align-items: flex-start; }
+.irop .ec-img { width: 84px; height: 118px; object-fit: cover; border: 1px solid var(--irop-line-bright); border-radius: 5px; cursor: pointer; flex: none; }
+.irop .ec-title { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.irop .ec-kind { display: flex; align-items: center; gap: 8px; }
+.irop .ec-kind span { font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-label-ink); text-transform: uppercase; letter-spacing: 0.08em; }
+.irop .ec-kind select { width: auto; }
+.irop .ec-flags { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 12px; }
+.irop .ec-flags label.check { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.irop .ec-effects { width: 100%; border-collapse: collapse; font-size: 13px; }
+.irop .ec-effects th { text-align: left; font-weight: 600; color: var(--irop-label-ink); padding: 3px 6px; }
+.irop .ec-effects thead th { font-family: var(--irop-mono); font-size: var(--irop-small-size); text-transform: uppercase; letter-spacing: 0.06em; color: var(--irop-muted); }
+.irop .ec-effects td { padding: 3px 6px; }
+.irop .ec-effects input { width: 80px; text-align: center; }
+.irop .event-card-sheet-body textarea { width: 100%; min-height: 110px; resize: vertical; }
+/* Never in (Johnald, 2026-10-08): the territories a card never lands on. */
+.irop .ec-never { display: flex; flex-direction: column; gap: 4px; }
+.irop .ec-never-label { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-muted); }
+.irop .ec-never-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.irop .ec-never .ec-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 9px; border: 1px solid var(--irop-bad); border-radius: 12px; background: color-mix(in srgb, var(--irop-bad) 14%, var(--irop-sunk)); font-size: 13px; color: var(--irop-ink-bright); }
+.irop :where(.window-content) .ec-never button.ec-chip-x { width: 20px; height: 20px; min-height: 0; padding: 0; border: none; background: none; font-size: 12px; line-height: 1; color: var(--irop-label-ink); }
+.irop :where(.window-content) .ec-never button.ec-chip-x:hover { color: var(--irop-bad); }
+.irop .ec-never .ec-never-add { width: auto; min-width: 150px; height: 26px; font-size: 13px; }
+.irop .ec-never .hint { margin: 0; }
+
+/* Cards in the turn report. */
+.irop .tr-line.with-card { flex-direction: row; gap: 10px; align-items: flex-start; }
+.irop .tr-card { width: 40px; height: 56px; object-fit: cover; border: 1px solid var(--irop-line-bright); border-radius: 3px; flex: none; }
+.irop .tr-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.irop .tr-line.with-card .tr-detail { margin-left: 28px; }
+.irop .tr-where { display: flex; align-items: center; gap: 8px; margin: 6px 0 0 28px; font-size: 14px; color: var(--irop-label-ink); }
+.irop .tr-where select { height: 30px; width: auto; font-size: 14px; }
+.irop .tr-keep { font-family: var(--irop-mono); font-size: 14px; color: #E8B04A; text-transform: uppercase; letter-spacing: 0.06em; margin-left: 6px; }
+
+/* The board's response choices, and the territory card's cards in play. */
+.irop .odr-choice.response .or-icon { color: #42ABF2; }
+.irop .territory-card .tc-event { margin: 2px 0; font-size: 16px; color: var(--irop-ink-bright); }
+.irop .territory-card .tc-event i { color: #E8B04A; margin-right: 3px; }
+.irop .territory-card .tc-event small { font-family: var(--irop-mono); font-size: 14px; color: var(--irop-muted); margin-left: 4px; }
+
+/* Chat: a card revealed, played or discarded; the cards a week dealt. */
+.irop-card.event-chat-card { --card-accent: #42ABF2; }
+.irop-card.event-chat-card.kind-dark { --card-accent: #C4121C; }
+.irop-card.event-chat-card.kind-world { --card-accent: #B8C0CC; }
+.irop-card.event-chat-card .card-head img { width: 44px; height: 62px; object-fit: cover; }
+.irop-card .event-text { font-size: 15px; }
+.irop-card .event-text p { margin: 2px 0; }
+.irop-card .event-effects { margin: 4px 0 0; font-family: var(--irop-mono); font-size: 15px; color: var(--card-accent); }
+.irop-card .week-cards { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 10px 0; }
+.irop-card .week-card-tile { margin: 0; width: 78px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.irop-card .week-card-tile img { width: 56px; height: 78px; object-fit: cover; border: 1px solid #42ABF2; border-radius: 4px; }
+.irop-card .week-card-tile.kind-dark img { border-color: #C4121C; }
+.irop-card .week-card-tile.kind-world img { border-color: #B8C0CC; }
+.irop-card .week-card-tile figcaption { font-size: 14px; line-height: 1.15; text-align: center; color: var(--irop-ink-bright); }
+.irop-card .week-card-tile small { display: block; font-size: 14px; color: var(--irop-muted); }
+.irop .irop-debrief .check-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+
+/* --------------------------------------------------------------------------
+   Losing Ground (Strategy Layer step 7, 2026-10-08).
+   -------------------------------------------------------------------------- */
+
+.irop .form-grid.two { grid-template-columns: 1fr 1fr; }
+
+/* The Incursion alert on the War Room bar. */
+.irop-war-room-bar .war-room-bar button.wr-alert { border-color: #C4121C; color: #F4F7FB; background: color-mix(in srgb, #C4121C 40%, var(--irop-sunk)); animation: irop-alert 1.6s ease-in-out infinite; }
+@keyframes irop-alert { 50% { background: color-mix(in srgb, #C4121C 70%, var(--irop-sunk)); } }
+@media (prefers-reduced-motion: reduce) { .irop-war-room-bar .war-room-bar button.wr-alert { animation: none; } }
+
+/* The territory card: an Incursion coming, a liberated Megacity, its landmark. */
+.irop .territory-card .tc-incursion { margin: 2px 0; padding: 4px 8px; border: 1px solid #C4121C; border-radius: 3px; background: color-mix(in srgb, #C4121C 15%, transparent); color: #F4F7FB; font-size: 16px; }
+.irop .territory-card .tc-base { margin: 2px 0; color: #42ABF2; font-weight: 600; }
+.irop .territory-card .tc-landmark { margin: 2px 0; color: var(--irop-ink-bright); font-size: 16px; }
+.irop .territory-card .tc-landmark i { color: #E8B04A; margin-right: 3px; }
+.irop .territory-card .tc-landmark.dormant { color: var(--irop-muted); }
+.irop :where(.window-content) .territory-card .tc-liberate { border-color: #42ABF2; color: #F4F7FB; background: color-mix(in srgb, #42ABF2 25%, var(--irop-sunk)); }
+
+/* The ODR board: Incursions first, in GENESIS red. */
+.irop .odr-choice.priority { background: color-mix(in srgb, #C4121C 12%, transparent); border-left: 3px solid #C4121C; }
+.irop .odr-choice.priority .or-icon { color: #C4121C; }
+.irop .or-flag.priority { color: #E86A5F; }
+
+/* The liberation dialog and card. */
+.irop .irop-liberation .lib-area, .irop .irop-liberation .lib-spike { list-style: none; margin: 0 0 8px; padding: 0; }
+.irop .irop-liberation .lib-area li { padding: 2px 0; }
+.irop .irop-liberation .lib-area small { color: var(--irop-muted); margin-left: 4px; }
+.irop .irop-liberation .lib-spike li { padding: 2px 0; color: #E86A5F; font-size: 13px; }
+.irop .irop-liberation .check-row { display: flex; align-items: center; gap: 6px; }
+.irop-card.liberation-card { --card-accent: #42ABF2; padding: 0 0 8px; }
+.irop-card.liberation-card .week-banner { background: linear-gradient(90deg, color-mix(in srgb, #42ABF2 35%, var(--irop-panel)), var(--irop-panel)); border-bottom-color: #42ABF2; }
+.irop-card.liberation-card.victory .week-banner { background: linear-gradient(90deg, color-mix(in srgb, #E8B04A 40%, var(--irop-panel)), var(--irop-panel)); border-bottom-color: #E8B04A; }
+.irop-card.liberation-card .lib-line { margin: 4px 10px; font-size: 15px; }
+.irop-card.liberation-card .lib-line i { color: #E8B04A; }
+.irop-card.liberation-card .lib-heat { color: #E86A5F; }
+.irop-card.liberation-card .lib-count { font-family: var(--irop-mono); color: var(--irop-ink-bright); }
+
+/* The territory sheet's Weather (Johnald, 2026-10-08): a climate, or the GM's own numbers. */
+.irop .territory-weather { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.irop .territory-weather .tw-head { display: flex; align-items: flex-end; gap: 10px; }
+.irop .territory-weather .tw-climate { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.irop :where(.window-content) .territory-weather .tw-head button { width: auto; height: 28px; white-space: nowrap; }
+.irop .territory-weather .tw-temps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; }
+.irop .territory-weather .tw-temps label { display: flex; flex-direction: column; gap: 3px; }
+.irop .territory-weather .tw-unit { display: flex; align-items: center; gap: 4px; color: var(--irop-label-ink); }
+.irop .territory-weather .tw-unit input { width: 72px; text-align: center; }
+.irop .territory-weather .tw-chances { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
+.irop .territory-weather .tw-chance { display: grid; grid-template-columns: 20px minmax(0, 1fr) 60px 42px; align-items: center; gap: 6px; font-size: 13.5px; }
+.irop .territory-weather .tw-chance i { color: var(--irop-muted); text-align: center; }
+.irop .territory-weather .tw-chance input { width: 60px; text-align: center; height: 24px; }
+.irop .territory-weather .tw-share { font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); text-align: right; }
+
+/* The calendar (Johnald, 2026-10-08): its window, the GM's settings, the date bar, and the date on the Strategy Layer. */
+.irop-calendar .window-content { padding: 0; }
+.irop .calendar-body { display: flex; flex-direction: column; font-family: var(--irop-display); color: var(--irop-label-ink); }
+.irop .cal-today { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px 10px; border-bottom: 2px solid var(--irop-accent); background: linear-gradient(90deg, color-mix(in srgb, var(--irop-accent) 16%, var(--irop-panel)), var(--irop-panel)); }
+.irop .cal-today .cal-date { font-size: 22px; font-weight: 700; line-height: 1.1; color: var(--irop-ink-bright); }
+.irop .cal-today .cal-sub { display: flex; align-items: center; gap: 12px; font-family: var(--irop-mono); font-size: var(--irop-label-size); letter-spacing: 0.06em; color: var(--irop-label-ink); }
+.irop .cal-today .cal-season-name { text-transform: uppercase; color: var(--irop-accent); }
+.irop .cal-nav { display: flex; align-items: center; gap: 8px; padding: 10px 16px 6px; }
+.irop .cal-nav .cal-title { flex: 1; text-align: center; font-size: 17px; font-weight: 700; color: var(--irop-ink-bright); }
+.irop-calendar .cal-nav button { flex: none; height: 26px; min-height: 0; padding: 0 8px; font-size: 13px; line-height: 1; }
+.irop-calendar .cal-nav button.cal-turn { width: 28px; padding: 0; }
+.irop .cal-grid { width: calc(100% - 24px); margin: 0 12px 10px; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
+.irop .cal-grid th { padding: 2px 0; font-family: var(--irop-mono); font-size: var(--irop-small-size); font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-muted); text-align: center; }
+.irop .cal-grid td { padding: 0; height: 38px; text-align: center; vertical-align: middle; }
+.irop .cal-grid .cal-day { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 38px; min-height: 0; margin: 0; padding: 0; border: 1px solid var(--irop-line); border-radius: 3px; background: var(--irop-sunk); font-family: var(--irop-display); font-size: 15px; font-weight: 600; line-height: 1; color: var(--irop-label-ink); }
+.irop-calendar .cal-grid button.cal-day { cursor: pointer; }
+.irop-calendar .cal-grid button.cal-day:hover { border-color: var(--irop-accent); color: var(--irop-ink-bright); }
+.irop .cal-grid .cal-day.today { background: color-mix(in srgb, var(--irop-accent) 30%, var(--irop-sunk)); border-color: var(--irop-accent); color: var(--irop-white); }
+.irop .cal-grid .cal-day.picked { outline: 2px solid var(--irop-sky); outline-offset: -2px; color: var(--irop-ink-bright); }
+.irop .cal-grid .cal-mark { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--irop-good); }
+.irop .cal-gm { display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--irop-line); background: var(--irop-panel-2); }
+.irop .cal-gm .cal-steps, .irop .cal-gm .cal-set, .irop .cal-gm .cal-foot { display: flex; align-items: center; gap: 6px; }
+.irop-calendar .cal-gm button { flex: 1; height: 28px; min-height: 0; padding: 0 8px; font-size: 13px; line-height: 1; white-space: nowrap; }
+.irop .cal-gm .cal-picked { flex: 1; font-size: 14px; color: var(--irop-ink-bright); }
+.irop .cal-gm input[type="time"] { flex: none; width: 96px; height: 28px; }
+.irop-calendar .cal-gm .cal-set button, .irop-calendar .cal-gm .cal-foot button { flex: none; }
+.irop .cal-gm .cal-foot .hint { flex: 1; }
+
+.irop-calendar-editor .window-content { padding: 0; }
+.irop .calendar-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.irop .calendar-editor .ce-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 14px 12px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.irop .calendar-editor .ce-section { display: flex; flex-direction: column; gap: 6px; }
+.irop .calendar-editor .ce-section .hint { margin: 0; }
+.irop .calendar-editor .ce-tag { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--irop-accent); border-radius: 8px; letter-spacing: 0.04em; color: var(--irop-ink-bright); }
+.irop .calendar-editor .ce-check { display: flex; align-items: flex-start; gap: 8px; }
+.irop .calendar-editor .ce-check input { flex: none; margin-top: 3px; }
+.irop .calendar-editor .ce-check span { display: flex; flex-direction: column; gap: 1px; }
+.irop .calendar-editor .ce-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.irop .calendar-editor .ce-field > span:first-child { flex: 1; }
+.irop .calendar-editor .ce-field input[type="text"], .irop .calendar-editor .ce-field select { flex: none; width: 230px; }
+.irop .calendar-editor .ce-field input[type="number"] { flex: none; width: 70px; text-align: center; }
+.irop .calendar-editor .ce-every > span:not(:first-child) { flex: none; }
+.irop .calendar-editor .ce-table { display: flex; flex-direction: column; gap: 4px; }
+.irop .calendar-editor .ce-head, .irop .calendar-editor .ce-row { display: grid; align-items: center; gap: 6px; }
+.irop .calendar-editor .ce-months .ce-head, .irop .calendar-editor .ce-months .ce-row { grid-template-columns: 1fr 70px 64px 74px 92px; }
+.irop .calendar-editor .ce-weekdays .ce-head, .irop .calendar-editor .ce-weekdays .ce-row { grid-template-columns: 1fr 90px 92px; }
+.irop .calendar-editor .ce-seasons .ce-head, .irop .calendar-editor .ce-seasons .ce-row { grid-template-columns: 1fr 150px 64px 30px; }
+.irop .calendar-editor .ce-head span { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-muted); }
+.irop .calendar-editor .ce-row input[type="number"] { text-align: center; }
+.irop .calendar-editor .ce-tools { display: flex; justify-content: flex-end; gap: 3px; }
+.irop-calendar-editor .ce-tools button.ce-icon { width: 28px; height: 26px; min-height: 0; padding: 0; flex: none; font-size: 13px; line-height: 1; }
+.irop-calendar-editor .ce-body button.ce-add { align-self: flex-start; height: 26px; min-height: 0; padding: 0 10px; font-size: 13px; line-height: 1; }
+.irop .calendar-editor .ce-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 14px 10px; border-top: 1px solid var(--irop-line); background: var(--irop-panel-2); }
+.irop-calendar-editor .ce-actions button { flex: none; height: 30px; min-height: 0; padding: 0 14px; font-size: 14px; line-height: 1; }
+
+/* Frameless, along the top like the War Room bar. */
+.irop-date-bar { position: fixed; z-index: 60; margin: 0; padding: 0; background: transparent; border: none; box-shadow: none; min-width: 0; }
+.irop-date-bar .date-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: auto;
+  min-height: 0;
+  padding: 6px 14px;
+  background: color-mix(in srgb, var(--irop-panel) 94%, transparent);
+  border: 1px solid var(--irop-line-bright);
+  border-bottom: 2px solid var(--irop-accent);
+  border-radius: 4px;
+  font-family: var(--irop-display);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--irop-label-ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.irop-date-bar .date-bar b { font-size: 17px; font-weight: 700; color: var(--irop-ink-bright); }
+.irop-date-bar .date-bar .db-season { font-family: var(--irop-mono); font-size: var(--irop-label-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-accent); }
+.irop-date-bar .date-bar:hover { border-color: var(--irop-accent); }
+/* It can be dragged (Johnald, 2026-10-09): a grip to say so, and no text selection while dragging. */
+.irop-date-bar .date-bar { touch-action: none; user-select: none; }
+.irop-date-bar .date-bar .db-grip { margin-right: -2px; font-size: 12px; color: var(--irop-faint); cursor: grab; }
+.irop-date-bar .date-bar:active .db-grip { cursor: grabbing; }
+.irop-war-room-bar .war-room-bar button.wr-date b { margin-left: 4px; }
+
+.irop .tr-date { margin: 10px 20px 0; font-size: 15px; color: var(--irop-label-ink); }
+.irop-card .week-date { margin: 2px 10px 6px; font-family: var(--irop-mono); font-size: 15px; letter-spacing: 0.04em; color: var(--irop-label-ink); }
+
+/* Item and card sheets (weapons, armor, gear, mods, abilities and perks, species, roles,
+   backgrounds, boons, mutations, perk trees, territories, projects, Event cards): their text
+   2px larger too (Johnald, 2026-10-08), inside the window body. As on the chat cards, the name,
+   the type stamp, section headings and the small capital field labels keep their size. */
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content {
+  --irop-label-size: 15px;
+  --irop-small-size: 14px;
+  font-size: calc(var(--font-size-14, 14px) + 2px);
+}
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content :is(input[type="text"], input[type="number"], select, textarea) { font-size: 16px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content :is(.section-title, .type-stamp, .form-grid label > span, .wide-field > span,
+  .range-table th, .tree-tier .tier-label, .ec-kind span, .ec-effects thead th, .ec-never-label) { font-size: 12px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content :is(.mono-label, .tree-tier-edit .tier-label) { font-size: 13px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content :is(.form-grid label.check > span, .range-table td, .facility-row label.check, .tw-share) { font-size: 14px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content :is(.empty-row, .drop-hint, .neighbor-chip, .ec-flags label.check, .ec-effects,
+  .ec-never .ec-chip, .ec-never .ec-never-add) { font-size: 15px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content :is(.facility-auto, .tw-chance) { font-size: 15.5px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content .event-card-sheet-body { font-size: 16px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content .item-name a { font-size: 17px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content .dr-cell .dr-total { font-size: 18px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content button.ghost { font-size: 14px; }
+.application.irop:is(.item-sheet, .event-card-sheet) .window-content .project-skills .skill-chip { font-size: 14px; }
+
+/* --------------------------------------------------------------------------
+   Stores (Johnald, 2026-10-10): the GM's shelf, the shopper's purse, buying and selling back.
+   -------------------------------------------------------------------------- */
+
+.irop.store-sheet .window-content { padding: 0; overflow: hidden; }
+.irop .store-sheet-body { display: flex; flex-direction: column; gap: 14px; height: 100%; overflow-y: auto; padding: 18px 22px 20px; font-size: 16px; }
+.irop .store-head { display: flex; gap: 16px; align-items: center; padding-bottom: 12px; border-bottom: 2px solid var(--irop-accent); }
+.irop .store-img { width: 84px; height: 84px; object-fit: cover; border: 1px solid var(--irop-line-bright); border-radius: 4px; flex: none; }
+.irop .store-img[data-edit] { cursor: pointer; }
+.irop .store-title { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.irop .store-name { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.15; color: var(--irop-ink-bright); border: none; }
+.irop input.store-name { height: 38px; font-size: 22px; }
+.irop .store-terms { display: flex; gap: 20px; flex-wrap: wrap; }
+.irop .store-terms label { display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--irop-label-ink); }
+.irop .store-terms input { width: 66px; height: 30px; font-size: 15px; }
+.irop .store-terms em { font-style: normal; color: var(--irop-muted); }
+.irop .store-terms-read { margin: 0; font-size: 15px; color: var(--irop-label-ink); }
+.irop .store-description { font-size: 15px; line-height: 1.45; color: var(--irop-label-ink); }
+.irop prose-mirror.store-description { min-height: 70px; max-height: 180px; }
+/* Opened, room to type below the editor's menu. */
+.irop prose-mirror.store-description.active { min-height: 180px; max-height: none; }
+.irop .store-buyer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-radius: 3px; }
+.irop .store-buyer .hint { margin: 0; font-size: 15px; color: var(--irop-muted); }
+.irop .buyer-pick { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--irop-label-ink); }
+.irop .buyer-pick strong { color: var(--irop-ink-bright); font-size: 17px; }
+.irop .buyer-pick select { width: auto; height: 32px; font-size: 15px; }
+.irop .wallet { display: flex; gap: 18px; flex-wrap: wrap; }
+.irop .wallet-coin { display: flex; align-items: baseline; gap: 6px; font-size: 14px; color: var(--irop-label-ink); }
+.irop .wallet-coin b { font-size: 19px; color: var(--irop-ink-bright); }
+.irop .store-sheet-body .section-title { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+.irop .store-sheet-body .section-title .hint { text-transform: none; letter-spacing: 0; font-family: inherit; font-size: 14px; color: var(--irop-muted); }
+.irop .store-shelf, .irop .store-sell { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.irop .store-shelf .empty-row, .irop .store-sell .empty-row { font-size: 15px; color: var(--irop-muted); font-style: italic; padding: 6px 2px; }
+.irop .shelf-row { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; grid-template-areas: "img name buy" "gm gm gm"; align-items: center; gap: 8px 12px;
+  padding: 10px 14px; background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-left: 3px solid var(--irop-accent); border-radius: 3px; }
+.irop .shelf-row .item-img { grid-area: img; width: 46px; height: 46px; }
+.irop .shelf-name { grid-area: name; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.irop .shelf-name a { font-size: 17px; font-weight: 700; color: var(--irop-ink-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.irop .shelf-name .item-sub { font-size: 14px; color: var(--irop-muted); }
+.irop .shelf-buy { grid-area: buy; display: flex; align-items: center; gap: 10px; }
+.irop .shelf-price { font-family: var(--irop-mono); font-size: 18px; color: var(--irop-ink-bright); white-space: nowrap; }
+.irop .shelf-stock { font-size: 14px; color: var(--irop-muted); white-space: nowrap; min-width: 62px; }
+.irop .shelf-row.sold-out { opacity: 0.65; border-left-color: var(--irop-line-bright); }
+.irop .shelf-row.sold-out .shelf-stock { color: var(--irop-bad); }
+.irop .shelf-row.hidden-item { border-style: dashed; border-left-style: solid; border-left-color: var(--irop-warn); }
+.irop .shelf-qty, .irop .sell-qty { width: 56px; height: 32px; font-size: 15px; text-align: center; }
+.irop :where(.window-content) .shelf-buy button, .irop :where(.window-content) .sell-row button { width: auto; height: 32px; padding: 0 14px; font-size: 15px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.irop .shelf-gm { grid-area: gm; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 8px; border-top: 1px dashed var(--irop-line); font-size: 14px; color: var(--irop-label-ink); }
+.irop .shelf-gm label { display: flex; align-items: center; gap: 6px; }
+.irop .shelf-gm input[type="number"] { width: 72px; height: 28px; font-size: 14px; }
+.irop .shelf-gm select { width: auto; height: 28px; font-size: 14px; }
+.irop :where(.window-content) .shelf-gm button.toggle { width: auto; height: 28px; padding: 0 12px; font-size: 14px; }
+.irop :where(.window-content) .shelf-gm button.toggle.on { border-color: var(--irop-accent); color: var(--irop-ink-bright); }
+.irop .shelf-gm-tools { display: flex; gap: 4px; margin-left: auto; }
+.irop :where(.window-content) .shelf-gm button.icon.on { color: var(--irop-warn); }
+.irop .sell-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 7px 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 60%, transparent); }
+.irop .sell-row .item-img { width: 38px; height: 38px; }
+.irop .sell-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--irop-ink-bright); }
+.irop .sell-name small { color: var(--irop-muted); font-size: 14px; }
+.irop .sell-price { font-family: var(--irop-mono); font-size: 16px; white-space: nowrap; color: var(--irop-label-ink); }
+
+/* The shop, as players see it (Johnald, 2026-10-10: a list beside a detail panel, with category filters). */
+.irop .store-views { display: flex; gap: 6px; justify-content: flex-end; margin-bottom: -6px; }
+.irop :where(.window-content) .store-views button { width: auto; height: 28px; padding: 0 12px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+.irop :where(.window-content) .store-views button.on { border-color: var(--irop-accent); color: var(--irop-ink-bright); background: color-mix(in srgb, var(--irop-accent) 18%, transparent); }
+.irop .shop { display: flex; flex-direction: column; gap: 10px; }
+.irop .shop-cats { display: flex; gap: 6px; flex-wrap: wrap; }
+.irop :where(.window-content) .shop-cats button.shop-cat { width: auto; height: 30px; padding: 0 12px; font-size: 15px; border-radius: 15px; display: inline-flex; align-items: center; gap: 6px; }
+.irop :where(.window-content) .shop-cats button.shop-cat .n { font-family: var(--irop-mono); font-size: 14px; color: var(--irop-muted); }
+.irop :where(.window-content) .shop-cats button.shop-cat.on { border-color: var(--irop-accent); color: var(--irop-ink-bright); background: color-mix(in srgb, var(--irop-accent) 18%, transparent); }
+.irop :where(.window-content) .shop-cats button.shop-cat.sell { margin-left: auto; }
+.irop .shop-panes { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 12px; align-items: start; }
+.irop .shop-list { list-style: none; margin: 0; padding: 4px; display: flex; flex-direction: column; gap: 2px; max-height: 470px; overflow-y: auto;
+  background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-radius: 3px; }
+.irop .shop-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 3px; cursor: pointer; font-size: 15px; }
+.irop .shop-row img { width: 28px; height: 28px; object-fit: cover; border: 1px solid var(--irop-line); border-radius: 3px; }
+.irop .shop-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--irop-ink-bright); }
+.irop .shop-row-name small { color: var(--irop-muted); font-size: 14px; }
+.irop .shop-row-price { font-family: var(--irop-mono); font-size: 14px; color: var(--irop-label-ink); white-space: nowrap; }
+.irop .shop-row:hover { background: color-mix(in srgb, var(--irop-accent) 10%, transparent); }
+.irop .shop-row.picked { background: color-mix(in srgb, var(--irop-accent) 22%, transparent); box-shadow: inset 3px 0 0 var(--irop-accent); }
+.irop .shop-row.sold-out .shop-row-price { color: var(--irop-bad); }
+.irop .shop-row.sold-out .shop-row-name, .irop .shop-row.unpriced .shop-row-name { color: var(--irop-muted); }
+.irop .shop-list .empty-row { font-size: 15px; color: var(--irop-muted); font-style: italic; padding: 8px; }
+.irop .shop-detail { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; min-height: 300px; max-height: 470px; overflow-y: auto;
+  background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-left: 3px solid var(--irop-accent); border-radius: 3px; }
+.irop .shop-detail.empty { align-items: center; justify-content: center; color: var(--irop-muted); font-size: 15px; font-style: italic; border-left-color: var(--irop-line); }
+.irop .shop-detail-head { display: flex; gap: 14px; align-items: center; }
+.irop .shop-detail-head img { width: 72px; height: 72px; object-fit: cover; border: 1px solid var(--irop-line-bright); border-radius: 4px; flex: none; }
+.irop .shop-detail-name { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.2; color: var(--irop-ink-bright); border: none; }
+.irop .shop-detail-name a { color: inherit; }
+.irop .shop-detail-head .item-sub { font-size: 15px; color: var(--irop-muted); }
+.irop .shop-stats { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0; font-size: 15px; }
+.irop .shop-stats dt { color: var(--irop-label-ink); font-family: var(--irop-mono); font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+.irop .shop-stats dd { margin: 0; color: var(--irop-ink-bright); }
+.irop .shop-desc { font-size: 15px; line-height: 1.45; color: var(--irop-label-ink); border-top: 1px dashed var(--irop-line); padding-top: 10px; }
+.irop .shop-desc p { margin: 0 0 6px; }
+.irop .shop-carry { margin: 0; font-size: 15px; color: var(--irop-label-ink); }
+.irop .shop-carry i { color: var(--irop-accent); margin-right: 4px; }
+/* Under the name, above the stats and description, and in gold so it stands out from the rest of
+   the panel (Johnald, 2026-10-10). Selling looks the same. */
+.irop .shop-deal {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--irop-warn) 18%, var(--irop-panel)), color-mix(in srgb, var(--irop-warn) 6%, var(--irop-panel)));
+  border: 1px solid color-mix(in srgb, var(--irop-warn) 55%, var(--irop-line));
+  border-left: 3px solid var(--irop-warn);
+  border-radius: 4px;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--irop-warn) 20%, transparent);
+}
+.irop .shop-price { font-family: var(--irop-mono); font-size: 20px; color: var(--irop-ink-bright); white-space: nowrap; }
+.irop .shop-deal .shop-price { color: var(--irop-warn); font-weight: 700; }
+.irop .shop-price small { font-size: 14px; color: var(--irop-muted); }
+.irop .shop-deal .shelf-stock { color: var(--irop-label-ink); }
+.irop .shop-deal .shop-qty { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.irop .shop-deal .shop-qty > span { font-family: var(--irop-mono); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--irop-label-ink); }
+.irop :where(.window-content) .shop-deal button { width: auto; height: 34px; padding: 0 16px; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; }
+.irop :where(.window-content) .shop-deal button:enabled { background: var(--irop-warn); border-color: var(--irop-warn); color: var(--irop-bg); font-weight: 700; }
+.irop :where(.window-content) .shop-deal button:enabled:hover { background: color-mix(in srgb, var(--irop-warn) 82%, white); box-shadow: 0 0 10px color-mix(in srgb, var(--irop-warn) 45%, transparent); }
+.irop .shop-why, .irop .shop-note { margin: 0; font-size: 14px; color: var(--irop-muted); }
+.irop .shop-why { color: var(--irop-bad); }
+
+/* A price per currency, and which may buy it (Johnald, 2026-10-10). */
+.irop .price-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 14px; margin: 10px 0 0; padding: 8px 12px 10px; border: 1px solid var(--irop-line); border-radius: 3px; }
+.irop .price-grid legend { padding: 0 6px; font-family: var(--irop-mono); font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-accent); }
+.irop .price-grid .price-cell { display: flex; flex-direction: column; gap: 4px; }
+.irop .price-grid .price-cell label.check { display: flex; align-items: center; gap: 6px; }
+.irop .price-grid .price-cell input[type="number"] { width: 100%; height: 30px; }
+.irop .price-grid .hint { grid-column: 1 / -1; margin: 0; font-size: 14px; color: var(--irop-muted); }
+.irop .shelf-pay { width: auto; height: 32px; font-family: var(--irop-mono); font-size: 16px; }
+.irop .shelf-price-cell { display: flex; align-items: center; gap: 6px; }
+.irop .shelf-price-cell label.check { display: flex; align-items: center; gap: 5px; }
+.irop .shelf-price-cell.refused input[type="number"] { opacity: 0.45; }
+.irop .shelf-row.unpriced .shelf-price { color: var(--irop-muted); font-family: inherit; font-size: 15px; font-style: italic; }
+
+/* A purchase or sale in chat. */
+.irop-card.store-card { --card-accent: var(--irop-good); }
+.irop-card.store-card.sell { --card-accent: var(--irop-warn); }
+.irop-card.store-card h3 i { color: var(--card-accent); margin-right: 2px; }
+/* A deal undone from its card (2026-10-10): a word where the button was. */
+/* Concealment checkpoints (2026-10-10). */
+.irop-card.checkpoint-card { --card-accent: var(--irop-sky); }
+.irop-card.checkpoint-card h3 i { color: var(--card-accent); margin-right: 2px; }
+.irop-card .checkpoint-rows { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.irop-card .checkpoint-row { padding: 6px 8px; border-left: 3px solid var(--irop-line); background: rgba(0, 0, 0, 0.18); border-radius: 2px; }
+.irop-card .checkpoint-row.pass { border-left-color: var(--irop-good); }
+.irop-card .checkpoint-row.caught { border-left-color: var(--irop-bad); }
+.irop-card .checkpoint-line { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.irop-card .checkpoint-row .verdict { font-style: normal; font-family: var(--irop-mono); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; }
+.irop-card .checkpoint-row.pass .verdict { color: var(--irop-good); }
+.irop-card .checkpoint-row.caught .verdict { color: var(--irop-bad); }
+.irop-card .checkpoint-load, .irop-card .checkpoint-handed { display: block; font-size: 14px; color: var(--irop-muted); margin: 2px 0 0; }
+.irop-checkpoint-dialog fieldset, .irop-surrender-dialog fieldset { display: flex; flex-direction: column; gap: 4px; }
+.irop-surrender-dialog .surrender-list { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; margin: 8px 0; }
+.irop-surrender-dialog .surrender-row { display: grid; grid-template-columns: 30px 1fr auto 70px; align-items: center; gap: 8px; padding: 3px 6px; background: var(--irop-sunk); border-radius: 3px; }
+.irop-surrender-dialog .surrender-row img { width: 28px; height: 28px; object-fit: cover; border: 1px solid var(--irop-line-bright); border-radius: 3px; }
+.irop-surrender-dialog .surrender-weight { font-family: var(--irop-mono); font-size: 14px; color: var(--irop-label-ink); }
+.irop-surrender-dialog .surrender-row input[type="number"] { width: 64px; }
+.irop-surrender-dialog .surrender-sum { margin: 0; font-weight: 600; color: var(--irop-bad); }
+.irop-surrender-dialog .surrender-sum.through { color: var(--irop-good); }
+.irop-card.store-card .deal-undone { font-family: var(--irop-mono); font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-muted); }
+.irop-card .store-deal { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; line-height: 1.4; }
+.irop-card .store-deal img { width: 38px; height: 38px; object-fit: cover; border: 1px solid var(--irop-line-bright); border-radius: 3px; flex: none; }

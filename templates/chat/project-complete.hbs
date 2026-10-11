@@ -1,0 +1,7 @@
+<div class="irop-card project-card">
+  {{!-- An ODR project finished (Strategy Layer step 5, 2026-10-08). --}}
+  <header class="card-head"><span class="card-sub">{{kind}} complete</span><h3><i class="{{icon}}"></i> {{name}}</h3></header>
+  {{#if unlocks}}<p><span class="label">Unlocks</span> {{unlocks}}</p>{{/if}}
+  {{#if builds}}<p><span class="label">Built</span> {{builds}}</p>{{/if}}
+  {{#if reveals}}<p><span class="label">Reveals</span> {{reveals}}{{#if where}}, in {{where}}{{/if}}. It is open as a Tactical Action.</p>{{/if}}
+</div>

@@ -1,0 +1,23 @@
+<div class="irop-card week-card">
+  {{!-- Advance week (Strategy Layer step 4, 2026-10-08): what the GENESIS phase did, for the table. --}}
+  <header class="week-banner"><span class="week-no">Turn {{week}}</span><span class="week-phase">GENESIS phase</span></header>
+  {{#if date}}<p class="week-date"><i class="fa-solid fa-calendar-days"></i> {{date}}</p>{{/if}}
+  {{#if quiet}}
+  <p class="week-quiet">A quiet turn. GENESIS holds its positions.</p>
+  {{else}}
+  <ul class="week-lines">
+    {{#each lines as |l|}}<li class="tone-{{l.tone}}">{{l.text}}</li>{{/each}}
+  </ul>
+  {{/if}}
+  {{#if cards.length}}
+  <div class="week-cards">
+    {{#each cards as |c|}}<figure class="week-card-tile kind-{{c.kind}}"><img src="{{c.img}}" alt=""><figcaption>{{c.name}}{{#if c.where}}<small>{{c.where}}</small>{{/if}}</figcaption></figure>{{/each}}
+  </div>
+  {{/if}}
+  {{#if due.length}}
+  <div class="week-due">
+    {{#each due as |d|}}<p><i class="fa-solid fa-layer-group"></i> {{d}}</p>{{/each}}
+  </div>
+  {{/if}}
+  <p class="week-next">The ODR phase begins.</p>
+</div>
