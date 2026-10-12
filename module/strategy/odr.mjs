@@ -1,15 +1,16 @@
 import { IROP } from "../config.mjs";
 import {
   canStart, bestSkill, assignSoldier, addProgress, salvageProgress, skillLabel, qualifyingSkills,
-  tacticalChoices, debriefTerritory, strengthBand, reputationEffect, defaultReputation
+  tacticalChoices, debriefTerritory, strengthBand, reputationEffect, defaultReputation, perkRewards
 } from "../rules/projects.mjs";
-import { getWarRoom, setWarRoom, getStrategyRules, recordResource, getList, setList, temperatureUnit } from "../settings.mjs";
+import { getWarRoom, setWarRoom, getStrategyRules, recordResource, getList, setList, temperatureUnit, getSquad } from "../settings.mjs";
 import { registerAction } from "../socket.mjs";
 import { responseChoices, discardInPlay } from "./events.mjs";
 import { incursionChoices, breakIncursion } from "./losing-ground.mjs";
 import { objectivesTaken } from "../rules/losing-ground.mjs";
 import { territoryWeather, weatherLine } from "../rules/weather.mjs";
 import { dateInfo, onStrategyLayer, weatherSeason } from "../calendar.mjs";
+import { repState, levelText, changeText } from "../rules/reputation.mjs";
 
 /**
  * The ODR phase (Strategy Layer step 5, 2026-10-08): Research, Engineering and
@@ -34,6 +35,19 @@ export function plainProject(item) {
     specialization: [...(s.specialization ?? [])], term: s.term, builds: s.builds, territory: s.territory,
     reveals: s.reveals, salvage: s.salvage, assigned: (s.assigned ?? []).map(a => ({ actor: a.actor, skill: a.skill }))
   };
+}
+
+/**
+ * The deployed squad as perkRewards takes it: each operative with the names of the perks that add to
+ * a mission's rewards (their effects raise system.bonuses.strategy.mission).
+ */
+export function squadForPerks(squad = getSquad()) {
+  const adds = effect => (effect.system?.changes ?? effect.changes ?? []).some(c => String(c.key ?? "").startsWith("system.bonuses.strategy.mission"));
+  return squad.map(actor => ({
+    name: actor.name,
+    system: actor.system,
+    perks: [...new Set([...(actor.appliedEffects ?? [])].filter(adds).map(e => e.name))]
+  }));
 }
 
 /** An operative as the rules functions take it. */
@@ -236,7 +250,7 @@ async function clearTactical(payload, user) {
 export function briefingContext(tactical, territory, { rules = getStrategyRules(), week = 1 } = {}) {
   const s = territory?.system ?? {};
   const band = strengthBand(s.strength ?? 0, rules.strengthMax);
-  const rep = Number(s.reputation) || 0;
+  const rep = repState(s.reputation, s.reputationPoints);
   return {
     label: tactical.label,
     week,
@@ -249,8 +263,8 @@ export function briefingContext(tactical, territory, { rules = getStrategyRules(
     strengthMax: rules.strengthMax,
     band: band.label,
     bandText: band.text,
-    reputation: `${rep > 0 ? "+" : ""}${rep} ${IROP.reputationLevels[String(rep)] ?? ""}`,
-    reputationEffect: reputationEffect(rep),
+    reputation: `${levelText(rep.level)}, ${rep.points} of ${IROP.reputationScale.points}`,
+    reputationEffect: reputationEffect(rep.level),
     modifiers: s.modifiers ?? "",
     rewards: tactical.rewards ?? "",
     weather: territory ? weatherLine(territoryWeather(territory.id, s, week, weatherSeason()), temperatureUnit()) : "",
@@ -318,14 +332,26 @@ export async function debriefMission(data = {}) {
   const num = v => Math.max(0, Math.round(Number(v) || 0));
   const outcome = IROP.missionOutcomes[data.outcome] ? data.outcome : "success";
   const heat = IROP.heatClasses[data.heat] ? data.heat : "none";
-  const reputation = Math.max(-2, Math.min(2, Math.round(Number(data.reputation) || 0)));
+  // Reputation in points (RULED 2026-10-11), through the territory's bar.
+  const reputation = Math.max(-20, Math.min(20, Math.round(Number(data.reputation) || 0)));
   const logistics = num(data.logistics);
   const intel = num(data.intel);
   const salvage = num(data.salvage);
   const reason = `Mission: ${tactical.label}, ${where}`;
   if ( logistics ) await recordResource({ resource: "logistics", amount: logistics, reason });
   if ( intel ) await recordResource({ resource: "intel", amount: intel, reason });
-  if ( territory ) await territory.update(debriefTerritory(territory.system, { heat, reputation }, rules));
+  // The deployed squad's background perks (2026-10-11): on a success, their own ledger lines.
+  const perks = perkRewards(squadForPerks(), territory?.system?.kind, outcome);
+  const perkReason = `Background perks: ${tactical.label}`;
+  if ( perks.logistics ) await recordResource({ resource: "logistics", amount: perks.logistics, reason: perkReason });
+  if ( perks.intel ) await recordResource({ resource: "intel", amount: perks.intel, reason: perkReason });
+  let reputationResult = "";
+  if ( territory ) {
+    const from = repState(territory.system.reputation, territory.system.reputationPoints);
+    const change = debriefTerritory(territory.system, { heat, reputation: reputation + perks.reputation }, rules);
+    await territory.update(change);
+    reputationResult = changeText(reputation + perks.reputation, from, { level: change["system.reputation"], points: change["system.reputationPoints"] });
+  }
   let salvageNote = "";
   if ( salvage ) {
     const research = worldProjects().find(p => (p.system.kind === "research") && (p.system.status === "active"));
@@ -353,8 +379,8 @@ export async function debriefMission(data = {}) {
   if ( tactical.incursion ) incursion = ((outcome === "success") && (await breakIncursion(tactical.incursion))) ? "broken" : "goes on";
   const entry = {
     id: foundry.utils.randomID(), week: state.week, label: tactical.label, territory: where, outcome,
-    logistics, intel, heat, reputation, salvage, notes: String(data.notes ?? "").trim(), countered,
-    objective, liberates, incursion, time: Date.now()
+    logistics, intel, heat, reputation, reputationResult, salvage, notes: String(data.notes ?? "").trim(), countered,
+    objective, liberates, incursion, perks: perks.lines, time: Date.now()
   };
   await setList("missionLog", [...getList("missionLog"), entry]);
   if ( tactical.revealed ) await setList("revealedActions", getList("revealedActions").filter(r => r.id !== tactical.key));
@@ -373,7 +399,7 @@ export function debriefContext(entry, { salvageNote = "", rules = getStrategyRul
     ...entry,
     outcomeLabel: IROP.missionOutcomes[entry.outcome] ?? entry.outcome,
     heatLabel: (entry.heat === "none") ? "" : `${IROP.heatClasses[entry.heat]}, +${rise} next turn`,
-    reputationLabel: entry.reputation ? `${entry.reputation > 0 ? "+" : ""}${entry.reputation}` : "",
+    reputationLabel: entry.reputationResult || (entry.reputation ? `${entry.reputation > 0 ? "+" : ""}${entry.reputation}` : ""),
     salvageNote,
     counteredNote: entry.countered ? `${entry.countered} countered` : "",
     objectiveNote: entry.objective ? `${entry.objective} taken${entry.liberates ? ". All three: the Megacity can be liberated" : ""}` : "",

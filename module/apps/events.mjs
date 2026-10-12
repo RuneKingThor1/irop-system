@@ -1,6 +1,6 @@
 import { IROP } from "../config.mjs";
 import { cardRules, describeEffects, touchesTerritory, inPlayLabel } from "../rules/events.mjs";
-import { getWarRoom } from "../settings.mjs";
+import { getWarRoom, getStrategyRules } from "../settings.mjs";
 import {
   stack, decksReady, setupDecks, newCard, reshuffle, playHeld, discardInPlay, importEventCards, deckRole, cardTypeReady
 } from "../strategy/events.mjs";
@@ -63,8 +63,8 @@ export class EventsApp extends HandlebarsApplicationMixin(ApplicationV2) {
         id: card.id, name: card.name, img: card.faces?.[0]?.img || card.img, kind: k.label, kindIcon: k.icon, dark: r.kind === "dark",
         kindKey: r.kind, worldwide: r.worldwide,
         where: r.worldwide ? "Every territory" : name(card.getFlag?.("irop", "territory")), until: inPlayLabel(landed),
-        text: await enrich(card.description), effects: describeEffects(r.effect),
-        discard: [describeEffects(r.discard), r.discardText].filter(Boolean).join(". "),
+        text: await enrich(card.description), effects: describeEffects(r.effect, getStrategyRules()),
+        discard: [describeEffects(r.discard, getStrategyRules()), r.discardText].filter(Boolean).join(". "),
         respond: r.respond, reprisal: r.reprisal, persistent: r.persistent,
         needsTerritory: !r.worldwide && (r.persistent || touchesTerritory(r.effect)),
         // Never in (2026-10-08): the territories it may be played on.
@@ -113,7 +113,7 @@ export class EventsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const card = stack("inPlay")?.cards.get(id);
     if ( !card ) return null;
     const r = cardRules(card, card.system?.kind);
-    const words = [describeEffects(r.discard), r.discardText].filter(Boolean).join(". ");
+    const words = [describeEffects(r.discard, getStrategyRules()), r.discardText].filter(Boolean).join(". ");
     const choice = await DialogV2.wait({
       window: { title: `Discard ${card.name}` },
       content: `<p>${words ? `On discard: ${words}.` : "It has no discard effect."}</p>`,

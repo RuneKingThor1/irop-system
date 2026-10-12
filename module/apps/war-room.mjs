@@ -1,4 +1,5 @@
 import { IROP } from "../config.mjs";
+import { levelText, repState, repPips, levelTone } from "../rules/reputation.mjs";
 import { LAYERS } from "../rules/war-room-map.mjs";
 import { PHASES } from "../rules/strategy.mjs";
 import { getWarRoom, getStrategyRules, getStrategyScale, temperatureUnit } from "../settings.mjs";
@@ -209,7 +210,7 @@ export class TerritoryCard extends HandlebarsApplicationMixin(ApplicationV2) {
     const t = this.territory;
     const s = t?.system ?? {};
     const rules = getStrategyRules();
-    const max = rules.strengthMax || 10;
+    const max = rules.strengthMax || 25;
     return {
       name: t?.name ?? "",
       // The header (Johnald, 2026-10-08): the GM's image, else a banner in the holder's colour.
@@ -233,7 +234,13 @@ export class TerritoryCard extends HandlebarsApplicationMixin(ApplicationV2) {
       strength: s.strength ?? 0,
       strengthMax: max,
       strengthPct: Math.max(0, Math.min(100, Math.round(((s.strength ?? 0) / max) * 100))),
-      reputation: `${(s.reputation ?? 0) > 0 ? "+" : ""}${s.reputation ?? 0} ${IROP.reputationLevels[String(s.reputation ?? 0)] ?? ""}`,
+      // Reputation (RULED 2026-10-11): its level, and the points in its bar.
+      reputation: levelText(s.reputation ?? 0),
+      reputationPoints: repState(s.reputation, s.reputationPoints).points,
+      reputationMax: IROP.reputationScale.points,
+      reputationPips: repPips(repState(s.reputation, s.reputationPoints).points),
+      reputationTone: levelTone(s.reputation ?? 0),
+      reputationTip: "Fill the bar to rise a level; empty it to fall one. A new level starts at the middle.",
       megacity: s.kind === "megacity",
       objectives: s.kind === "megacity" ? Object.values(s.objectives ?? {}).filter(Boolean).length : 0,
       modifiers: s.modifiers ?? "",

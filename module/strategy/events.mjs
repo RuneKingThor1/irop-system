@@ -227,7 +227,7 @@ export function eventCardContext(card, { territory = null, action = "revealed", 
     action,
     where: territory?.name ?? "",
     text: card.description ?? "",
-    effects: describeEffects(action === "discarded" ? r.discard : r.effect),
+    effects: describeEffects(action === "discarded" ? r.discard : r.effect, getStrategyRules()),
     discardText: (action === "discarded") ? r.discardText : "",
     until: r.persistent && (action !== "discarded") ? `Stays until turn ${week + 2} starts.` : ""
   };
@@ -286,7 +286,7 @@ export async function discardInPlay(cardId, { apply = true } = {}) {
     await applyLedger(effectLedger(r.discard, `${IROP.cardKinds[r.kind].label} discarded: ${card.name}`));
   }
   await move("inPlay", "discard", card.id, { face: 0 });
-  if ( apply && (describeEffects(r.discard) || r.discardText) ) {
+  if ( apply && (describeEffects(r.discard, getStrategyRules()) || r.discardText) ) {
     await ChatMessage.implementation.create({
       speaker: { alias: r.kind === "dark" ? "GENESIS" : "ODR Command" },
       content: await foundry.applications.handlebars.renderTemplate(`${CARDS}/event-card.hbs`, eventCardContext(card, { territory, action: "discarded" }))

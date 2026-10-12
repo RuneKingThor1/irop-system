@@ -492,9 +492,9 @@ check("feeds: fuel defaults to a full tank of 100, 10 a burn, 5 burns",
 
 // The Strategy Layer, step one (2026-10-08): territories, and the sixteen from the vault.
 {
-  const t = new items.TerritoryData({ kind: "megacity", strength: 6, heat: 2, reputation: 1, objectives: { citadel: true } });
+  const t = new items.TerritoryData({ kind: "megacity", strength: 6, heat: 2, reputation: 2, objectives: { citadel: true } });
   check("territory: stats and labels as the rules doc names them",
-    t.isMegacity && t.objectivesTaken === 1 && t.heatLabel === "Medium" && t.reputationLabel === "Friendly"
+    t.isMegacity && t.objectivesTaken === 1 && t.heatLabel === "Medium" && t.reputationLabel === "Friendly" && t.reputationPoints === 5
       && t.control === "genesis" && t.neighbors.length === 0 && t.region === "");
   let refused = 0;
   for ( const bad of [{ kind: "moonbase" }, { control: "aliens" }] ) {
@@ -502,9 +502,10 @@ check("feeds: fuel defaults to a full tank of 100, 10 a burn, 5 burns",
     catch(err) { refused++; }
   }
   check("territory: an unknown type or holder is refused", refused === 2);
-  check("territory: Heat past Maximum and Reputation past +2 or -2 are held to the ladder",
-    new items.TerritoryData({ heat: 5 }).heat === 4 && new items.TerritoryData({ reputation: 3 }).reputation === 2
-      && new items.TerritoryData({ reputation: -3 }).reputation === -2);
+  check("territory: Heat past Maximum, Reputation past +4 or -4 and its bar past 10 are held to the ladder (RULED 2026-10-11)",
+    new items.TerritoryData({ heat: 5 }).heat === 4 && new items.TerritoryData({ reputation: 5 }).reputation === 4
+      && new items.TerritoryData({ reputation: -5 }).reputation === -4 && new items.TerritoryData({ reputationPoints: 12 }).reputationPoints === 10
+      && new items.TerritoryData({ reputation: 4 }).reputationLabel === "Devoted");
   const pathMod = await import("node:path");
   const root = pathMod.resolve(pathMod.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, "$1")), "..");
   const list = JSON.parse(fs.readFileSync(pathMod.join(root, "assets/data/territories.json"), "utf8"));
@@ -512,8 +513,9 @@ check("feeds: fuel defaults to a full tank of 100, 10 a burn, 5 burns",
   let bad = 0;
   for ( const x of list ) { try { new items.TerritoryData(x.system, { strict: true }); } catch(err) { bad++; } }
   check("territories: sixteen from the vault, all valid", list.length === 16 && !bad);
-  check("territories: the three Megacities at Strength 6, Heat Medium; the subsectors are slums",
-    ["Neo Seattle", "Neo LA", "Neo Denver"].every(n => by(n).kind === "megacity" && by(n).strength === 6 && by(n).heat === 2)
+  check("territories: the three Megacities at Strength 15 of 25 (2026-10-11), Heat Medium; the subsectors are slums",
+    ["Neo Seattle", "Neo LA", "Neo Denver"].every(n => by(n).kind === "megacity" && by(n).strength === 15 && by(n).heat === 2)
+      && by("Spokane Subsector").strength === 5 && by("Portlandia").strength === 10
       && by("Spokane Subsector").kind === "slums" && by("Redwood Havens").kind === "rural" && by("Portlandia").kind === "wildland");
   check("territories: Eclipse HQ is contested, its lore and modifiers come along",
     by("Eclipse Headquarters").control === "contested" && /^<p>/.test(by("Neo Seattle").description) && by("Black Hills").modifiers === "Havens, Paraphysical Radiation");

@@ -2,7 +2,7 @@ import { IROP } from "../config.mjs";
 import { turnDays, dateInfo, worldTime } from "../calendar.mjs";
 import { SECONDS_PER_DAY } from "../rules/calendar.mjs";
 import {
-  canStart, weeklyProgress, progressBreakdown, skillLabel, salvageProgress, assignmentOf, tacticalChoices
+  canStart, weeklyProgress, progressBreakdown, skillLabel, salvageProgress, assignmentOf, tacticalChoices, perkRewards
 } from "../rules/projects.mjs";
 import { SECTIONS } from "../rules/turn.mjs";
 import { checkDarkChoice } from "../rules/events.mjs";
@@ -11,11 +11,18 @@ import { PHASES } from "../rules/strategy.mjs";
 import { getWarRoom, getStrategyRules, getList, setList, genesisAutomatic } from "../settings.mjs";
 import { asGM } from "../socket.mjs";
 import {
-  worldProjects, plainProject, soldierOf, addSalvage, setShown, briefMission, debriefMission, debriefDefaults, debriefContext
+  worldProjects, plainProject, soldierOf, addSalvage, setShown, briefMission, debriefMission, debriefDefaults, debriefContext,
+  squadForPerks
 } from "../strategy/odr.mjs";
 import { currentPlan, applyTurn, lastTurn, undoTurn } from "../strategy/turn.mjs";
 import { incursionChoices, confirmLiberation } from "../strategy/losing-ground.mjs";
 import { megacityCount } from "../rules/losing-ground.mjs";
+import { factionLevel, standingText, standingChange, dueText, rewardText, isOpen, signed } from "../rules/factions.mjs";
+import { repPips, repRank, levelTone, signedLevel } from "../rules/reputation.mjs";
+import {
+  getFactions, getTasks, getFactionLog, factionName, saveFaction, deleteFaction, adjustStanding, setFactionHidden,
+  saveTask, offerTask, withdrawTask, deleteTask, resolveTask, resolveDefaults
+} from "../strategy/factions.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const { renderTemplate } = foundry.applications.handlebars;
@@ -31,7 +38,9 @@ const TABS = {
   research: { label: "Research", icon: "fa-solid fa-flask" },
   engineering: { label: "Engineering", icon: "fa-solid fa-helmet-safety" },
   intelligence: { label: "Intelligence", icon: "fa-solid fa-user-secret" },
-  tactical: { label: "Tactical", icon: "fa-solid fa-crosshairs" }
+  tactical: { label: "Tactical", icon: "fa-solid fa-crosshairs" },
+  // Faction standing and the tasks they offer (Johnald, 2026-10-11).
+  factions: { label: "Factions", icon: "fa-solid fa-handshake", tip: "Faction tasks open" }
 };
 
 const byName = (a, b) => a.name.localeCompare(b.name);
@@ -60,7 +69,8 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
     id: "irop-odr-board",
     classes: ["irop", "irop-odr-board"],
     window: { title: "ODR phase", icon: "fa-solid fa-chess-board", resizable: true },
-    position: { width: 680, height: 720 },
+    // 40px wider for the fifth tab, Factions (2026-10-11).
+    position: { width: 720, height: 720 },
     actions: {
       // Not "tab": Foundry keeps that action for its own tab groups and never calls ours (fixed 2026-10-08).
       switchTab: OdrBoard.#onTab,
@@ -80,7 +90,25 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
       debrief: OdrBoard.#onDebrief,
       removeRevealed: OdrBoard.#onRemoveRevealed,
       advance: () => TurnReport.open(),
-      undo: () => confirmUndo()
+      undo: () => confirmUndo(),
+      // Factions (2026-10-11).
+      newFaction: () => editFactionDialog(),
+      editFaction: OdrBoard.#onEditFaction,
+      deleteFaction: OdrBoard.#onDeleteFaction,
+      standingUp: (event, target) => adjustStanding(OdrBoard.#factionOf(target), 1),
+      standingDown: (event, target) => adjustStanding(OdrBoard.#factionOf(target), -1),
+      showFaction: (event, target) => setFactionHidden(OdrBoard.#factionOf(target), false),
+      hideFaction: (event, target) => setFactionHidden(OdrBoard.#factionOf(target), true),
+      newTask: (event, target) => editTaskDialog(null, { faction: OdrBoard.#factionOf(target) }),
+      editTask: (event, target) => editTaskDialog(OdrBoard.#taskOf(target)),
+      offerTask: (event, target) => offerTask(OdrBoard.#taskOf(target)),
+      withdrawTask: (event, target) => withdrawTask(OdrBoard.#taskOf(target)),
+      deleteTask: OdrBoard.#onDeleteTask,
+      acceptTask: OdrBoard.#onAcceptTask,
+      releaseTask: (event, target) => asGM("faction.release", { id: OdrBoard.#taskOf(target) }),
+      sendOperative: OdrBoard.#onSendOperative,
+      recallOperative: (event, target) => asGM("faction.unassign", { id: OdrBoard.#taskOf(target), actor: target.closest("[data-actor-id]")?.dataset.actorId }),
+      resolveTask: (event, target) => resolveTaskDialog(OdrBoard.#taskOf(target))
     }
   };
 
@@ -99,7 +127,7 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /**
    * Open the board.
-   * @param {string} [tab]                 research, engineering, intelligence or tactical
+   * @param {string} [tab]                 research, engineering, intelligence, tactical or factions
    * @param {{territory?: string}} [options]
    */
   static open(tab, { territory } = {}) {
@@ -216,6 +244,8 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
       log: getList("missionLog").slice(-12).reverse().map(e => debriefContext(e, { rules }))
     };
 
+    const factions = factionsContext({ isGM, week: state.week, mine, territoryName });
+
     const last = isGM ? lastTurn() : null;
     const badge = (n, of) => `${n}/${of}`;
     const tabs = Object.entries(TABS).map(([key, tb]) => ({
@@ -224,7 +254,8 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
         research: badge(research.slot ? 1 : 0, 1),
         engineering: badge(engActive.length, slotsEng),
         intelligence: badge(intelligence.slots.filter(x => !x.empty).length, 2),
-        tactical: t ? ({ chosen: "chosen", briefed: "deployed", done: "done" }[t.status] ?? "") : "open"
+        tactical: t ? ({ chosen: "chosen", briefed: "deployed", done: "done" }[t.status] ?? "") : "open",
+        factions: String(factions.open.length)
       }[key]
     }));
     return {
@@ -233,7 +264,7 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
       week: state.week, phase: PHASES[state.phase] ?? state.phase,
       megacities: megacityCount(game.items?.filter(i => i.type === "territory") ?? []),
       logistics: state.logistics, intel: state.intel,
-      research, engineering, intelligence, tactical,
+      research, engineering, intelligence, tactical, factions,
       hasSoldiers: mine.length > 0,
       undoWeek: last ? last.to : null
     };
@@ -319,10 +350,12 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !t ) return null;
     const rules = getStrategyRules();
     const defaults = debriefDefaults(t, rules);
+    // What the deployed squad's background perks will add on a success (2026-10-11).
+    const perks = perkRewards(squadForPerks(), game.items.get(t.territory)?.system?.kind, "success").lines;
     const content = await renderTemplate("systems/irop/templates/dialog/debrief.hbs", {
-      label: t.label, territory: game.items.get(t.territory)?.name ?? "", rewards: t.rewards, defaults,
+      label: t.label, territory: game.items.get(t.territory)?.name ?? "", rewards: t.rewards, defaults, perks,
       outcomes: IROP.missionOutcomes, heatClasses: Object.fromEntries(Object.entries(IROP.heatClasses).map(([k, v]) => [k, (k === "none") ? v : `${v}, +${rules.heatRise[k]}`])),
-      reputationSteps: { "-2": "-2", "-1": "-1", "0": "No change", "1": "+1", "2": "+2" },
+      reputationRules: rules.missionReputation,
       salvagePercent: rules.salvagePercent
     });
     const data = await DialogV2.input({
@@ -347,11 +380,250 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
     return entry;
   }
 
+  /* -------------------------------------------- */
+  /*  Factions                                    */
+  /* -------------------------------------------- */
+
+  static #factionOf(target) {
+    return target.closest("[data-faction-id]")?.dataset.factionId ?? "";
+  }
+
+  static #taskOf(target) {
+    return target.closest("[data-task-id]")?.dataset.taskId ?? "";
+  }
+
+  static #onEditFaction(event, target) {
+    const faction = getFactions().find(f => f.id === OdrBoard.#factionOf(target));
+    if ( !game.user.isGM || !faction ) return null;
+    return editFactionDialog(faction);
+  }
+
+  static async #onDeleteFaction(event, target) {
+    const faction = getFactions().find(f => f.id === OdrBoard.#factionOf(target));
+    if ( !game.user.isGM || !faction ) return null;
+    const ok = await DialogV2.confirm({
+      window: { title: `Remove ${faction.name}?` },
+      content: `<p>${foundry.utils.escapeHTML(faction.name)} leaves the board, with every task of theirs. Their lines in the standing log stay.</p>`,
+      rejectClose: false
+    });
+    return ok ? deleteFaction(faction.id) : null;
+  }
+
+  static async #onDeleteTask(event, target) {
+    const task = getTasks().find(t => t.id === OdrBoard.#taskOf(target));
+    if ( !game.user.isGM || !task ) return null;
+    const ok = await DialogV2.confirm({
+      window: { title: `Delete ${task.title}?` },
+      content: "<p>The task is gone for good. Nothing it already gave is taken back.</p>",
+      rejectClose: false
+    });
+    return ok ? deleteTask(task.id) : null;
+  }
+
+  /** Take a task; the operative picked in its card, if any, goes on it at once. */
+  static #onAcceptTask(event, target) {
+    const actor = target.closest("[data-task-id]")?.querySelector("select[data-task-soldier]")?.value ?? "";
+    return asGM("faction.accept", { id: OdrBoard.#taskOf(target), actor });
+  }
+
+  static #onSendOperative(event, target) {
+    const actor = target.closest("[data-task-id]")?.querySelector("select[data-task-soldier]")?.value;
+    if ( !actor ) return ui.notifications.warn("Pick an operative to send.");
+    return asGM("faction.assign", { id: OdrBoard.#taskOf(target), actor });
+  }
+
   static async #onRemoveRevealed(event, target) {
     if ( !game.user.isGM ) return null;
     const key = target.closest("[data-choice]")?.dataset.choice;
     return setList("revealedActions", getList("revealedActions").filter(r => r.id !== key));
   }
+}
+
+/* -------------------------------------------- */
+/*  Factions: the board's tab and its dialogs   */
+/* -------------------------------------------- */
+
+/**
+ * The Factions tab (2026-10-11): the tasks open this turn, the GM's drafts, every faction's
+ * standing by tier, and the log. Players see only the factions the GM has shown, and
+ * their tasks.
+ */
+export function factionsContext({ isGM = !!game.user?.isGM, week = 1, mine = [], territoryName = () => "" } = {}) {
+  const all = getFactions();
+  const known = all.filter(f => isGM || !f.hidden);
+  const knownIds = new Set(known.map(f => f.id));
+  const tasks = getTasks().filter(t => knownIds.has(t.faction));
+  const nameOf = id => factionName(id, all);
+  const tierOf = f => IROP.factionTiers[f?.tier] ?? IROP.factionTiers.minor;
+  const onTask = id => tasks.find(t => isOpen(t) && t.operatives.includes(id));
+  const actorName = id => game.actors?.get(id)?.name ?? "An operative";
+
+  const taskCard = t => {
+    const faction = all.find(f => f.id === t.faction);
+    return {
+      id: t.id, title: t.title, brief: t.brief, status: t.status, taken: t.status === "accepted",
+      faction: nameOf(t.faction), factionId: t.faction, img: faction?.img ?? "", icon: tierOf(faction).icon,
+      due: dueText(t, week), dueNow: !!t.due && (t.due <= week), term: t.term,
+      offers: rewardText(t), failure: t.failure,
+      rival: t.rival ? nameOf(t.rival) : "", rivalLoss: t.rivalLoss,
+      by: t.by,
+      team: t.operatives.map(id => ({ id, name: actorName(id), canRemove: isGM || !!game.actors?.get(id)?.isOwner })),
+      soldiers: mine.filter(a => !t.operatives.includes(a.id)).map(a => {
+        const on = onTask(a.id);
+        return { id: a.id, name: on ? `${a.name} (on ${on.title})` : a.name };
+      })
+    };
+  };
+
+  // Standing (RULED 2026-10-11): a level on the factions' ladder, and the points in its bar.
+  const scale = IROP.reputationScale;
+  const recent = getFactionLog().filter(l => isGM || knownIds.has(l.faction));
+  const change = l => (((l.delta === null) || (l.delta === undefined)) ? "Set" : signed(l.delta));
+  const row = f => {
+    const level = factionLevel(f.standing);
+    return {
+      id: f.id, name: f.name, tier: f.tier, stance: f.stance, img: f.img, icon: tierOf(f).icon,
+      home: territoryName(f.home), notes: f.notes, hidden: f.hidden,
+      standing: f.standing, points: f.points, standingText: standingText(f.standing),
+      band: level.key, bandLabel: level.label, bandText: level.text,
+      pips: repPips(f.points), pointsText: `${f.points}/${scale.points}`,
+      atMin: (f.standing <= -scale.levels) && (f.points <= 0), atMax: (f.standing >= scale.levels) && (f.points >= scale.points),
+      history: recent.filter(l => l.faction === f.id).slice(-3).reverse().map(l => `Turn ${l.week}: ${change(l)}, ${l.reason}`).join("<br>"),
+      openTasks: tasks.filter(t => (t.faction === f.id) && isOpen(t)).length
+    };
+  };
+  const tiers = Object.entries(IROP.factionTiers).map(([key, tier]) => ({
+    key, label: tier.label,
+    rows: known.filter(f => f.tier === key).sort((a, b) => (repRank({ level: b.standing, points: b.points }) - repRank({ level: a.standing, points: a.points })) || byName(a, b)).map(row)
+  })).filter(t => isGM || t.rows.length);
+
+  // Taken first, then offered; each by deadline.
+  const taken = t => ((t.status === "accepted") ? 0 : 1);
+  const open = tasks.filter(isOpen).sort((a, b) => (taken(a) - taken(b)) || ((a.due ?? 0) - (b.due ?? 0))).map(taskCard);
+  const finished = tasks.filter(t => ["resolved", "lapsed"].includes(t.status))
+    .sort((a, b) => (b.resolvedWeek ?? 0) - (a.resolvedWeek ?? 0)).slice(0, 12)
+    .map(t => ({
+      id: t.id, title: t.title, faction: nameOf(t.faction), week: t.resolvedWeek ?? t.week,
+      outcome: (t.status === "lapsed") ? "lapsed" : t.outcome,
+      outcomeLabel: (t.status === "lapsed") ? "Lapsed" : (IROP.missionOutcomes[t.outcome] ?? "")
+    }));
+  return {
+    open,
+    drafts: isGM ? tasks.filter(t => t.status === "draft").map(taskCard) : [],
+    tiers,
+    any: known.length > 0,
+    finished,
+    log: recent.slice(-12).reverse().map(l => ({
+      week: l.week, name: l.name || nameOf(l.faction), delta: change(l), reason: l.reason,
+      up: ((l.delta === null) || (l.delta === undefined)) ? (repRank(l.to) >= repRank(l.from)) : (Number(l.delta) > 0),
+      to: (l.from && l.to) ? standingChange(l.from, l.to) : ""
+    })),
+    // The ladder, top first.
+    bands: Object.entries(IROP.factionLevels).sort(([a], [b]) => Number(b) - Number(a))
+      .map(([k, v]) => ({ key: levelTone(Number(k)), label: v.label, text: v.text, range: signedLevel(Number(k)) })),
+    pointsPerLevel: scale.points, entry: scale.entry
+  };
+}
+
+/** The territories, for a faction's home. */
+function territoryChoices() {
+  return Object.fromEntries((game.items?.filter(i => i.type === "territory") ?? []).sort(byName).map(t => [t.id, t.name]));
+}
+
+/** Make or change a faction. GM only. */
+export async function editFactionDialog(faction = null) {
+  if ( !game.user?.isGM ) return null;
+  const scale = IROP.reputationScale;
+  const content = await renderTemplate("systems/irop/templates/dialog/faction.hbs", {
+    faction: faction ?? { tier: "minor", standing: 0, points: scale.entry },
+    tiers: Object.fromEntries(Object.entries(IROP.factionTiers).map(([k, v]) => [k, v.one])),
+    levels: Object.fromEntries(Object.entries(IROP.factionLevels).sort(([a], [b]) => Number(b) - Number(a))
+      .map(([k, v]) => [k, `${signedLevel(Number(k))} ${v.label}`])),
+    territories: territoryChoices(),
+    scale
+  });
+  const data = await DialogV2.input({
+    window: { title: faction ? `Faction: ${faction.name}` : "New faction", icon: "fa-solid fa-handshake" },
+    classes: ["irop", "irop-faction-dialog"],
+    position: { width: 520 },
+    content,
+    ok: { label: faction ? "Save" : "Add faction", icon: "fa-solid fa-check" },
+    rejectClose: false,
+    render: (ev, dialog) => {
+      dialog.element.querySelector("[data-pick-image]")?.addEventListener("click", () => {
+        const input = dialog.element.querySelector("[name=img]");
+        const Picker = foundry.applications.apps.FilePicker.implementation;
+        new Picker({ type: "image", current: input.value, callback: path => { input.value = path; } }).render({ force: true });
+      });
+    }
+  });
+  if ( !data ) return null;
+  return saveFaction({ ...data, id: faction?.id ?? "" });
+}
+
+/** Write or change a task. A new one can go on offer at once. GM only. */
+export async function editTaskDialog(id = null, { faction = "" } = {}) {
+  if ( !game.user?.isGM ) return null;
+  const factions = getFactions();
+  if ( !factions.length ) return ui.notifications.warn("Add a faction first.");
+  const rules = getStrategyRules();
+  const task = id ? getTasks(rules).find(t => t.id === id) : null;
+  if ( id && !task ) return null;
+  const f = rules.factions;
+  const choices = Object.fromEntries(factions.map(x => [x.id, x.name]));
+  const content = await renderTemplate("systems/irop/templates/dialog/faction-task.hbs", {
+    task: task ?? { faction: faction || factions[0].id, term: f.taskTurns, standing: f.taskStanding, failure: f.taskFailure, rivalLoss: f.rivalLoss, logistics: 0, intel: 0 },
+    isNew: !task,
+    factions: choices
+  });
+  const data = await DialogV2.input({
+    window: { title: task ? `Task: ${task.title}` : "New faction task", icon: "fa-solid fa-handshake" },
+    classes: ["irop", "irop-faction-dialog"],
+    position: { width: 540 },
+    content,
+    ok: { label: task ? "Save" : "Add task", icon: "fa-solid fa-check" },
+    rejectClose: false
+  });
+  if ( !data ) return null;
+  const { offer, ...fields } = data;
+  if ( fields.rival === fields.faction ) fields.rival = "";
+  const saved = await saveTask({ ...fields, id: task?.id ?? "" });
+  if ( saved && !task && offer ) return offerTask(saved.id);
+  return saved;
+}
+
+/** Resolve a task as the GM saw it go: the outcome fills in what it gives, which the GM can change. */
+export async function resolveTaskDialog(id) {
+  if ( !game.user?.isGM ) return null;
+  const rules = getStrategyRules();
+  const task = getTasks(rules).find(t => t.id === id);
+  if ( !task ) return null;
+  const factions = getFactions();
+  const defaults = resolveDefaults(task, rules);
+  const content = await renderTemplate("systems/irop/templates/dialog/task-resolve.hbs", {
+    task, defaults, faction: factionName(task.faction, factions), rival: task.rival ? factionName(task.rival, factions) : "",
+    outcomes: IROP.missionOutcomes, offers: rewardText(task)
+  });
+  const data = await DialogV2.input({
+    window: { title: `Resolve: ${task.title}`, icon: "fa-solid fa-clipboard-check" },
+    classes: ["irop", "irop-debrief-dialog", "irop-faction-dialog"],
+    position: { width: 480 },
+    content,
+    ok: { label: "Resolve", icon: "fa-solid fa-clipboard-check" },
+    rejectClose: false,
+    render: (ev, dialog) => {
+      const root = dialog.element;
+      root.querySelector("[name=outcome]")?.addEventListener("change", e => {
+        const r = defaults.resultsFor[e.target.value] ?? {};
+        for ( const key of ["standing", "rival", "logistics", "intel"] ) {
+          const input = root.querySelector(`[name=${key}]`);
+          if ( input ) input.value = String(r[key] ?? 0);
+        }
+      });
+    }
+  });
+  if ( !data ) return null;
+  return resolveTask(task.id, data);
 }
 
 /* -------------------------------------------- */

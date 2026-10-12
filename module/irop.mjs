@@ -29,6 +29,10 @@ import { ResourceLedger, SupportApp, callSupport, addSupportButton } from "./app
 import { OdrBoard, TurnReport, ProjectStrip, confirmUndo, showWeekBanner } from "./apps/odr.mjs";
 import { TerritoryCard, WarRoomBar } from "./apps/war-room.mjs";
 import { registerOdrActions, briefMission } from "./strategy/odr.mjs";
+import { migrateReputation, migrateStrength } from "./strategy/migrate.mjs";
+import {
+  registerFactionActions, getFactions, getTasks, getFactionLog, saveFaction, deleteFaction, adjustStanding, saveTask, offerTask, resolveTask
+} from "./strategy/factions.mjs";
 import { currentPlan } from "./strategy/turn.mjs";
 import { initSocket } from "./socket.mjs";
 import { StoreData } from "./data/store.mjs";
@@ -75,6 +79,7 @@ Hooks.once("init", () => {
   registerWarRoom();
   // What players may ask the GM's client to do in the ODR phase (step 5).
   registerOdrActions();
+  registerFactionActions();
   // And at a store: buy what is in limited stock (2026-10-10).
   registerStoreActions();
   registerConcealmentActions();
@@ -202,7 +207,10 @@ Hooks.once("init", () => {
       openEvents: () => EventsApp.open(), setupDecks, newCard, reshuffle,
       // Step 7: Losing Ground.
       liberate: territory => confirmLiberation(typeof territory === "string" ? game.items.get(territory) : territory),
-      liberateNow: liberate, incursions, breakIncursion },
+      liberateNow: liberate, incursions, breakIncursion,
+      // Factions (2026-10-11): standing and the tasks they offer.
+      factions: { open: () => OdrBoard.open("factions"), list: getFactions, tasks: getTasks, log: getFactionLog,
+        save: saveFaction, remove: deleteFaction, adjust: adjustStanding, saveTask, offer: offerTask, resolve: resolveTask } },
     // The calendar (2026-10-08): today in words, and the GM's ways to move it.
     calendar: { open: () => CalendarApp.open(), settings: () => CalendarEditor.open(), get: getCalendar, today: dateInfo,
       setDate, advanceDays, setTime: setWorldTime, rules: calendarRules },
@@ -326,6 +334,9 @@ Hooks.on("updateCombat", (combat, changed) => {
 Hooks.once("ready", () => {
   // Players' ODR actions reach the GM's client over the system socket (step 5).
   initSocket();
+  // Reputation's nine levels and Strength to 25 (2026-10-11): an older world's territories move onto them, once.
+  migrateReputation().then(() => migrateStrength())
+    .catch(err => console.error("irop | The world could not be moved to the new Reputation and Strength scales", err));
   shownWeek = getWarRoom().week;
   // A new world opens on the campaign's date, once; the date bar shows even with no scene.
   startCalendar().catch(err => console.warn("irop | The calendar could not be put on the campaign's date", err));

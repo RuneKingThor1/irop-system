@@ -15,7 +15,9 @@ export const LAYERS = {
 };
 
 const HEAT = [0x888780, 0xF09595, 0xE24B4A, 0xA32D2D, 0x791F1F];
-const REPUTATION = { "-2": 0xD64F4F, "-1": 0xE08A3C, "0": 0x888780, "1": 0x5FB85F, "2": 0x3FB8B0 };
+// Reputation, -4 to +4 (2026-10-11): red to orange below Neutral, green to teal above.
+const REPUTATION = { "-4": 0xA32D2D, "-3": 0xD64F4F, "-2": 0xE08A3C, "-1": 0xD9B234, "0": 0x888780,
+  "1": 0x8FCB6B, "2": 0x5FB85F, "3": 0x3FB8B0, "4": 0x2A8F89 };
 const CONTROL = { genesis: 0xC4121C, contested: 0xD9B234, liberated: 0x42ABF2 };
 
 /**
@@ -33,7 +35,7 @@ export function overlayStyle(layer, t, strengthMax = IROP.strategyRules.strength
       return { color: 0x7F77DD, alpha: 0.12 + (share * 0.5), text: `Strength ${t.strength}` };
     }
     case "reputation": {
-      const r = Math.max(-2, Math.min(2, Number(t.reputation) || 0));
+      const r = Math.max(-4, Math.min(4, Number(t.reputation) || 0));
       return { color: REPUTATION[String(r)], alpha: 0.4, text: IROP.reputationLevels[String(r)] };
     }
     case "control":

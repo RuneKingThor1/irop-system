@@ -16,7 +16,7 @@ const escape = text => String(text ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp
 /** A character's result at a place, from what they carry now, with their bonus (a Human's, effects'). */
 export function checkFor(actor, place) {
   const load = concealmentLoad(actor.items, actor.system?.carry?.max ?? 0);
-  return placeCheck({ ...load, bonus: actor.system?.concealment?.bonus ?? 0 }, place);
+  return placeCheck({ ...load, bonus: actor.system?.concealment?.bonus ?? 0, bonusAt: actor.system?.concealment?.bonusAt ?? {} }, place);
 }
 
 /** The checkpoint card, from its flags. */

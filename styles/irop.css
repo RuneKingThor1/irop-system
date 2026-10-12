@@ -1984,8 +1984,8 @@
 .irop .odr-stock i { color: var(--irop-accent); }
 .irop .odr-gm { margin-left: auto; display: flex; gap: 6px; }
 .irop :where(.window-content) .odr-gm button { width: auto; height: 28px; padding: 0 12px; white-space: nowrap; }
-.irop .odr-tabs { display: flex; gap: 2px; padding: 6px 10px 0; border-bottom: 1px solid var(--irop-line); }
-.irop .odr-tab { padding: 6px 12px; border: 1px solid transparent; border-bottom: none; border-radius: 3px 3px 0 0; color: var(--irop-label-ink); cursor: pointer; }
+.irop .odr-tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px 10px 0; border-bottom: 1px solid var(--irop-line); }
+.irop .odr-tab { padding: 6px 10px; white-space: nowrap; border: 1px solid transparent; border-bottom: none; border-radius: 3px 3px 0 0; color: var(--irop-label-ink); cursor: pointer; }
 .irop .odr-tab:hover { color: var(--irop-ink-bright); }
 .irop .odr-tab.active { color: var(--irop-ink-bright); border-color: var(--irop-line-bright); background: var(--irop-panel-2); }
 .irop .odr-tab.active i { color: var(--irop-accent); }
@@ -2796,3 +2796,60 @@
 
 /* Where the next round begins, in a turning line. */
 .irop-turn-ribbon .rb-marker { flex: none; width: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--irop-faint); }
+
+/* The debrief dialog: what the deployed squad's background perks add on a success (2026-10-11). */
+.irop-debrief .debrief-perks ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; }
+
+/* Factions on the ODR board (2026-10-11): standing bars by band, task cards, their dialogs and chat card. */
+.irop .faction-row, .irop .ft-band-list li { --band: var(--irop-muted); }
+.irop .band-hostile { --band: var(--irop-bad); }
+.irop .band-unfriendly { --band: var(--irop-orange); }
+.irop .band-neutral { --band: var(--irop-muted); }
+.irop .band-friendly { --band: var(--irop-sky); }
+.irop .band-allied { --band: var(--irop-good); }
+.irop .faction-row .or-icon { color: var(--band); font-size: 18px; }
+.irop .faction-row img { border-color: var(--band); }
+.irop .faction-row .or-name:not([data-action]) { cursor: default; }
+.irop .fr-standing { display: flex; align-items: center; gap: 10px; margin-top: 4px; cursor: help; }
+.irop .fr-value { flex: none; min-width: 104px; font-family: var(--irop-mono); font-size: 13px; color: var(--band); white-space: nowrap; }
+.irop .ft-tier { margin: 10px 0 2px; padding: 0; border: none; font-family: var(--irop-mono); font-size: var(--irop-small-size); font-weight: normal; letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-label-ink); }
+.irop .faction-task { border-left-color: var(--irop-warn); }
+.irop .faction-task.status-accepted { border-left-color: var(--irop-good); }
+.irop .faction-task.status-draft { border-left-color: var(--irop-line-bright); border-left-style: dashed; }
+.irop .faction-task.due-now .os-sub { color: var(--irop-warn); }
+.irop .faction-task .os-name { cursor: default; }
+.irop .ft-flag { flex: none; font-family: var(--irop-mono); font-size: var(--irop-small-size); color: var(--irop-warn); text-transform: uppercase; letter-spacing: 0.06em; }
+.irop .ft-flag.taken { color: var(--irop-good); }
+.irop .ft-brief { margin: 0; font-size: 13px; color: var(--irop-ink); white-space: pre-line; }
+.irop .ft-rival .label { color: var(--irop-bad); }
+.irop :where(.window-content) .faction-task .os-actions button.icon { width: 26px; padding: 0; }
+.irop .ft-drafts summary { margin-bottom: 6px; }
+.irop .ft-band-list { list-style: none; margin: 4px 0 0; padding: 0; font-size: 13px; color: var(--irop-label-ink); }
+.irop .ft-band-list li { padding: 3px 0; }
+.irop .ftb-label { font-weight: 700; color: var(--band); }
+.irop .ftb-range { font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); margin: 0 4px; }
+.irop .faction-log .ol-gains { color: var(--irop-label-ink); font-family: var(--irop-mono); font-size: 12px; }
+.irop-faction-dialog .form-grid .span-2 { grid-column: span 2; }
+.irop-faction-dialog textarea { width: 100%; resize: vertical; }
+.irop-faction-dialog .check-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.irop .ff-image { display: flex; gap: 6px; }
+.irop .ff-image input { flex: 1; }
+.irop :where(.window-content) .ff-image button { width: 32px; flex: none; }
+.irop-card.faction-card { --card-accent: var(--irop-warn); }
+.irop-card.faction-card.outcome-success { --card-accent: var(--irop-good); }
+.irop-card.faction-card.outcome-failure { --card-accent: var(--irop-bad); }
+.irop-card.faction-card .fc-icon { width: 36px; text-align: center; font-size: 22px; color: var(--card-accent); }
+.irop-card.faction-card .fc-brief { margin: 0 0 6px; font-size: 15px; white-space: pre-line; }
+
+/* Reputation bars (RULED 2026-10-11): the points inside a level, ten boxes like Strength's, in the level's color. */
+.irop .rep-pips { --pip: var(--irop-muted); display: flex; align-items: center; gap: 3px; flex: 1; cursor: help; }
+.irop .rep-pips.tone-hostile { --pip: var(--irop-bad); }
+.irop .rep-pips.tone-unfriendly { --pip: var(--irop-orange); }
+.irop .rep-pips.tone-neutral { --pip: var(--irop-muted); }
+.irop .rep-pips.tone-friendly { --pip: var(--irop-sky); }
+.irop .rep-pips.tone-allied { --pip: var(--irop-good); }
+.irop .rep-pip { flex: 1; height: 9px; border-radius: 2px; background: var(--irop-line-bright); }
+.irop .rep-pip.on { background: var(--pip); }
+.irop .rep-count { flex: none; min-width: 36px; text-align: right; font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); }
+.irop .territory-card .rep-pips { margin-bottom: 6px; }
+.irop-faction-dialog .form-grid .span-3 { grid-column: span 3; }

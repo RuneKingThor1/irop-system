@@ -28,6 +28,8 @@
     <div class="tc-row"><span>Strength</span><span>{{strength}} / {{strengthMax}}</span></div>
     <div class="tc-track"><span style="width: {{strengthPct}}%"></span></div>
     <div class="tc-row"><span>Reputation</span><span>{{reputation}}</span></div>
+    <div class="rep-pips tone-{{reputationTone}}" data-tooltip="{{reputationTip}}">{{#each reputationPips as |on|}}<span class="rep-pip {{#if on}}on{{/if}}"></span>{{/each}}
+      <span class="rep-count">{{reputationPoints}}/{{reputationMax}}</span></div>
     {{#if megacity}}<div class="tc-row"><span>Objectives taken</span><span>{{objectives}} of 3</span></div>{{/if}}
     {{#if modifiers}}<p class="tc-mods">{{modifiers}}</p>{{/if}}
     {{#if incursion}}<p class="tc-incursion"><i class="fa-solid fa-triangle-exclamation"></i> {{incursion}}</p>{{/if}}

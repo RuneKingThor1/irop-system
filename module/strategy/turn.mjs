@@ -3,6 +3,7 @@ import { getWarRoom, setWarRoom, getStrategyRules, getList, setList, undoResourc
 import { worldProjects, soldierOf, completeProject } from "./odr.mjs";
 import { cardsForPlan, applyCardOps, snapshotStacks, restoreStacks, applyLedger } from "./events.mjs";
 import { applyIncursionOps } from "./losing-ground.mjs";
+import { getFactions, getTasks, factionSnapshot, restoreFactions, applyFactionTurn } from "./factions.mjs";
 import { turnDays, advanceDays, worldTime, dateInfo, onStrategyLayer } from "../calendar.mjs";
 
 /**
@@ -26,7 +27,9 @@ export function currentPlan() {
     rules: getStrategyRules(),
     tactical: state.tactical,
     cards: cardsForPlan(),
-    incursions: getList("incursions")
+    incursions: getList("incursions"),
+    factions: getFactions(),
+    tasks: getTasks()
   });
 }
 
@@ -77,16 +80,19 @@ export async function applyTurn(plan, ticked, choices = new Map()) {
   }
   const docs = new Map((game.items ?? []).filter(i => ["territory", "project"].includes(i.type))
     .map(i => [i.id, { system: i.system.toObject() }]));
-  const { updates, before, completes, cardOps, ledger, incursionOps } = resolvePlan(plan, ticked, docs, { choices, rules: getStrategyRules() });
+  const { updates, before, completes, cardOps, ledger, incursionOps, factionOps } = resolvePlan(plan, ticked, docs, { choices, rules: getStrategyRules() });
   const days = turnDays();
   const entry = {
     week: state.week, phase: state.phase, tactical: state.tactical, to: plan.week,
-    before, revealed: getList("revealedActions"), incursions: getList("incursions"), cards: snapshotStacks(), ledgerIds: [], time: Date.now(), days
+    before, revealed: getList("revealedActions"), incursions: getList("incursions"), cards: snapshotStacks(), ledgerIds: [], time: Date.now(), days,
+    factions: factionSnapshot()
   };
   if ( updates.length ) await Item.updateDocuments(updates);
   entry.ledgerIds = await applyLedger(ledger);
   await applyCardOps(cardOps, plan.week);
   await applyIncursionOps(incursionOps, plan.week);
+  // Faction tasks failed or lapsed (2026-10-11), in the turn that just ended.
+  await applyFactionTurn(factionOps, state.week);
   await setList("turnHistory", [...getList("turnHistory"), entry].slice(-HISTORY_KEPT));
   await setWarRoom({ week: plan.week, phase: "odr", tactical: null });
   const now = days ? await advanceDays(days) : worldTime();
@@ -110,7 +116,8 @@ export function lastTurn() {
 /**
  * Take back the last Advance week: territories and projects as they were, the
  * week, its phase and Tactical Action, the revealed actions, the card stacks, the
- * ledger lines its cards made, and the days it moved the date. GM only.
+ * ledger lines its cards made, the days it moved the date, and the factions with
+ * their tasks (2026-10-11). GM only.
  */
 export async function undoTurn() {
   if ( !game.user.isGM ) return null;
@@ -124,6 +131,7 @@ export async function undoTurn() {
   if ( restore.length ) await Item.updateDocuments(restore);
   await setList("revealedActions", last.revealed ?? []);
   await setList("incursions", last.incursions ?? []);
+  if ( last.factions ) await restoreFactions(last.factions);
   await restoreStacks(last.cards);
   for ( const id of [...(last.ledgerIds ?? [])].reverse() ) {
     const result = await undoResource(id);

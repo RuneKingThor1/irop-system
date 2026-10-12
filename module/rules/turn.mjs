@@ -2,6 +2,8 @@ import { IROP } from "../config.mjs";
 import { weeklyProgress, progressBreakdown, addProgress } from "./projects.mjs";
 import { planCards, effectOps, effectLedger } from "./events.mjs";
 import { planIncursions } from "./losing-ground.mjs";
+import { planFactionLines } from "./factions.mjs";
+import { moveReputation } from "./reputation.mjs";
 
 /**
  * The turn engine (Strategy Layer step 4, 2026-10-08). Advance week plans the new
@@ -17,6 +19,8 @@ import { planIncursions } from "./losing-ground.mjs";
  *
  * A line: {id, section, text, detail?, tone: "up"|"down"|"done"|"info", ops, hidden?, completes?}
  * An op:  {id: document id, path: "system.strength", delta?: number, set?: any, min?: number, max?: number}
+ *         or {id, path: "system.reputation", rep: points}: Reputation through its bar (2026-10-11),
+ *         moving system.reputation and system.reputationPoints together
  * Hidden lines are bookkeeping (quiet week counts, this week's activity clearing):
  * always applied, never shown.
  *
@@ -34,7 +38,8 @@ export const SECTIONS = {
   cards: "Cards leaving play",
   events: "Event phase",
   world: "World Events",
-  projects: "ODR projects"
+  projects: "ODR projects",
+  factions: "Faction tasks"
 };
 
 const clamp = (v, min, max) => Math.max(min ?? -Infinity, Math.min(max ?? Infinity, v));
@@ -48,10 +53,12 @@ const clamp = (v, min, max) => Math.max(min ?? -Infinity, Math.min(max ?? Infini
  * @param {Function} [input.soldierOf]        Actor id to {name, system}
  * @param {object} input.rules                The Strategy Layer rules in force
  * @param {object|null} [input.tactical]      This week's Tactical Action, if one was chosen
+ * @param {object[]} [input.factions]         The factions (2026-10-11), for their tasks' lines
+ * @param {object[]} [input.tasks]            Their tasks
  * @returns {{week: number, lines: object[], due: string[], warnings: string[]}}
  */
 export function planTurn({ week = 1, territories = [], projects = [], soldierOf = () => null, rules = IROP.strategyRules, tactical = null,
-  cards = null, incursions = [], random = Math.random } = {}) {
+  cards = null, incursions = [], factions = [], tasks = [], random = Math.random } = {}) {
   const next = Math.max(1, Math.round(Number(week) || 1)) + 1;
   const max = Math.max(1, Number(rules.strengthMax) || 10);
   const lines = [];
@@ -185,6 +192,9 @@ export function planTurn({ week = 1, territories = [], projects = [], soldierOf 
     });
   }
 
+  // Faction tasks (2026-10-11): what was taken and not done in time fails; what was never taken lapses.
+  for ( const l of planFactionLines({ week: next - 1, factions, tasks, rules }) ) line(l);
+
   // Due this week: only the draws with no deck to draw from (step 6).
   const due = dealt.due;
 
@@ -215,6 +225,7 @@ export function resolvePlan(plan, ticked, documents, { choices = new Map(), rule
   const cardOps = [];
   const ledger = [];
   const incursionOps = [];
+  const factionOps = [];
   for ( const l of plan.lines ) {
     let ops = l.ops;
     // A Dark Event drawn: used where the GM chose, or discarded unused (step 6).
@@ -231,9 +242,19 @@ export function resolvePlan(plan, ticked, documents, { choices = new Map(), rule
       if ( l.card ) cardOps.push(l.card);
       if ( l.ledger?.length ) ledger.push(...l.ledger);
       if ( l.incursion ) incursionOps.push(l.incursion);
+      if ( l.factionOp ) factionOps.push(l.factionOp);
     }
     for ( const op of ops ) {
       if ( !documents.has(op.id) ) continue;
+      if ( "rep" in op ) {
+        const lv = read(op.id, "system.reputation");
+        const pt = read(op.id, "system.reputationPoints");
+        const now = v => (("value" in v) ? v.value : v.before);
+        const next = moveReputation({ level: now(lv), points: now(pt) }, op.rep);
+        lv.value = next.level;
+        pt.value = next.points;
+        continue;
+      }
       const v = read(op.id, op.path);
       const now = ("value" in v) ? v.value : v.before;
       v.value = ("set" in op) ? op.set : clamp((Number(now) || 0) + op.delta, op.min, op.max);
@@ -248,7 +269,7 @@ export function resolvePlan(plan, ticked, documents, { choices = new Map(), rule
     updates.get(v.id)[v.path] = v.value;
     before.get(v.id)[v.path] = v.before;
   }
-  return { updates: [...updates.values()], before: [...before.values()], completes, cardOps, ledger, incursionOps };
+  return { updates: [...updates.values()], before: [...before.values()], completes, cardOps, ledger, incursionOps, factionOps };
 }
 
 function getPath(obj, path) {

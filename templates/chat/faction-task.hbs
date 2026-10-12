@@ -1,0 +1,23 @@
+<div class="irop-card faction-card {{kind}} {{#if resolved}}outcome-{{outcome}}{{/if}}">
+  {{!-- A faction task (2026-10-11): offered to the ODR, or resolved with what it gave. --}}
+  <header class="card-head with-img">
+    {{#if img}}<img src="{{img}}" alt="">{{else}}<i class="{{icon}} fc-icon"></i>{{/if}}
+    <div><span class="card-sub">{{#if resolved}}Task resolved, turn {{week}}{{else}}Task offered, turn {{week}}{{/if}}</span><h3>{{title}}</h3></div>
+  </header>
+  <p class="mission-where"><i class="fa-solid fa-handshake"></i> <strong>{{faction}}</strong>{{#if resolved}}: <span class="mission-outcome">{{outcomeLabel}}</span>{{/if}}</p>
+  {{#if resolved}}
+  <ul class="debrief-lines">
+    {{#each gains}}<li class="gain">{{this}}</li>{{/each}}
+    {{#each standings as |s|}}<li class="{{#if s.up}}gain{{else}}heat{{/if}}">{{s.text}}</li>{{/each}}
+  </ul>
+  {{#if notes}}<p class="support-note">{{notes}}</p>{{/if}}
+  {{else}}
+  {{#if brief}}<p class="fc-brief">{{brief}}</p>{{/if}}
+  <ul class="debrief-lines">
+    {{#if offers}}<li class="gain">Offers {{offers}}</li>{{/if}}
+    {{#if failure}}<li class="heat">Failing it: -{{failure}} standing points</li>{{/if}}
+    {{#if rival}}<li class="heat">Works against {{rival}}: -{{rivalLoss}} with them</li>{{/if}}
+    <li>{{#if (eq due week)}}Due by the end of this turn{{else}}Due by the end of turn {{due}}{{/if}}</li>
+  </ul>
+  {{/if}}
+</div>

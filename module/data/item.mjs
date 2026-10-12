@@ -510,7 +510,9 @@ export class TerritoryData extends foundry.abstract.TypeDataModel {
       quietWeeks: int(0, { min: 0 }),
       // A tactical action or relevant event here this week (step 4): the Heat does not cool.
       active: new fields.BooleanField({ initial: false }),
-      reputation: int(0, { min: -2, max: 2 }),
+      // Reputation (RULED 2026-10-11): a level, -4 to +4, and the points in its bar (rules/reputation.mjs).
+      reputation: int(0, { min: -4, max: 4 }),
+      reputationPoints: int(5, { min: 0, max: 10 }),
       // Descriptive tags carried over from the Lore journal ("Havens, Megafauna").
       modifiers: text(""),
       objectives: new fields.SchemaField({

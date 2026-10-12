@@ -90,7 +90,23 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
         // Defense outside worn armor, from effects or perks: the live sheet's Defense Mod.
         defense: int(0),
         // Percent points more of carry capacity that may show at a checkpoint (2026-10-10).
-        concealment: int(0)
+        concealment: int(0),
+        // The same, at one place only (Model Citizen's Megacity, Johnald, 2026-10-11).
+        concealmentAt: new fields.SchemaField(Object.fromEntries(Object.keys(IROP.concealment.places).map(k => [k, int(0)]))),
+        // Background perks on the Strategy Layer (Johnald, 2026-10-11), raised by their effects:
+        // more per skill rank on a kind of project, Toughness on Engineering labor, Intel on an
+        // Intelligence Action in a Megacity, and what a successful mission brings back.
+        strategy: new fields.SchemaField({
+          perRank: new fields.SchemaField(Object.fromEntries(Object.keys(IROP.projectKinds).map(kind =>
+            [kind, new fields.SchemaField(Object.fromEntries(Object.keys(IROP.skills).map(k => [k, int(0)])))]))),
+          laborToughness: int(0),
+          intelMegacity: int(0),
+          mission: new fields.SchemaField({
+            logistics: int(0),
+            intel: int(0),
+            reputation: new fields.SchemaField(Object.fromEntries(Object.keys(IROP.territoryKinds).map(k => [k, int(0)])))
+          })
+        })
       }),
       // Damage reduction a character carries outside its armor, per type.
       dr: new fields.SchemaField(dr),
@@ -231,6 +247,8 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     this.concealment = {
       ...concealmentLoad(this.parent.items, this.carry.max),
       bonus: fromSpecies + (Number(this.bonuses.concealment) || 0),
+      // At one place only, from effects (2026-10-11).
+      bonusAt: Object.fromEntries(Object.keys(IROP.concealment.places).map(k => [k, Number(this.bonuses.concealmentAt?.[k]) || 0])),
       speciesBonus: fromSpecies, species: fromSpecies ? speciesName : ""
     };
 

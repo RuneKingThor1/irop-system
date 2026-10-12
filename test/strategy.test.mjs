@@ -160,17 +160,18 @@ t = settings.getWarRoom().tactical;
 check("odr: the briefing goes to chat and locks the choice", t.status === "briefed" && /mission-brief/.test(chat[0]?.content));
 const brief = odr.briefingContext(t, get("ns"), { rules: settings.getStrategyRules(), week: 1 });
 check("odr: the briefing reads the territory: Heat, Strength band, Reputation",
-  brief.heat === "Medium" && /Alien and GENESIS units/.test(brief.heatResponse) && brief.band === "Moderate" && brief.reputation === "0 Neutral" && brief.kind === "Megacity");
+  brief.heat === "Medium" && /Alien and GENESIS units/.test(brief.heatResponse) && brief.band === "Low" && brief.strengthMax === 25 && brief.reputation === "0 Neutral, 5 of 10" && brief.kind === "Megacity");
 warnings.length = 0;
 await socket.asGM("tactical.choose", { key: "ambushPatrols", territory: "rh" });
 check("odr: once briefed it cannot be swapped", /already under way/.test(warnings[0]));
 
 const before = settings.getWarRoom().logistics;
-await odr.debriefMission({ outcome: "success", logistics: 15, intel: 4, heat: "major", reputation: 1, salvage: 1, notes: "Clean exit" });
+await odr.debriefMission({ outcome: "success", logistics: 15, intel: 4, heat: "major", reputation: 2, salvage: 1, notes: "Clean exit" });
 t = settings.getWarRoom().tactical;
 const ns = get("ns").system;
-check("odr: the debrief lands: Logistics and Intel in, Heat waiting for next turn, Reputation up, activity marked",
-  settings.getWarRoom().logistics === before + 15 && settings.getWarRoom().intel === 9 && ns.heatPending === 2 && ns.reputation === 1 && ns.active === true);
+check("odr: the debrief lands: Logistics and Intel in, Heat waiting for next turn, Reputation points on its bar, activity marked",
+  settings.getWarRoom().logistics === before + 15 && settings.getWarRoom().intel === 9 && ns.heatPending === 2 && ns.reputation === 0 && ns.reputationPoints === 7 && ns.active === true
+    && settings.getList("missionLog")[0]?.reputationResult === "+2: Neutral, 7 of 10");
 check("odr: salvage goes to the research under way (30% of 100)", get("ar").system.progress === 60 && get("ar").system.salvage === 1, String(get("ar").system.progress));
 check("odr: the mission is logged, the revealed action used up, the week's action done",
   settings.getList("missionLog")[0]?.label === "Strike the GENESIS asset" && settings.getList("missionLog")[0].outcome === "success"
@@ -331,6 +332,7 @@ check("socket: with no GM online the player is told", /No GM is connected/.test(
   store.set("warRoom", { week: 3, phase: "odr", tactical: null });
   const logisticsBefore = settings.getWarRoom().logistics;
   const repBefore = Object.fromEntries(["ns", "rh", "pl"].map(id => [id, get(id).system.reputation]));
+  const ptsBefore = Object.fromEntries(["ns", "rh", "pl"].map(id => [id, get(id).system.reputationPoints]));
   const plan = turn.currentPlan();
   const lines = s => plan.lines.filter(l => l.section === s);
   check("cards: Advance week deals three Events to three territories and draws three Dark Events",
@@ -350,9 +352,15 @@ check("socket: with no GM online the player is told", /No GM is connected/.test(
       && settings.getWarRoom().logistics === logisticsBefore + madeHere.reduce((n, e) => n + e.amount, 0));
   check("cards: a World Event comes with the Event phase", plan.lines.some(l => (l.section === "world") && (l.card.from === "worldDeck"))
     && (S("worldDeck").availableCards.length === 1));
+  // Reputation (2026-10-11): each step through the bar in plan order, a card step 3 points.
+  const { moveReputation } = await import("../module/rules/reputation.mjs");
+  const rhSteps = plan.lines.flatMap(l => {
+    if ( l.card?.op === "dark" ) return (ticked.has(l.id) && (choices.get(l.id) === "rh")) ? [(l.card.effect?.reputation ?? 0) * 3] : [];
+    return (ticked.has(l.id) || l.hidden) ? l.ops.filter(o => (o.id === "rh") && ("rep" in o)).map(o => o.rep) : [];
+  }).filter(Boolean);
+  const rhAfter = rhSteps.reduce((state, d) => moveReputation(state, d), { level: repBefore.rh, points: ptsBefore.rh });
   check("cards: the Dark Events used: Propaganda's Reputation lands where chosen, the Reprisal stays in play there",
-    get("rh").system.reputation === Math.max(-2, Math.min(2, repBefore.rh - 1 + plan.lines.filter(l => ticked.has(l.id) && (l.section !== "dark"))
-      .flatMap(l => l.ops).filter(o => (o.id === "rh") && (o.path === "system.reputation")).reduce((n, o) => n + o.delta, 0)))
+    rhSteps.includes(-3) && (get("rh").system.reputation === rhAfter.level) && (get("rh").system.reputationPoints === rhAfter.points)
       && findIn("inPlay", "Reprisal")?.getFlag("irop", "territory") === "ns"
       && findIn("inPlay", "Reprisal").getFlag("irop", "kind") === "dark");
   check("cards: the Dark Event not used is discarded", names("discard").includes("Crackdown") && names("discard").includes("GENESIS Propaganda"));
@@ -388,7 +396,7 @@ check("socket: with no GM online the player is told", /No GM is connected/.test(
   chat.length = 0;
   await events.playHeld(findIn("darkHand", "Crackdown").id, "pl");
   check("cards: played, its numbers land and it is discarded, with a card in chat",
-    get("pl").system.strength === Math.min(10, strengthBefore + 1) && get("pl").system.heatPending === pendingBefore + 1 && !S("darkHand").cards.length
+    get("pl").system.strength === Math.min(25, strengthBefore + 3) && get("pl").system.heatPending === pendingBefore + 1 && !S("darkHand").cards.length
       && names("discard").includes("Crackdown") && /event-card/.test(chat[0]?.content));
 
   // Respond to the Reprisal and counter it at the debrief: it leaves play without its 20 Logistics.
@@ -403,10 +411,11 @@ check("socket: with no GM online the player is told", /No GM is connected/.test(
   // Discarding with the effect.
   const dc = findIn("inPlay", "Distress Call");
   const where = dc.getFlag("irop", "territory");
-  const rep = get(where).system.reputation;
+  const { moveReputation: moveRep } = await import("../module/rules/reputation.mjs");
+  const repThen = moveRep({ level: get(where).system.reputation, points: get(where).system.reputationPoints }, -3);
   await events.discardInPlay(dc.id, { apply: true });
-  check("cards: discarded with its effect: Reputation -1 there, the card in the discard",
-    get(where).system.reputation === Math.max(-2, rep - 1) && !findIn("inPlay", "Distress Call") && names("discard").includes("Distress Call"));
+  check("cards: discarded with its effect: Reputation -3 points there (one step), the card in the discard",
+    (get(where).system.reputation === repThen.level) && (get(where).system.reputationPoints === repThen.points) && !findIn("inPlay", "Distress Call") && names("discard").includes("Distress Call"));
 
   // Reshuffle: the Event discards go back in; the Dark ones stay.
   const back = await events.reshuffle("event");
@@ -478,8 +487,8 @@ check("socket: with no GM online the player is told", /No GM is connected/.test(
   check("liberation: a card for the table, with the landmark and the count", /liberation\.hbs/.test(chat[0]?.content) && /Mile High Spire/.test(chat[0].content)
     && /"liberated":2,"total":3/.test(chat[0].content) && chat.length === 1, chat[0]?.content);
 
-  // An Incursion: Neo Cheyenne at Strength 8 beside liberated Neo Denver.
-  await get("mc2").update({ "system.strength": 8 });
+  // An Incursion: Neo Cheyenne at Strength 20 (of 25) beside liberated Neo Denver.
+  await get("mc2").update({ "system.strength": 20 });
   const plan = turn.currentPlan();
   const opening = plan.lines.find(l => l.incursion?.op === "open" && l.incursion.target === "mc");
   check("incursion: Advance week launches it", opening?.text === "Incursion: GENESIS masses in Neo Cheyenne to retake Neo Denver");
@@ -494,11 +503,11 @@ check("socket: with no GM online the player is told", /No GM is connected/.test(
   check("incursion: taken as the week's action", settings.getWarRoom().tactical?.incursion === inc.id && settings.getWarRoom().tactical.territory === "mc2");
   const before = get("mc2").system.strength;
   entry = await odr.debriefMission({ outcome: "success", heat: "major" });
-  check("incursion: a success breaks it; where it massed loses 3 Strength",
-    !lg.incursionAgainst("mc") && get("mc2").system.strength === before - 3 && entry.incursion === "broken");
+  check("incursion: a success breaks it; where it massed loses 8 Strength",
+    !lg.incursionAgainst("mc") && get("mc2").system.strength === before - 8 && entry.incursion === "broken");
 
   // Left alone, it lands; Undo takes it back.
-  await get("mc2").update({ "system.strength": 9 });
+  await get("mc2").update({ "system.strength": 23 });
   store.set("warRoom", { week: 11, phase: "odr", tactical: null });
   const p2 = turn.currentPlan();
   await turn.applyTurn(p2, new Set(p2.lines.filter(l => !l.hidden).map(l => l.id)));
@@ -508,7 +517,7 @@ check("socket: with no GM online the player is told", /No GM is connected/.test(
   check("incursion: unanswered, it lands the next turn", falls?.text === "Neo Denver falls: the Incursion from Neo Cheyenne lands");
   await turn.applyTurn(p3, new Set(p3.lines.filter(l => !l.hidden).map(l => l.id)));
   check("incursion: landed, Neo Denver is Contested with GENESIS Strength, its objectives lost, the Incursion over",
-    get("mc").system.control === "contested" && get("mc").system.strength === 3 && !get("mc").system.objectives.citadel && !lg.incursionAgainst("mc"));
+    get("mc").system.control === "contested" && get("mc").system.strength === 8 && !get("mc").system.objectives.citadel && !lg.incursionAgainst("mc"));
   await turn.undoTurn();
   check("incursion: Undo takes the landing back: liberated, objectives held, the Incursion under way",
     get("mc").system.control === "liberated" && get("mc").system.objectives.government && !!lg.incursionAgainst("mc"));
@@ -528,6 +537,168 @@ check("socket: with no GM online the player is told", /No GM is connected/.test(
   await events.discardInPlay(inPlayReprisal.id, { apply: true });
   check("reprisal: uncountered, the SAM Site where it hit is destroyed and back on the list",
     get("sam2").system.status === "available" && get("sam2").system.progress === 0);
+}
+
+// Factions (Johnald, 2026-10-11): standing with the other groups, and the tasks they offer.
+{
+  const fx = await import("../module/strategy/factions.mjs");
+  fx.registerFactionActions();
+  const was = game.user;
+  game.user = { id: "gm", isGM: true, name: "Gamemaster" };
+  game.users.activeGM = { id: "gm" };
+  let listen = null;
+  const said = [];
+  game.socket = { on: (channel, fn) => { listen = fn; }, emit: (channel, data) => said.push(data) };
+  socket.initSocket();
+  const week = settings.getWarRoom().week;
+  const st = id => fx.getFactions().find(f => f.id === id)?.standing;
+  const at = id => { const f = fx.getFactions().find(x => x.id === id); return `${f?.standing}/${f?.points}`; };
+
+  const cu = await fx.saveFaction({ name: "Copperhides", tier: "minor", standing: 2, stance: "Allied" });
+  const ps = await fx.saveFaction({ name: "Pale Sons", tier: "minor", standing: -3, points: 1 });
+  const gia = await fx.saveFaction({ name: "GIA", tier: "major", standing: 22 });
+  check("factions: saved with ids on the ladder, mid bar unless set, held to -4 to +4",
+    !!cu.id && (cu.id !== ps.id) && fx.getFactions().map(f => `${f.name}:${f.standing}/${f.points}`).join() === "Copperhides:2/5,Pale Sons:-3/1,GIA:4/5");
+  await fx.saveFaction({ id: gia.id, standing: 0 });
+  await fx.saveFaction({ id: cu.id, points: 8 });
+  const set = fx.getFactionLog().at(-1);
+  check("factions: a standing the GM sets keeps the rest, and is logged as set, from and to",
+    (at(cu.id) === "2/8") && (fx.getFactions().find(f => f.id === cu.id).stance === "Allied") && (set.reason === "Set by the GM") && (set.delta === null)
+      && (JSON.stringify([set.from, set.to]) === JSON.stringify([{ level: 2, points: 5 }, { level: 2, points: 8 }])));
+
+  const t1 = await fx.saveTask({ faction: cu.id, title: "Clear the dam road", logistics: 20, intel: 5, rival: ps.id, reward: "A guide" });
+  check("factions: a new task is a draft with the rules' numbers",
+    (t1.status === "draft") && (t1.standing === 2) && (t1.failure === 2) && (t1.term === 1) && (t1.rivalLoss === 2) && (t1.due === null));
+  chat.length = 0;
+  await fx.offerTask(t1.id);
+  const task = id => fx.getTasks().find(t => t.id === id);
+  check("factions: offered, due by the end of this turn, and the table is told",
+    (task(t1.id).status === "offered") && (task(t1.id).week === week) && (task(t1.id).due === week)
+      && /faction-task\.hbs/.test(chat[0]?.content ?? "") && /"kind":"offered"/.test(chat[0]?.content ?? ""));
+
+  // A player takes it: not with someone else's operative, then with their own.
+  await listen({ action: "faction.accept", payload: { id: t1.id, actor: "v" }, userId: "p1" });
+  check("factions: a player cannot send an operative not theirs", /Vex is not yours to send/.test(said.at(-1)?.message ?? "") && (task(t1.id).status === "offered"));
+  await listen({ action: "faction.accept", payload: { id: t1.id, actor: "k" }, userId: "p1" });
+  check("factions: a player takes a task, signed with their character, sending their own operative",
+    (task(t1.id).status === "accepted") && (task(t1.id).by === "Kael") && (task(t1.id).operatives.join() === "k"));
+  await listen({ action: "faction.accept", payload: { id: t1.id }, userId: "p1" });
+  check("factions: a taken task cannot be taken twice", /already taken, by Kael/.test(said.at(-1)?.message ?? ""));
+
+  // A second task, running two turns: Kael moves to it.
+  const t2 = await fx.saveTask({ faction: gia.id, title: "Lose a file", term: 2, standing: 2, failure: 2 });
+  await fx.offerTask(t2.id, { announce: false });
+  await listen({ action: "faction.accept", payload: { id: t2.id }, userId: "p1" });
+  await listen({ action: "faction.assign", payload: { id: t2.id, actor: "k" }, userId: "p1" });
+  check("factions: an operative is on one open task at a time; a two turn task is due next turn",
+    (task(t2.id).operatives.join() === "k") && !task(t1.id).operatives.length && (task(t2.id).due === week + 1));
+  await listen({ action: "faction.release", payload: { id: t2.id }, userId: "p1" });
+  check("factions: a player can put a taken task back, its operatives free", (task(t2.id).status === "offered") && !task(t2.id).operatives.length && !task(t2.id).by);
+  await listen({ action: "faction.accept", payload: { id: t2.id }, userId: "p1" });
+
+  // A hidden faction's work is the GM's alone.
+  const zb = await fx.saveFaction({ name: "Zaibatsu", tier: "major", hidden: true });
+  const t3 = await fx.saveTask({ faction: zb.id, title: "Secret run" });
+  await fx.offerTask(t3.id, { announce: false });
+  await listen({ action: "faction.accept", payload: { id: t3.id }, userId: "p1" });
+  check("factions: a hidden faction's task is not open to players", /no longer open/.test(said.at(-1)?.message ?? "") && (task(t3.id).status === "offered"));
+
+  check("factions: the resolve dialog's numbers by outcome",
+    JSON.stringify(fx.resolveDefaults(task(t2.id)).resultsFor) === JSON.stringify({
+      success: { standing: 2, rival: 0, logistics: 0, intel: 0 }, partial: { standing: 1, rival: 0, logistics: 0, intel: 0 }, failure: { standing: -2, rival: 0, logistics: 0, intel: 0 } }));
+
+  // Resolve: the ledger, both standings, a card.
+  const before = settings.getWarRoom();
+  chat.length = 0;
+  await fx.resolveTask(t1.id, { outcome: "success", standing: 2, rival: -2, logistics: 20, intel: 5, notes: "Road open." });
+  const after = settings.getWarRoom();
+  check("factions: a success pays into the ledger, named for the task",
+    (after.logistics === before.logistics + 20) && (after.intel === before.intel + 5) && (settings.getLedger().at(-1).reason === "Task: Clear the dam road (Copperhides)"));
+  check("factions: it fills the faction's bar, up a level; the rival's empties, down one; the task keeps what it gave",
+    (at(cu.id) === "3/5") && (at(ps.id) === "-4/5") && (task(t1.id).status === "resolved") && (task(t1.id).outcome === "success") && (task(t1.id).result.notes === "Road open."));
+  check("factions: the card says what it gave",
+    /"kind":"resolved"/.test(chat[0]?.content ?? "") && /Copperhides: \+2, up to Trusted/.test(chat[0]?.content ?? "") && /Pale Sons: -2, down to At War/.test(chat[0]?.content ?? ""));
+  await fx.resolveTask(t1.id, { outcome: "success", standing: 2 });
+  check("factions: a resolved task cannot be resolved again", at(cu.id) === "3/5");
+
+  // Advance turn: a taken task due now fails, one never taken lapses, a task with time left waits.
+  const t4 = await fx.saveTask({ faction: cu.id, title: "Hold the bridge", failure: 2 });
+  await fx.offerTask(t4.id, { announce: false });
+  await socket.asGM("faction.accept", { id: t4.id });
+  const plan = turn.currentPlan();
+  const fl = plan.lines.filter(l => l.section === "factions");
+  check("factions: Advance turn fails what was taken and not done, and lapses what was never taken",
+    (fl.length === 2) && fl.some(l => (l.text === "Copperhides: Hold the bridge was not done in time. Standing -2") && (l.detail === "Trusted, 5 to 3 of 10. Counts as a failure.")) && fl.some(l => l.text === "Zaibatsu: Secret run lapses, never taken"), fl.map(l => l.text).join(" | "));
+  await turn.applyTurn(plan, new Set(plan.lines.filter(l => !l.hidden).map(l => l.id)));
+  check("factions: applied, the failure costs its standing and is logged in the turn it ran out",
+    (at(cu.id) === "3/3") && (task(t4.id).status === "resolved") && (task(t4.id).outcome === "failure") && (task(t3.id).status === "lapsed") && (task(t2.id).status === "accepted")
+      && (fx.getFactionLog().at(-1).reason === "Task failed, not done in time: Hold the bridge") && (fx.getFactionLog().at(-1).week === week));
+  await turn.undoTurn();
+  check("factions: Undo puts the tasks and standings back", (at(cu.id) === "3/5") && (task(t4.id).status === "accepted") && (task(t3.id).status === "offered"));
+
+  // Removing a faction takes its tasks with it; its log lines keep its name.
+  await fx.deleteFaction(zb.id);
+  check("factions: a faction removed takes its tasks", !fx.getFactions().some(f => f.id === zb.id) && !task(t3.id));
+  // The migration (2026-10-11): territories double onto the nine levels, once; old rules and factions follow.
+  const mig = await import("../module/strategy/migrate.mjs");
+  world.push(makeItem("m1", "Old Haven", "territory", { kind: "rural", reputation: 1 }), makeItem("m2", "Old City", "territory", { kind: "megacity", reputation: -2 }));
+  for ( const id of ["m1", "m2"] ) {
+    const doc = get(id);
+    doc.flags = {};
+    const update = doc.update;
+    doc.update = async changes => {
+      for ( const [k, v] of Object.entries(changes) ) if ( k.startsWith("flags.irop.") ) doc.flags.irop = { ...(doc.flags.irop ?? {}), [k.slice(11)]: v };
+      return update(changes);
+    };
+  }
+  const keepFactions = store.get("factions");
+  const keepLog = store.get("factionLog");
+  const keepTasks = store.get("factionTasks");
+  store.set("factions", [{ id: "of", name: "Old Friends", standing: 7 }]);
+  store.set("factionLog", [{ id: "ol", faction: "of", delta: 1, from: 6, to: 7 }]);
+  store.set("factionTasks", [{ id: "ot", faction: "of", title: "Old job", status: "offered", standing: 1, failure: 1, rivalLoss: 1 }]);
+  store.set("strategyRules", { strengthMax: 12, missionReputation: { success: 1, failure: -1 } });
+  store.delete("reputationScale");
+  const histBefore = store.get("turnHistory");
+  store.set("turnHistory", [{ week: 1, to: 2, before: [{ _id: "m2", "system.reputation": -1, "system.heat": 2 }] }]);
+  const done = await mig.migrateReputation();
+  check("migration: the turns kept for Undo double their Reputation too", (store.get("turnHistory")[0].before[0]["system.reputation"] === -2) && (store.get("turnHistory")[0].before[0]["system.heat"] === 2));
+  store.set("turnHistory", histBefore);
+  check("migration: each territory's old level doubles, mid bar, so its name keeps its place",
+    (get("m1").system.reputation === 2) && (get("m1").system.reputationLabel === "Friendly") && (get("m2").system.reputation === -4) && (get("m2").system.reputationPoints === 5)
+      && (store.get("reputationScale") === 2), JSON.stringify(done));
+  check("migration: Reputation rules saved in the old units go back to the defaults; the rest stay",
+    (settings.getStrategyRules().missionReputation.success === 2) && (settings.getStrategyRules().strengthMax === 12));
+  check("migration: factions from the first build come onto the ladder, their log and open tasks with them",
+    JSON.stringify(store.get("factions")[0]) === JSON.stringify({ id: "of", name: "Old Friends", standing: 3, points: 5 })
+      && JSON.stringify(store.get("factionLog")[0].to) === JSON.stringify({ level: 3, points: 5 }) && (store.get("factionTasks")[0].standing === 2));
+  await mig.migrateReputation();
+  store.set("reputationScale", 0);
+  await mig.migrateReputation();
+  check("migration: it runs once; even run again, a territory already moved never doubles twice", (get("m1").system.reputation === 2) && (get("m2").system.reputation === -4));
+  // Strength to 25 (RULED 2026-10-11): every territory x2.5, the turns kept for Undo too, old Strength rules dropped.
+  for ( const id of ["m1", "m2"] ) await get(id).update({ "system.strength": { m1: 6, m2: 3 }[id] });
+  const keepHistory = store.get("turnHistory");
+  store.set("turnHistory", [{ week: 1, to: 2, before: [{ _id: "m1", "system.strength": 4, "system.heat": 1 }, { _id: "m2", "system.reputation": -1 }] }]);
+  store.set("strategyRules", { strengthMax: 10, incursionStrength: 8, heatFall: 2 });
+  store.delete("strengthScale");
+  await mig.migrateStrength();
+  check("migration: Strength scales x2.5 to the 25 bar, rounded, each territory keeping its place",
+    (get("m1").system.strength === 15) && (get("m2").system.strength === 8) && (store.get("strengthScale") === 25));
+  check("migration: the turns kept for Undo scale with it, so an Undo after the move lands on the new scale",
+    (store.get("turnHistory")[0].before[0]["system.strength"] === 10) && (store.get("turnHistory")[0].before[0]["system.heat"] === 1));
+  check("migration: Strength rules saved on the old scale go back to the defaults; the rest stay",
+    (settings.getStrategyRules().strengthMax === 25) && (settings.getStrategyRules().incursionStrength === 20) && (settings.getStrategyRules().heatFall === 2));
+  store.set("strengthScale", 0);
+  await mig.migrateStrength();
+  check("migration: a territory already on the 25 scale never scales twice", (get("m1").system.strength === 15) && (get("m2").system.strength === 8));
+  store.set("turnHistory", keepHistory);
+  store.set("factions", keepFactions);
+  store.set("factionLog", keepLog);
+  store.set("factionTasks", keepTasks);
+  store.delete("strategyRules");
+  world.splice(world.findIndex(d => d.id === "m1"), 2);
+  game.user = was;
 }
 
 // The calendar (2026-10-08): a GM who keeps the date apart from the turns, and off the Strategy Layer.

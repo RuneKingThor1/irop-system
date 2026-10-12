@@ -1,0 +1,12 @@
+<div class="irop-debrief irop-faction-form">
+  {{!-- Resolving a faction task (2026-10-11): the outcome fills these in; the GM has the last word. --}}
+  <p class="hint">{{task.title}}, for {{faction}}.{{#if offers}} It offered {{offers}}.{{/if}}</p>
+  <div class="form-grid">
+    <label><span>Outcome</span><select name="outcome">{{selectOptions outcomes selected=defaults.outcome}}</select></label>
+    <label><span>Standing with {{faction}}</span><input type="number" name="standing" value="{{defaults.standing}}" step="1"></label>
+    <label><span>Logistics gained</span><input type="number" name="logistics" value="{{defaults.logistics}}" min="0" step="1"></label>
+    <label><span>Intel gained</span><input type="number" name="intel" value="{{defaults.intel}}" min="0" step="1"></label>
+    {{#if rival}}<label data-tooltip="The task worked against them"><span>Standing with {{rival}}</span><input type="number" name="rival" value="{{defaults.rival}}" max="0" step="1"></label>{{/if}}
+  </div>
+  <label class="wide-field"><span>Notes</span><input type="text" name="notes" placeholder="What happened, for the log"></label>
+</div>

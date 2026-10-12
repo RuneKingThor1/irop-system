@@ -33,7 +33,7 @@
     <thead><tr><th></th><th>When {{#if isDark}}played{{else}}revealed{{/if}}</th><th>When discarded</th></tr></thead>
     <tbody>
       {{#each effects as |e|}}
-      <tr><th>{{e.label}}</th>
+      <tr><th {{#if e.tip}}data-tooltip="{{e.tip}}"{{/if}}>{{e.label}}</th>
         <td><input type="number" name="system.effect.{{e.key}}" value="{{e.effect}}"></td>
         <td><input type="number" name="system.discard.{{e.key}}" value="{{e.discard}}"></td></tr>
       {{/each}}

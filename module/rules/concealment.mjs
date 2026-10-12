@@ -73,15 +73,15 @@ export function concealmentLoad(items, capacity) {
 
 /**
  * Whether a character's load passes at a place: the place's share of capacity, plus any bonus the
- * character has (a Human's 10, and effects').
- * @param {{visible: number, capacity: number, bonus?: number}} load
+ * character has (a Human's 10, and effects'), plus any bonus at that place only (2026-10-11).
+ * @param {{visible: number, capacity: number, bonus?: number, bonusAt?: object}} load
  * @param {string} place   A key of IROP.concealment.places
  * @returns {{place: string, label: string, base: number, limit: number, allowed: number, visible: number, pass: boolean, over: number}}
  */
 export function placeCheck(load, place) {
   const p = IROP.concealment.places[place];
   const base = p?.limit ?? 0;
-  const limit = Math.max(0, base + (Number(load.bonus) || 0));
+  const limit = Math.max(0, base + (Number(load.bonus) || 0) + (Number(load.bonusAt?.[place]) || 0));
   const allowed = round(((Number(load.capacity) || 0) * limit) / 100);
   const visible = round(load.visible);
   return { place, label: p?.label ?? place, base, limit, allowed, visible, pass: visible <= allowed, over: round(Math.max(0, visible - allowed)) };

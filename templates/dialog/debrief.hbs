@@ -6,8 +6,8 @@
     <label data-tooltip="Lands at the start of next turn"><span>Heat raised</span><select name="heat">{{selectOptions heatClasses selected=defaults.heat}}</select></label>
     <label><span>Logistics gained</span><input type="number" name="logistics" value="0" min="0"></label>
     <label><span>Intel gained</span><input type="number" name="intel" value="0" min="0"></label>
-    <label data-tooltip="Successful missions raise it; undeniable failures, or civilians hurt, lower it"><span>Reputation</span>
-      <select name="reputation">{{selectOptions reputationSteps selected=defaults.reputation}}</select></label>
+    <label data-tooltip="Points on the territory's bar. Success +{{reputationRules.success}}, partial +{{reputationRules.partial}}, failure {{reputationRules.failure}}; an undeniable failure, or civilians hurt, {{reputationRules.civilians}}"><span>Reputation points</span>
+      <input type="number" name="reputation" value="{{defaults.reputation}}" min="-20" max="20" step="1"></label>
     <label data-tooltip="Each adds {{salvagePercent}}% of the research under way's cost"><span>Salvage recovered</span><input type="number" name="salvage" value="0" min="0"></label>
   </div>
   {{#if defaults.objectives.length}}
@@ -17,6 +17,11 @@
   {{#if defaults.incursion}}<p class="hint">A success breaks the Incursion. Anything else and it goes on, landing in its time.</p>{{/if}}
   {{#if defaults.response}}
   <label class="check-row" data-tooltip="It leaves play without its discard effect"><input type="checkbox" name="countered" checked> <span>Countered: take the card out of play</span></label>
+  {{/if}}
+  {{#if perks.length}}
+  {{!-- The deployed squad's background perks (2026-10-11): added on top, on a success. --}}
+  <div class="debrief-perks"><span class="hint">On a success, background perks add:</span>
+    <ul>{{#each perks}}<li>{{this}}</li>{{/each}}</ul></div>
   {{/if}}
   <label class="wide-field"><span>Notes</span><input type="text" name="notes" placeholder="What happened, for the log"></label>
 </div>

@@ -11,6 +11,8 @@
     {{#if counteredNote}}<li class="gain">{{counteredNote}}</li>{{/if}}
     {{#if objectiveNote}}<li class="gain">{{objectiveNote}}</li>{{/if}}
     {{#if incursionNote}}<li class="{{#if (eq incursion "broken")}}gain{{else}}heat{{/if}}">{{incursionNote}}</li>{{/if}}
+    {{!-- The squad's background perks, on a success (2026-10-11). --}}
+    {{#each perks}}<li class="gain perk-line">{{this}}</li>{{/each}}
   </ul>
   {{#if notes}}<p class="support-note">{{notes}}</p>{{/if}}
 </div>

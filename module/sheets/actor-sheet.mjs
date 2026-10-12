@@ -293,9 +293,11 @@ export function recordNumber(id) {
 export function concealmentLine(load) {
   if ( !load ) return null;
   const checks = Object.keys(IROP.concealment.places).map(place => placeCheck(load, place));
-  const why = [load.speciesBonus ? `+${load.speciesBonus}% as a ${load.species}` : "",
-    ((load.bonus ?? 0) - (load.speciesBonus ?? 0)) ? `${signedText((load.bonus ?? 0) - (load.speciesBonus ?? 0))}% from effects` : ""].filter(Boolean).join(", ");
-  const lines = checks.map(c => `${c.label} allow ${c.allowed} (${c.limit}%${why ? `: ${c.base}% ${why}` : ""}): ${c.pass ? "passes" : `caught, ${c.over} over`}.`);
+  // Why a place allows more: the species, effects at every place, and effects at that place only (2026-10-11).
+  const why = place => [load.speciesBonus ? `+${load.speciesBonus}% as a ${load.species}` : "",
+    ((load.bonus ?? 0) - (load.speciesBonus ?? 0)) ? `${signedText((load.bonus ?? 0) - (load.speciesBonus ?? 0))}% from effects` : "",
+    load.bonusAt?.[place] ? `${signedText(load.bonusAt[place])}% here from effects` : ""].filter(Boolean).join(", ");
+  const lines = checks.map(c => `${c.label} allow ${c.allowed} (${c.limit}%${why(c.place) ? `: ${c.base}% ${why(c.place)}` : ""}): ${c.pass ? "passes" : `caught, ${c.over} over`}.`);
   const tip = [`Showing ${load.visible} of what is carried${load.hidden ? `, ${load.hidden} more hidden` : ""}, against a capacity of ${load.capacity}.`,
     ...lines, "Concealable items, and those with a mod that conceals them, do not count."].join(" ");
   return { visible: load.visible, hidden: load.hidden, checks, tip };

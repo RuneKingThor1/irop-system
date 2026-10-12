@@ -260,9 +260,11 @@ check("disorientated both ways",
 // The Strategy Layer, step one (2026-10-08): its rules, state and starting values.
 {
   const r = strat.strategyRules({});
-  check("strategy: the defaults stand (Johnald, 2026-10-08)",
-    r.strengthMax === 10 && r.megacityGrowthEvery === 8 && r.heatRise.critical === 3 && r.heatQuietWeeks === 2
+  check("strategy: the defaults stand (Johnald, 2026-10-08); Strength runs to 25 (RULED 2026-10-11)",
+    r.strengthMax === 25 && r.megacityGrowthEvery === 8 && r.heatRise.critical === 3 && r.heatQuietWeeks === 2
       && r.engineeringSlots === 3 && r.darkEventDraw === 3 && r.darkEventKeep === 2 && r.support.emergencyExtraction === 50);
+  check("strategy: the Strength numbers keep their pace on the 25 scale: Incursion at 20 (8 of 10), moves of 3, Incursions 8 and 8, a card step 3",
+    r.incursionStrength === 20 && r.strengthMoves === 3 && r.incursionMoves === 8 && r.incursionLoss === 8 && r.cardStrength === 3 && r.megacityGrowth === 1);
   const mine = strat.strategyRules({ strengthMax: 12, heatRise: { minor: 2 }, support: { mortarStrike: "40" }, darkEventKeep: "lots", stray: 5 });
   check("strategy: a world's changes lie over the defaults; nonsense keeps the default; unknown keys drop",
     mine.strengthMax === 12 && mine.heatRise.minor === 2 && mine.heatRise.major === 2 && mine.support.mortarStrike === 40
@@ -273,8 +275,8 @@ check("disorientated both ways",
       && w.week === 1 && w.phase === "odr" && w.logistics === 13 && w.intel === 0);
   check("strategy: the old tracks read as five tiers of five boxes",
     strat.readTrack("Tier 3, 5 of 5").boxes === 15 && strat.readTrack("Tier 1, 3 of 5").boxes === 3 && strat.readTrack("nothing") === null);
-  check("strategy: Strength is the share of 25 boxes on the 0 to 10 scale",
-    strat.strengthFromTrack("Tier 3, 5 of 5") === 6 && strat.strengthFromTrack("Tier 2, 5 of 5") === 4 && strat.strengthFromTrack("Tier 1, 1 of 5") === 0
+  check("strategy: Strength is the share of 25 boxes, on the 0 to 25 scale the boxes themselves",
+    strat.strengthFromTrack("Tier 3, 5 of 5") === 15 && strat.strengthFromTrack("Tier 2, 5 of 5") === 10 && strat.strengthFromTrack("Tier 1, 1 of 5") === 1
       && strat.strengthFromTrack("Tier 3, 5 of 5", 20) === 12);
   check("strategy: Heat is the vigilance tier less one",
     strat.heatFromTrack("Tier 1, 5 of 5") === 0 && strat.heatFromTrack("Tier 2, 3 of 5") === 1 && strat.heatFromTrack("Tier 3, 5 of 5") === 2);
@@ -288,10 +290,11 @@ check("disorientated both ways",
 
 // The War Room map (2026-10-08): overlays, which region is which territory, a test board, borders.
 {
-  const t = { heat: 3, strength: 8, reputation: -1, control: "liberated" };
+  const t = { heat: 3, strength: 8, reputation: -2, control: "liberated" };
   check("war room: each overlay says what it shows",
     wrm.overlayStyle("heat", t).text === "Heat High" && wrm.overlayStyle("strength", t).text === "Strength 8"
-      && wrm.overlayStyle("reputation", t).text === "Wary" && wrm.overlayStyle("control", t).text === "Liberated");
+      && wrm.overlayStyle("reputation", t).text === "Wary" && wrm.overlayStyle("control", t).text === "Liberated"
+      && wrm.overlayStyle("reputation", { reputation: 4 }).text === "Devoted" && wrm.overlayStyle("reputation", { reputation: -9 }).text === "Hostile");
   check("war room: hotter and stronger territories are bolder",
     wrm.overlayStyle("heat", { heat: 4 }).alpha > wrm.overlayStyle("heat", { heat: 1 }).alpha
       && wrm.overlayStyle("strength", { strength: 9 }).alpha > wrm.overlayStyle("strength", { strength: 2 }).alpha);
@@ -423,12 +426,19 @@ check("disorientated both ways",
 
   check("missions: Strength reads low, moderate or high by share of the top", proj.strengthBand(2, 10).label === "Low"
     && proj.strengthBand(5, 10).label === "Moderate" && proj.strengthBand(9, 10).label === "High" && proj.strengthBand(0, 10).label === "Low");
-  check("missions: Reputation's effect, high or low", /look the other way/.test(proj.reputationEffect(1)) && /call GENESIS/.test(proj.reputationEffect(-2)) && proj.reputationEffect(0) === "");
-  const d = proj.debriefTerritory({ heatPending: 1, reputation: 2 }, { heat: "major", reputation: 1 }, strat.strategyRules({}));
-  check("missions: a debrief's Heat waits for next turn, the territory saw action, Reputation held to +2",
-    d["system.heatPending"] === 3 && d["system.active"] === true && d["system.reputation"] === 2);
-  check("missions: success raises Reputation by 1, failure lowers it, partial leaves it",
-    proj.defaultReputation("success") === 1 && proj.defaultReputation("failure") === -1 && proj.defaultReputation("partial") === 0);
+  check("missions: Reputation's effect from Friendly up and Wary down; a level either side of Neutral only leans",
+    /look the other way/.test(proj.reputationEffect(2)) && /look the other way/.test(proj.reputationEffect(4)) && /call GENESIS/.test(proj.reputationEffect(-2))
+      && proj.reputationEffect(1) === "" && proj.reputationEffect(-1) === "" && proj.reputationEffect(0) === "");
+  const d = proj.debriefTerritory({ heatPending: 1, reputation: 2, reputationPoints: 7 }, { heat: "major", reputation: 2 }, strat.strategyRules({}));
+  check("missions: a debrief's Heat waits for next turn, the territory saw action, Reputation moves through its bar",
+    d["system.heatPending"] === 3 && d["system.active"] === true && d["system.reputation"] === 2 && d["system.reputationPoints"] === 9);
+  const tip = proj.debriefTerritory({ reputation: 2, reputationPoints: 9 }, { reputation: 2 });
+  const old = proj.debriefTerritory({ reputation: 1 }, { reputation: -3 });
+  check("missions: a full bar rises a level, starting mid bar; a territory with no points yet starts mid bar",
+    tip["system.reputation"] === 3 && tip["system.reputationPoints"] === 5 && old["system.reputation"] === 1 && old["system.reputationPoints"] === 2);
+  check("missions: Reputation points by outcome (RULED 2026-10-11): success +2, partial +1, failure -2",
+    proj.defaultReputation("success") === 2 && proj.defaultReputation("partial") === 1 && proj.defaultReputation("failure") === -2
+      && strat.strategyRules({}).missionReputation.civilians === -4);
   const choices = proj.tacticalChoices([{ id: "rv", label: "Strike the GENESIS asset", territory: "t1" }]);
   check("missions: the always available Tactical Actions (the doc's seven and the Megacity assault), then any revealed",
     choices.length === 9 && choices[0].label === "Ambush Patrols" && choices[7].label === "Assault a Megacity objective" && choices.at(-1).revealed && choices.at(-1).territory === "t1" && choices.at(-1).heat === "major");
@@ -452,7 +462,7 @@ check("disorientated both ways",
   check("turn: every 8th week each Megacity grows; a liberated one sits out the GENESIS phase",
     texts.includes("Neo Seattle grows: Strength 6 to 7") && !genesis.some(t => /Neo LA/.test(t)), texts.join(" | "));
   check("turn: the hotter territory pulls Strength from a cooler neighbour, rural before slums",
-    texts.includes("Neo Seattle pulls 1 Strength from Redwood Havens") && !texts.some(t => /from Spokane/.test(t)), texts.join(" | "));
+    texts.includes("Neo Seattle pulls 3 Strength from Redwood Havens") && !texts.some(t => /from Spokane/.test(t)), texts.join(" | "));
   check("turn: last week's Heat lands; two quiet weeks cool a territory; activity keeps it",
     texts.includes("Redwood Havens: Heat Low to High") && texts.includes("Neo Seattle: Heat Medium to Low") && !texts.some(t => /Spokane.*Heat/.test(t)), texts.join(" | "));
   check("turn: Dark Events every 4th week and the Event phase every 2nd are due", plan.due.length === 2 && /Dark Events: draw 3 and use 2/.test(plan.due[0]) && /Event phase/.test(plan.due[1]));
@@ -464,10 +474,10 @@ check("disorientated both ways",
   const all = new Set(shown.map(l => l.id));
   const res = turn.resolvePlan(plan, all, docs);
   const upd = id => res.updates.find(u => u._id === id) ?? {};
-  check("turn: applied, Neo Seattle grows then pulls (6 to 8), cools to Low, quiet count reset",
-    upd("a")["system.strength"] === 8 && upd("a")["system.heat"] === 1 && upd("a")["system.quietWeeks"] === 0, JSON.stringify(upd("a")));
+  check("turn: applied, Neo Seattle grows then pulls (6 to 10), cools to Low, quiet count reset",
+    upd("a")["system.strength"] === 10 && upd("a")["system.heat"] === 1 && upd("a")["system.quietWeeks"] === 0, JSON.stringify(upd("a")));
   check("turn: applied, Redwood loses its Strength, takes its Heat, and its pending clears",
-    upd("b")["system.strength"] === 2 && upd("b")["system.heat"] === 3 && upd("b")["system.heatPending"] === 0, JSON.stringify(upd("b")));
+    upd("b")["system.strength"] === 0 && upd("b")["system.heat"] === 3 && upd("b")["system.heatPending"] === 0, JSON.stringify(upd("b")));
   check("turn: applied, the active territory's quiet count resets and its activity clears for the new week",
     upd("c")["system.quietWeeks"] === 0 && upd("c")["system.active"] === false && !("system.strength" in upd("c")), JSON.stringify(upd("c")));
   check("turn: the liberated territory is untouched", !res.updates.some(u => u._id === "d"));
@@ -475,12 +485,12 @@ check("disorientated both ways",
     res.before.find(b => b._id === "a")["system.strength"] === 6 && res.before.find(b => b._id === "b")["system.heatPending"] === 2);
   const growth = shown.find(l => l.section === "growth").id;
   const skip = turn.resolvePlan(plan, new Set([...all].filter(id => id !== growth)), docs);
-  check("turn: an unticked line does not happen", skip.updates.find(u => u._id === "a")["system.strength"] === 7);
+  check("turn: an unticked line does not happen", skip.updates.find(u => u._id === "a")["system.strength"] === 9);
   const none = turn.resolvePlan(plan, new Set(), docs);
   check("turn: with nothing ticked only the bookkeeping applies",
     !none.updates.some(u => "system.strength" in u || "system.heat" in u) && none.updates.find(u => u._id === "c")["system.active"] === false);
 
-  const full = turn.planTurn({ week: 3, territories: [T("x", "Hot", "rural", { strength: 10, heat: 4, neighbors: ["y"] }), T("y", "Cool", "rural", { strength: 5, heat: 0, neighbors: ["x"] })], rules });
+  const full = turn.planTurn({ week: 3, territories: [T("x", "Hot", "rural", { strength: 25, heat: 4, neighbors: ["y"] }), T("y", "Cool", "rural", { strength: 5, heat: 0, neighbors: ["x"] })], rules });
   check("turn: a territory already at the top Strength pulls nothing", !full.lines.some(l => l.section === "strength"));
   check("turn: a quiet week plans no growth off schedule", !turn.planTurn({ week: 3, territories: terrs, rules }).lines.some(l => l.section === "growth"));
 
@@ -514,11 +524,11 @@ check("disorientated both ways",
     kind: "event", persistent: false, discretionary: false, holdable: false, reprisal: false, negative: false, respond: false, worldwide: false,
     excluded: [], effect: { logistics: 0, intel: 0, strength: 0, heat: 0, reputation: 0 }, discard: { logistics: 0, intel: 0, strength: 0, heat: 0, reputation: 0 }, discardText: "" }));
   check("cards: what a card changes, in words",
-    ev.describeEffects({ logistics: 10, intel: -2, strength: 1, heat: 1, reputation: -1 }) === "+10 Logistics, -2 Intel, Strength +1, Heat +1 next turn, Reputation -1"
-      && ev.describeEffects({}) === "");
+    ev.describeEffects({ logistics: 10, intel: -2, strength: 1, heat: 1, reputation: -1 }) === "+10 Logistics, -2 Intel, Strength +3, Heat +1 next turn, Reputation -3"
+      && ev.describeEffects({}) === "" && ev.describeEffects({ reputation: 2 }, strat.strategyRules({ cardReputation: 4 })) === "Reputation +8");
   const ops = ev.effectOps({ strength: 2, heat: 1, reputation: -1, logistics: 5 }, "t1", strat.strategyRules({}));
-  check("cards: Strength now (held to the top), Heat next turn, Reputation held to the ladder",
-    ops.length === 3 && ops[0].path === "system.strength" && ops[0].max === 10 && ops[1].path === "system.heatPending" && ops[2].min === -2
+  check("cards: Strength now (a step worth 3, held to the top), Heat next turn, Reputation through its bar, a step worth 3 points",
+    ops.length === 3 && ops[0].path === "system.strength" && ops[0].delta === 6 && ops[0].max === 25 && ops[1].path === "system.heatPending" && ops[2].rep === -3
       && ev.effectOps({ strength: 1 }, "").length === 0);
   check("cards: Logistics and Intel go through the ledger",
     JSON.stringify(ev.effectLedger({ logistics: -20, intel: 3 }, "why")) === JSON.stringify([{ resource: "logistics", amount: -20, reason: "why" }, { resource: "intel", amount: 3, reason: "why" }]));
@@ -539,7 +549,7 @@ check("disorientated both ways",
   const plan = ev.planCards({ next: 4, rules, territories: terrs, inPlay, held, eventDeck, darkDeck, random: seq([0, 0, 0, 0, 0, 0, 0, 0]) });
   const of = s => plan.lines.filter(l => l.section === s);
   check("cards: a persistent card leaves at the end of the next turn, with its discard effect",
-    of("cards")[0]?.text === "Distress Call leaves Portlandia" && /Reputation -1\. No one came/.test(of("cards")[0].detail)
+    of("cards")[0]?.text === "Distress Call leaves Portlandia" && /Reputation -3\. No one came/.test(of("cards")[0].detail)
       && of("cards")[0].ops[0].path === "system.reputation" && of("cards")[0].card.op === "discard" && !of("cards").some(l => /Uprising leaves/.test(l.text)));
   check("cards: an unused Dark Event drawn last turn goes, unless it can be held",
     of("cards").some(l => l.text === "Unused Dark Event discarded: Crackdown" && l.card.from === "darkHand") && !of("cards").some(l => /Long Game/.test(l.text)));
@@ -588,8 +598,12 @@ check("disorientated both ways",
   check("turn: the Dark Events used land where the GM chose; the one not used is discarded",
     op("Propaganda").op === "use" && op("Propaganda").territory === "b" && op("Reprisal").op === "use" && op("Crackdown").op === "skip");
   const alone = turn.resolvePlan(tplan, new Set([prop.id]), docs, { choices: new Map([[prop.id, "b"]]), rules });
-  check("turn: a used Dark Event's numbers land on its territory",
-    alone.updates.some(u => (u._id === "b") && (u["system.reputation"] === -1)), JSON.stringify(alone.updates));
+  check("turn: a used Dark Event's numbers land on its territory, through its Reputation bar",
+    alone.updates.some(u => (u._id === "b") && (u["system.reputationPoints"] === 2) && !("system.reputation" in u)), JSON.stringify(alone.updates));
+  const fall = turn.resolvePlan({ lines: [{ id: "x", hidden: true, ops: [{ id: "b", path: "system.reputation", rep: -3 }, { id: "b", path: "system.reputation", rep: -3 }] }] }, new Set(),
+    new Map([["b", { system: { reputation: 1, reputationPoints: 3 } }]]));
+  check("turn: Reputation ops chain on one territory: the first empties the bar and drops a level, the second eats into the new one",
+    eq(fall.updates, [{ _id: "b", "system.reputation": 0, "system.reputationPoints": 2 }]) && eq(fall.before, [{ _id: "b", "system.reputation": 1, "system.reputationPoints": 3 }]));
   check("turn: the plan's lines are not changed by resolving it", !prop.ops.length);
   check("turn: the Event phase's Logistics go to the ledger, the old card's discard to its territory",
     res.ledger.some(e => (e.resource === "logistics") && (e.amount === 10)) && res.cardOps.some(o => (o.op === "discard") && (o.name === "Distress Call")));
@@ -608,7 +622,7 @@ check("disorientated both ways",
   const taken = w2.lines.filter(l => l.section === "events").map(l => l.card.territory);
   const landedOn = w2.lines.find(l => l.section === "world").card.territory;
   check("world events: one that lands goes where the Event phase did not, and can stay in play",
-    !taken.includes(landedOn) && w2.lines.find(l => l.section === "world").card.place === true && /Strength -1/.test(w2.lines.find(l => l.section === "world").detail));
+    !taken.includes(landedOn) && w2.lines.find(l => l.section === "world").card.place === true && /Strength -3/.test(w2.lines.find(l => l.section === "world").detail));
   check("world events: none on odd weeks, none when the rule draws none",
     !ev.planCards({ next: 3, rules, territories: terrs, worldDeck: [storm] }).lines.length
       && !ev.planCards({ next: 2, rules: strat.strategyRules({ worldEventDraw: 0 }), territories: terrs, eventDeck: [], worldDeck: [storm] }).lines.some(l => l.section === "world"));
@@ -653,24 +667,24 @@ check("disorientated both ways",
 
   // Incursions.
   const freed = world.map(t => (["mc", "s1", "w1"].includes(t.id) ? { ...t, system: { ...t.system, control: "liberated", strength: 0 } } : t));
-  const str = { mc2: 8, far: 9, edge: 0 };
+  const str = { mc2: 20, far: 23, edge: 0 };
   const strengthOf = id => str[id] ?? 0;
   const launch = lg.planIncursions({ next: 5, territories: freed, strengthOf, incursions: [], rules });
-  check("losing ground: a neighbour at Strength 8 launches an Incursion against a liberated territory; the strongest, once each",
+  check("losing ground: a neighbour at Strength 20 launches an Incursion against a liberated territory; the strongest, once each",
     launch.length === 2 && launch[0].text === "Incursion: GENESIS masses in Neo Portland to retake Neo Seattle"
       && launch[0].incursion.op === "open" && launch[0].incursion.source === "mc2"
       && launch[1].text === "Incursion: GENESIS masses in Redwood Havens to retake Spokane Subsector" && /lands as turn 6 starts/.test(launch[0].detail));
-  check("losing ground: under Strength 8, nothing", !lg.planIncursions({ next: 5, territories: freed, strengthOf: () => 7, rules }).length);
+  check("losing ground: under Strength 20, nothing", !lg.planIncursions({ next: 5, territories: freed, strengthOf: () => 19, rules }).length);
   const open = [{ id: "i1", target: "mc", source: "mc2", week: 5 }];
   const waiting = lg.planIncursions({ next: 5, territories: freed, strengthOf, incursions: open, rules });
   check("losing ground: one under way is not launched twice, and does not land early",
     !waiting.some(l => /retake Neo Seattle/.test(l.text)) && !waiting.some(l => l.incursion.op === "land"));
   const lands = lg.planIncursions({ next: 6, territories: freed, strengthOf, incursions: open, rules }).find(l => l.incursion.op === "land");
-  check("losing ground: left alone, it lands: Contested, 3 Strength in from where it massed, a Megacity's objectives lost",
+  check("losing ground: left alone, it lands: Contested, 8 Strength in from where it massed, a Megacity's objectives lost",
     lands.text === "Neo Seattle falls: the Incursion from Neo Portland lands" && lands.incursion.id === "i1"
       && lands.ops.some(o => (o.id === "mc") && (o.path === "system.control") && (o.set === "contested"))
-      && lands.ops.some(o => (o.id === "mc") && (o.path === "system.strength") && (o.delta === 3))
-      && lands.ops.some(o => (o.id === "mc2") && (o.delta === -3)) && lands.ops.some(o => (o.path === "system.objectives") && (o.set.citadel === false)));
+      && lands.ops.some(o => (o.id === "mc") && (o.path === "system.strength") && (o.delta === 8))
+      && lands.ops.some(o => (o.id === "mc2") && (o.delta === -8)) && lands.ops.some(o => (o.path === "system.objectives") && (o.set.citadel === false)));
   const dropped = lg.planIncursions({ next: 6, territories: world, strengthOf, incursions: open, rules });
   check("losing ground: an Incursion against a territory no longer liberated is dropped quietly",
     dropped.some(l => l.hidden && (l.incursion.op === "drop") && (l.incursion.id === "i1")));
@@ -685,7 +699,7 @@ check("disorientated both ways",
     tc[0].priority && tc[0].incursion === "i1" && tc.find(c => c.key === "megacityAssault")?.megacity && tc.find(c => c.key === "megacityAssault").heat === "critical");
 
   // In the turn: from Strength after the moves; ticked opens, unticked does not; drops always apply.
-  const tplan = turn.planTurn({ week: 4, territories: freed.map(t => (t.id === "mc2" ? { ...t, system: { ...t.system, strength: 8 } } : t)), rules });
+  const tplan = turn.planTurn({ week: 4, territories: freed.map(t => (t.id === "mc2" ? { ...t, system: { ...t.system, strength: 20 } } : t)), rules });
   const losing = tplan.lines.filter(l => l.section === "losing" && !l.hidden);
   check("turn: Losing Ground comes after the Heat, in the GENESIS phase", losing.length >= 1
     && tplan.lines.findIndex(l => l.section === "losing") > tplan.lines.findIndex(l => l.section === "heat"));
@@ -1123,6 +1137,151 @@ check("disorientated both ways",
       && eq(to.offscreen(boxes, { scrollLeft: 0, width: 960 }), { left: 0, right: 0 }) && eq(to.offscreen([], {}), { left: 0, right: 0 }));
   check("ribbon: before the fight starts, initiative order with the first up marked next",
     ids(r) === "wraith> enforcer bastion cipher tether dronex" && (r.position === null), ids(r));
+}
+
+// Background perks on the Strategy Layer (Johnald, 2026-10-11): their effects raise system.bonuses.
+{
+  const zeroRanks = () => Object.fromEntries(Object.keys(IROP.projectKinds).map(k => [k, {}]));
+  const soldier = (skills, strategy = {}) => ({
+    attributes: { int: { mod: 4 }, str: { mod: 4 }, tgh: { mod: 3 }, cha: { mod: 3 }, per: { mod: 5 }, agi: { mod: 5 } },
+    skills: Object.fromEntries(Object.entries(skills).map(([k, rank]) => [k, { rank }])),
+    bonuses: { strategy: { perRank: zeroRanks(), laborToughness: 0, intelMegacity: 0, mission: { logistics: 0, intel: 0, reputation: {} }, ...strategy } }
+  });
+  const research = { kind: "research", specialization: ["technology", "biology"] };
+  const engineering = { kind: "engineering", specialization: ["mechanics"] };
+  const plain = soldier({ technology: 2, mechanics: 2 });
+  const division = soldier({ technology: 2, mechanics: 2 }, { perRank: { ...zeroRanks(), research: { technology: 5 }, engineering: { mechanics: 5 } } });
+  check("perks: Science and Engineering Division count +10 per rank instead of +5 in their skills, on their kind of project",
+    (proj.contribution(research, plain, "technology") === 14) && (proj.contribution(research, division, "technology") === 24)
+      && (proj.contribution(engineering, division, "mechanics") === 24) && (proj.contribution(engineering, division, "technology") === 0));
+  const boots = soldier({}, { laborToughness: 1 });
+  check("perks: Boots on the Ground puts Toughness into labor beside Strength, and only on Engineering",
+    (proj.contribution(engineering, plain, "labor") === 4) && (proj.contribution(engineering, boots, "labor") === 7) && (proj.contribution(research, boots, "labor") === 0));
+  const intelCity = { kind: "intelligence", territoryKind: "megacity" };
+  const intelWild = { kind: "intelligence", territoryKind: "wildland" };
+  const insider = soldier({}, { intelMegacity: 5 });
+  const insiderSpy = soldier({ deception: 2 }, { intelMegacity: 5 });
+  check("perks: Insider Knowledge works a Megacity Intelligence Action with no skill for it, at +5 a turn",
+    eq(proj.bestSkill(intelCity, insider), { skill: proj.INSIDER, amount: 5 }) && (proj.bestSkill(intelWild, insider) === null)
+      && (proj.skillLabel(proj.INSIDER) === "Insider Knowledge"));
+  check("perks: with a skill for it, Insider Knowledge adds its 5 on top, in a Megacity only",
+    (proj.contribution(intelCity, insiderSpy, "deception") === 18) && (proj.contribution(intelWild, insiderSpy, "deception") === 13));
+  const turncoat = soldier({ deception: 2 }, { perRank: { ...zeroRanks(), intelligence: { deception: 5 } } });
+  check("perks: Know their Ways counts Deception at +10 per rank on Intelligence", proj.contribution(intelWild, turncoat, "deception") === 23);
+
+  // What a successful mission brings back.
+  const squad = [
+    { name: "Kael", system: soldier({}, { mission: { logistics: 10, intel: 0, reputation: {} } }), perks: ["Supply Run"] },
+    { name: "Vale", system: soldier({}, { mission: { logistics: 0, intel: 0, reputation: { megacity: 1 } } }), perks: ["Wake Them Up"] },
+    { name: "Ash", system: soldier({}, { mission: { logistics: 5, intel: 5, reputation: {} } }), perks: ["Waste Not"] },
+    { name: "Nobody", system: soldier({}) }
+  ];
+  const city = proj.perkRewards(squad, "megacity", "success");
+  check("perks: on a success the squad's perks add their Logistics, Intel and Reputation, named on the card",
+    (city.logistics === 15) && (city.intel === 5) && (city.reputation === 1)
+      && (city.lines.join(" | ") === "Kael (Supply Run): +10 Logistics | Vale (Wake Them Up): +1 Reputation | Ash (Waste Not): +5 Logistics, +5 Intel"), city.lines.join(" | "));
+  check("perks: Reputation perks count only in their own kind of territory", proj.perkRewards(squad, "slums", "success").reputation === 0);
+  check("perks: a mission that is not a success brings back nothing extra",
+    eq(proj.perkRewards(squad, "megacity", "failure"), { logistics: 0, intel: 0, reputation: 0, lines: [] }) && (proj.perkRewards(squad, "megacity", "partial").lines.length === 0));
+
+  // Concealment at one place only (Model Citizen's Megacity).
+  const conceal = await import("../module/rules/concealment.mjs");
+  const load = { visible: 14, capacity: 40, bonus: 10, bonusAt: { megacity: 5 } };
+  check("perks: a bonus at one place counts only there: Megacity 25 + 10 + 5, Slums 50 + 10",
+    (conceal.placeCheck(load, "megacity").limit === 40) && (conceal.placeCheck(load, "megacity").allowed === 16)
+      && (conceal.placeCheck(load, "slums").limit === 60) && (conceal.placeCheck({ visible: 1, capacity: 40 }, "megacity").limit === 25));
+}
+
+// Reputation (RULED 2026-10-11, Johnald): nine levels, each a bar of 10 points; fill it to rise,
+// empty it to fall, and the new level starts mid bar with the overflow thrown away.
+{
+  const rp = await import("../module/rules/reputation.mjs");
+  const at = (level, points) => ({ level, points });
+  const move = (s, d) => { const r = rp.moveReputation(s, d); return [r.level, r.points, r.moved]; };
+  check("reputation: points move inside a level", eq(move(at(2, 5), 2), [2, 7, 0]) && eq(move(at(2, 5), -3), [2, 2, 0]));
+  check("reputation: a full bar rises a level, mid bar, the overflow thrown away", eq(move(at(2, 9), 1), [3, 5, 1]) && eq(move(at(2, 9), 6), [3, 5, 1]));
+  check("reputation: an empty bar falls a level, mid bar; one change moves one level at most", eq(move(at(2, 1), -1), [1, 5, -1]) && eq(move(at(2, 3), -12), [1, 5, -1]));
+  check("reputation: just after a change it takes 5 either way to move again (Johnald: hard to move, easy to hold)",
+    eq(move(at(3, 5), 4), [3, 9, 0]) && eq(move(at(3, 5), -4), [3, 1, 0]) && eq(move(at(3, 5), 5), [4, 5, 1]) && eq(move(at(3, 5), -5), [2, 5, -1]));
+  check("reputation: at the top and bottom the bar only fills or empties", eq(move(at(4, 8), 5), [4, 10, 0]) && eq(move(at(-4, 2), -5), [-4, 0, 0])
+    && eq(move(at(4, 10), -10), [3, 5, -1]) && eq(move(at(-4, 0), 10), [-3, 5, 1]));
+  check("reputation: no points yet is mid bar; levels are held to -4 to +4", eq(rp.repState(1), at(1, 5)) && eq(rp.repState(9, 40), at(4, 10)) && eq(rp.repState(-7, -2), at(-4, 0)));
+  check("reputation: a territory's ladder, four up and four down from Neutral",
+    [-4, -3, -2, -1, 0, 1, 2, 3, 4].map(l => rp.levelLabel(l)).join() === "Hostile,Resentful,Wary,Uneasy,Neutral,Sympathetic,Friendly,Supportive,Devoted");
+  check("reputation: a faction's ladder",
+    [-4, -3, -2, -1, 0, 1, 2, 3, 4].map(l => rp.levelLabel(l, IROP.factionLevels)).join() === "At War,Hostile,Unfriendly,Wary,Neutral,Cordial,Friendly,Trusted,Allied");
+  check("reputation: in words", rp.levelText(2) === "+2 Friendly" && rp.levelText(0) === "0 Neutral" && rp.stateText(at(-3, 4)) === "Resentful, 4 of 10"
+    && rp.changeText(2, at(2, 5), at(2, 7)) === "+2: Friendly, 7 of 10" && rp.changeText(3, at(2, 8), at(3, 5)) === "+3: up to Supportive"
+    && rp.changeText(-2, at(1, 1), at(0, 5)) === "-2: down to Neutral" && rp.changeText(1, at(4, 10), at(4, 10)) === "");
+  check("reputation: the bar's boxes and the level's color", eq(rp.repPips(3).filter(Boolean).length, 3) && rp.repPips(3).length === 10
+    && [-4, -2, 0, 1, 4].map(rp.levelTone).join() === "hostile,unfriendly,neutral,friendly,allied");
+  check("reputation: a higher level always outranks a fuller bar", rp.repRank(at(1, 1)) > rp.repRank(at(0, 10)) && rp.repRank(at(0, 6)) > rp.repRank(at(0, 5)));
+}
+
+// Factions (Johnald, 2026-10-11): standing on the Reputation engine, what tasks give, and the turn's lines.
+{
+  const fr = await import("../module/rules/factions.mjs");
+  const strat = await import("../module/rules/strategy.mjs");
+  const rules = strat.strategyRules({});
+  check("factions: a faction's level, its color family and what it means",
+    eq(fr.factionLevel(-3), { key: "hostile", label: "Hostile", text: IROP.factionLevels["-3"].text }) && fr.factionLevel(4).label === "Allied" && fr.factionLevel(9).label === "Allied");
+  check("factions: a new faction sits mid bar at Neutral; standing held to the ladder",
+    eq([fr.normalizeFaction({}).standing, fr.normalizeFaction({}).points], [0, 5]) && fr.normalizeFaction({ standing: 7, points: 30 }).standing === 4
+      && fr.normalizeFaction({ standing: 7, points: 30 }).points === 10 && fr.standingText(-3) === "-3 Hostile" && fr.standingState({ standing: 2, points: 7 }) === "Friendly, 7 of 10");
+
+  const fresh = fr.normalizeTask({ faction: "a" }, rules);
+  check("factions: a new task is a draft with the rules' numbers: +2 done, -2 failed (RULED 2026-10-11)",
+    (fresh.status === "draft") && (fresh.standing === 2) && (fresh.failure === 2) && (fresh.term === 1) && (fresh.rivalLoss === 2) && (fresh.due === null) && (fresh.title === "Untitled task"));
+  const task = { id: "t", faction: "a", title: "Clear the road", status: "accepted", standing: 3, failure: 2, logistics: 25, intel: 5, reward: "a guide", rival: "b", rivalLoss: 1 };
+  check("factions: a success earns it all, a partial half rounded down, a failure costs; the rival loses when the work is done",
+    eq(fr.taskResults(task, "success", rules), { standing: 3, rival: -1, logistics: 25, intel: 5 })
+      && eq(fr.taskResults(task, "partial", rules), { standing: 1, rival: -1, logistics: 12, intel: 2 })
+      && eq(fr.taskResults(task, "failure", rules), { standing: -2, rival: 0, logistics: 0, intel: 0 }));
+  check("factions: the partial share is a rule", fr.taskResults(task, "partial", strat.strategyRules({ factions: { partialPercent: 100 } })).logistics === 25);
+  check("factions: what a task offers, in words", fr.rewardText(task) === "+3 standing points, +25 Logistics, +5 Intel, a guide");
+  check("factions: when a task is due, from the turn it is",
+    (fr.dueText({ due: 3 }, 3) === "Due this turn") && (fr.dueText({ due: 5 }, 3) === "Due by turn 5, 3 turns left") && (fr.dueText({ due: 2 }, 3) === "Overdue since turn 2")
+      && (fr.dueText({ due: null, term: 2 }, 3) === "Runs 2 turns once offered"));
+
+  const factions = [{ id: "a", name: "Copperhides", standing: 2, points: 9 }, { id: "b", name: "Pale Sons", standing: -4, points: 0 }];
+  const up = fr.changeStanding(factions, "a", 3);
+  check("factions: a change runs through the bar: a full bar rises a level, mid bar",
+    up.changed && (up.moved === 1) && eq(up.to, { level: 3, points: 5 }) && eq(up.from, { level: 2, points: 9 }) && (factions[0].standing === 2) && (fr.changeStanding(factions, "zz", 1) === null));
+  check("factions: what a change does, in words", fr.standingChange({ level: 2, points: 9 }, { level: 3, points: 5 }) === "up to Trusted"
+    && fr.standingChange({ level: 2, points: 5 }, { level: 2, points: 7 }) === "Friendly, 7 of 10" && fr.standingChange({ level: 0, points: 1 }, { level: -1, points: 5 }) === "down to Wary");
+  let n = 0;
+  const applied = fr.applyFactionOps({ factions, tasks: [task] }, [{ task: "t", status: "resolved", outcome: "success", changes: [{ faction: "a", delta: 1 }, { faction: "b", delta: -1 }], reason: "Task success: Clear the road" }],
+    { week: 4, id: () => `l${++n}`, time: 1 });
+  check("factions: ops resolve the task and log each real change with the faction's name; a change that moves nothing is not logged",
+    (applied.tasks[0].status === "resolved") && (applied.tasks[0].resolvedWeek === 4) && (applied.factions[0].standing === 3) && (applied.log.length === 1)
+      && eq(applied.log[0], { id: "l1", week: 4, faction: "a", name: "Copperhides", delta: 1, from: { level: 2, points: 9 }, to: { level: 3, points: 5 }, moved: 1,
+        reason: "Task success: Clear the road", task: "t", time: 1 }));
+  const moving = fr.assignToTask([{ id: "x", status: "accepted", operatives: ["k", "v"] }, { id: "y", status: "accepted", operatives: [] }, { id: "z", status: "resolved", operatives: ["k"] }], "y", "k");
+  check("factions: an operative goes on one open task at a time; finished tasks keep their record",
+    eq(moving.map(t => t.operatives.join("+")), ["v", "k", "k"]));
+
+  // The turn: at the end of turn 3, a taken task due fails, an untaken one lapses, the rest wait.
+  const tasks = [
+    { id: "f", faction: "a", title: "Hold the bridge", status: "accepted", week: 3, due: 3, failure: 2 },
+    { id: "l", faction: "a", title: "Find the cache", status: "offered", week: 3, due: 3 },
+    { id: "w", faction: "a", title: "Long haul", status: "accepted", week: 3, due: 4 },
+    { id: "d", faction: "a", title: "Draft", status: "draft", term: 1 },
+    { id: "r", faction: "a", title: "Done", status: "resolved", due: 2 }
+  ];
+  const cu = [{ id: "a", name: "Copperhides", standing: 2, points: 1 }];
+  const fl = fr.planFactionLines({ week: 3, factions: cu, tasks, rules });
+  check("factions: the turn fails a taken task left undone and lapses one never taken, nothing else",
+    eq(fl.map(l => l.text), ["Copperhides: Hold the bridge was not done in time. Standing -2", "Copperhides: Find the cache lapses, never taken"])
+      && eq(fl[0].factionOp.changes, [{ faction: "a", delta: -2 }]) && (fl[0].factionOp.outcome === "failure") && !fl[1].factionOp.changes.length
+      && (fl[0].detail === "Friendly, 1 of 10, down to Cordial. Counts as a failure."), fl[0].detail);
+  const harsh = fr.planFactionLines({ week: 3, factions: cu, tasks, rules: strat.strategyRules({ factions: { lapseLoss: 1 } }) });
+  check("factions: turning work down can cost standing, as a rule", eq(harsh[1].factionOp.changes, [{ faction: "a", delta: -1 }]) && /Standing -1/.test(harsh[1].text));
+  const plan = turn.planTurn({ week: 3, territories: [], rules, factions: cu, tasks });
+  const lines = plan.lines.filter(l => l.section === "factions");
+  check("factions: Advance turn plans them under Faction tasks", (lines.length === 2) && (turn.SECTIONS.factions === "Faction tasks"));
+  const all = turn.resolvePlan(plan, new Set(plan.lines.map(l => l.id)), new Map());
+  const none = turn.resolvePlan(plan, new Set(), new Map());
+  check("factions: ticked lines become faction ops; unticked, the task stays open", (all.factionOps.length === 2) && (all.factionOps[0].task === "f") && (none.factionOps.length === 0));
 }
 
 console.log(`${pass} passed, ${fail} failed`);

@@ -1316,7 +1316,7 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   const d = new JSDOM(out.details).window.document;
   check("territory sheet: no Effects tab", !("effects" in out));
   check("territory sheet: type, holder, Strength, Heat, Reputation and the parent",
-    !!d.querySelector('select[name="system.kind"] option[value="megacity"][selected]') && !!d.querySelector('input[name="system.strength"][max="10"]')
+    !!d.querySelector('select[name="system.kind"] option[value="megacity"][selected]') && !!d.querySelector('input[name="system.strength"][max="25"]')
       && d.querySelector('select[name="system.heat"] option[selected]')?.textContent === "Medium"
       && d.querySelector('select[name="system.reputation"] option[selected]')?.textContent === "0 Neutral"
       && [...d.querySelectorAll('select[name="system.parent"] option')].map(o => o.textContent).join() === "None,Old Victoria,Spokane Subsector");
@@ -1348,18 +1348,18 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   const rules = await new StrategyRulesConfig()._prepareContext({});
   const page = new JSDOM(tpl("templates/apps/strategy-rules.hbs")(rules)).window.document;
   check("rules window: the defaults fill the form, with Save and the reset",
-    page.querySelector('input[name="strengthMax"]').value === "10"
+    page.querySelector('input[name="strengthMax"]').value === "25"
       && page.querySelector('input[name="support.mortarStrike"]').value === "30" && !!page.querySelector('[data-action="reset"]')
       && !!page.querySelector('button[type="submit"]'));
   // Johnald, 2026-10-08: all the Strategy Layer settings together, the campaign ones first.
   check("rules window: Campaign first (scale and the automatic GENESIS switch), then the groups of numbers",
-    [...page.querySelectorAll(".section-title")].map(h => h.textContent).join() === "Campaign,GENESIS,Losing Ground,ODR,Events,Missions,Support (Logistics)"
+    [...page.querySelectorAll(".section-title")].map(h => h.textContent).join() === "Campaign,GENESIS,Losing Ground,ODR,Events,Missions,Factions,Support (Logistics)"
       && !!page.querySelector('select[name="campaign.scale"] option[value="superRegion"][selected]')
       && page.querySelector('input[name="campaign.automatic"]').checked);
   // Johnald, 2026-10-09: it needed a scroll bar. Every setting scrolls; Save stays below them.
   const rulesCss = fs.readFileSync(path.join(ROOT, "styles/irop.css"), "utf8");
   check("rules window: the settings scroll, with Save and the reset below them, always in view",
-    page.querySelectorAll(".rules-body .section-title").length === 7 && !page.querySelector(".rules-body .rules-actions")
+    page.querySelectorAll(".rules-body .section-title").length === 8 && !page.querySelector(".rules-body .rules-actions")
       && page.querySelector(".strategy-rules").lastElementChild.classList.contains("rules-actions")
       && StrategyRulesConfig.PARTS.body.scrollable.join() === ".rules-body"
       && /\.irop-strategy-rules \.rules-body \{[^}]*overflow-y: auto/.test(rulesCss) && /\.irop-strategy-rules \.window-content \{[^}]*overflow: hidden/.test(rulesCss));
@@ -1399,11 +1399,13 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
 
   const card = new TerritoryCard();
   card.territory = { name: "Neo Seattle", testUserPermission: () => true,
-    system: new itemModels.TerritoryData({ kind: "megacity", strength: 6, heat: 2, reputation: 1, modifiers: "GENESIS Megacity", objectives: { citadel: true } }) };
+    system: new itemModels.TerritoryData({ kind: "megacity", strength: 15, heat: 2, reputation: 2, reputationPoints: 7, modifiers: "GENESIS Megacity", objectives: { citadel: true } }) };
   const c = new JSDOM(tpl("templates/apps/territory-card.hbs")(await card._prepareContext({}))).window.document;
-  check("territory card: type and holder, Heat with its pips, Strength of 10, Reputation, objectives",
+  check("territory card: type and holder, Heat with its pips, Strength of 25, Reputation with its bar, objectives",
     /Megacity, GENESIS held/.test(c.querySelector(".tc-sub").textContent) && c.querySelectorAll(".tc-pip.on").length === 2
-      && /6 \/ 10/.test(c.body.textContent) && /\+1 Friendly/.test(c.body.textContent) && /1 of 3/.test(c.body.textContent)
+      && /15 \/ 25/.test(c.body.textContent) && /\+2 Friendly/.test(c.body.textContent) && /1 of 3/.test(c.body.textContent)
+      && c.querySelectorAll(".rep-pip").length === 10 && c.querySelectorAll(".rep-pip.on").length === 7 && c.querySelector(".rep-count").textContent === "7/10"
+      && c.querySelector(".rep-pips").classList.contains("tone-friendly") && /Fill the bar to rise a level/.test(c.querySelector(".rep-pips").dataset.tooltip)
       && c.querySelector(".tc-track span").getAttribute("style") === "width: 60%" && !c.querySelector('[data-action="openSheet"]'));
   check("territory card: Heat explains itself on hover", /Alien and GENESIS units arrive by air/.test(c.querySelector(".tc-pips").dataset.tooltip));
   // Johnald, 2026-10-10: Open its sheet is the GM's only.
@@ -1689,8 +1691,8 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   check("odr board: week, phase, the stock; the GM can advance or undo",
     /Turn\s*3/.test(b.querySelector(".odr-head").textContent) && /Logistics\s*40/.test(b.querySelector(".odr-head").textContent)
       && !!b.querySelector('.odr-gm [data-action="advance"]') && /Undo turn 3/.test(b.querySelector(".odr-gm").textContent));
-  check("odr board: four tabs with their counts", [...b.querySelectorAll(".odr-tab")].map(t => t.textContent.replace(/\s+/g, " ").trim()).join() ===
-    "Research 1/1,Engineering 1/3,Intelligence 1/2,Tactical open");
+  check("odr board: five tabs with their counts", [...b.querySelectorAll(".odr-tab")].map(t => t.textContent.replace(/\s+/g, " ").trim()).join() ===
+    "Research 1/1,Engineering 1/3,Intelligence 1/2,Tactical open,Factions 0");
   // Bug, 2026-10-08 (Johnald: the tabs would not switch): "tab" is Foundry's own action, so ours never ran.
   const engTab = b.querySelector('.odr-tab[data-tab="engineering"]');
   board.render = () => board;
@@ -1801,23 +1803,186 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   inspect("mission briefing", bc.body.innerHTML, { actions: new Set(), source: {} });
   check("briefing card: where, the doc's Heat response, the Strength band, Reputation, rewards",
     /Neo Seattle/.test(bc.querySelector(".mission-where").textContent) && /Medium\./.test(bc.body.textContent) && /Alien and GENESIS units/.test(bc.body.textContent)
-      && /6 of 10, Moderate/.test(bc.body.textContent) && /0 Neutral/.test(bc.body.textContent) && /Corpses/.test(bc.body.textContent) && /Chosen by Kael/.test(bc.body.textContent));
+      && /6 of 25, Low/.test(bc.body.textContent) && /0 Neutral/.test(bc.body.textContent) && /Corpses/.test(bc.body.textContent) && /Chosen by Kael/.test(bc.body.textContent));
   const dc = new JSDOM(tpl("templates/chat/mission-debrief.hbs")(debriefContext({ week: 3, label: "Ambush Patrols", territory: "Neo Seattle", outcome: "success",
     logistics: 15, intel: 0, heat: "major", reputation: 1, salvage: 1, notes: "Clean exit" }, { salvageNote: "to Armory Refit", rules: IROP.strategyRules }))).window.document;
   check("debrief card: outcome, gains, the Heat to come, Reputation, salvage, notes",
     /Success/.test(dc.querySelector(".mission-outcome").textContent) && /\+15 Logistics/.test(dc.body.textContent) && !/Intel/.test(dc.querySelector(".debrief-lines").textContent)
       && /Major, \+2 next turn/.test(dc.body.textContent) && /Reputation \+1/.test(dc.body.textContent) && /1 salvage to Armory Refit/.test(dc.body.textContent) && /Clean exit/.test(dc.body.textContent));
+  const moved = new JSDOM(tpl("templates/chat/mission-debrief.hbs")(debriefContext({ id: "m3", week: 3, label: "Raid", territory: "Neo Seattle", outcome: "success",
+    logistics: 0, intel: 0, heat: "none", reputation: 3, reputationResult: "+3: up to Supportive", salvage: 0, notes: "" }, { rules: IROP.strategyRules }))).window.document;
+  check("debrief card: Reputation says where the bar went (2026-10-11)", /Reputation \+3: up to Supportive/.test(moved.body.textContent));
   const cc = new JSDOM(tpl("templates/chat/project-complete.hbs")(completionContext(world.get("lg")))).window.document;
   check("complete card: an Intelligence Action says what it reveals, and where",
     /Intelligence complete/.test(cc.body.textContent) && /Strike the GENESIS asset, in Neo Seattle/.test(cc.body.textContent));
   const sc = new JSDOM(tpl("templates/chat/project-complete.hbs")(completionContext(world.get("sam")))).window.document;
   check("complete card: an upgrade says what was built, and where", /Regional upgrade, Redwood Havens/.test(sc.body.textContent) && !/Reveals/.test(sc.body.textContent));
   const dd = new JSDOM(tpl("templates/dialog/debrief.hbs")({ label: "Ambush Patrols", territory: "Neo Seattle", rewards: "Corpses.",
-    defaults: { outcome: "success", heat: "minor", reputation: 1 }, outcomes: IROP.missionOutcomes,
-    heatClasses: IROP.heatClasses, reputationSteps: { "-2": "-2", "-1": "-1", "0": "No change", "1": "+1", "2": "+2" }, salvagePercent: 30 })).window.document;
-  check("debrief dialog: outcome, Heat raised, Logistics, Intel, Reputation, salvage, notes",
+    defaults: { outcome: "success", heat: "minor", reputation: 2 }, outcomes: IROP.missionOutcomes,
+    heatClasses: IROP.heatClasses, reputationRules: IROP.strategyRules.missionReputation, salvagePercent: 30 })).window.document;
+  check("debrief dialog: outcome, Heat raised, Logistics, Intel, Reputation points, salvage, notes",
     ["outcome", "heat", "logistics", "intel", "reputation", "salvage", "notes"].every(n => !!dd.querySelector(`[name="${n}"]`))
-      && dd.querySelector('[name="heat"] option[selected]')?.value === "minor" && dd.querySelector('[name="reputation"] option[selected]')?.textContent === "+1");
+      && dd.querySelector('[name="heat"] option[selected]')?.value === "minor" && dd.querySelector('[name="reputation"]').value === "2"
+      && /Success \+2, partial \+1, failure -2; an undeniable failure, or civilians hurt, -4/.test(dd.querySelector('[name="reputation"]').closest("label").dataset.tooltip));
+
+  game.user = oldUser;
+  game.items = oldItems;
+  game.actors = oldActors;
+  game.settings = oldSettings;
+}
+
+// Factions on the ODR board (Johnald, 2026-10-11): standing, the tasks on offer, their dialogs and card.
+{
+  const { OdrBoard } = await import("../module/apps/odr.mjs");
+  const { taskCardContext, resolveDefaults } = await import("../module/strategy/factions.mjs");
+  const { normalizeTask } = await import("../module/rules/factions.mjs");
+  const oldUser = game.user;
+  const oldItems = game.items;
+  const oldActors = game.actors;
+  const oldSettings = game.settings;
+  const store = {
+    warRoom: { week: 4, phase: "odr", tactical: null }, resourceLedger: [], turnHistory: [], missionLog: [], revealedActions: [],
+    factions: [
+      { id: "cu", name: "Copperhides", tier: "minor", standing: 4, points: 7, stance: "Allied. No Monarch", home: "mal", notes: "Mutant clan of Malmstrom." },
+      { id: "ps", name: "Pale Sons", tier: "minor", standing: -3, points: 2, stance: "Hostile" },
+      { id: "gi", name: "GIA", tier: "major", standing: -1, points: 5, img: "gia.webp" },
+      { id: "zb", name: "Zaibatsu", tier: "major", standing: 0, points: 5, hidden: true }
+    ],
+    factionTasks: [
+      { id: "t1", faction: "cu", title: "Clear the dam road", brief: "Raiders on the road.", status: "accepted", term: 1, week: 4, due: 4, standing: 2, failure: 1,
+        logistics: 20, reward: "A guide through Malmstrom", rival: "ps", rivalLoss: 1, operatives: ["k"], by: "Kael" },
+      { id: "t2", faction: "gi", title: "Lose a file", status: "offered", term: 2, week: 4, due: 5, standing: 1, failure: 1 },
+      { id: "t3", faction: "cu", title: "Draft job", status: "draft", term: 2 },
+      { id: "t4", faction: "zb", title: "Secret run", status: "offered", term: 1, week: 4, due: 4 },
+      { id: "t5", faction: "cu", title: "Scout the bridge", status: "resolved", outcome: "success", resolvedWeek: 3 }
+    ],
+    factionLog: [
+      { id: "l1", week: 3, faction: "cu", name: "Copperhides", delta: 2, from: { level: 4, points: 5 }, to: { level: 4, points: 7 }, moved: 0, reason: "Task success: Scout the bridge" },
+      { id: "l2", week: 3, faction: "zb", name: "Zaibatsu", delta: -1, from: { level: 0, points: 6 }, to: { level: 0, points: 5 }, moved: 0, reason: "Secret dealings" }
+    ]
+  };
+  game.settings = { get(scope, key) { if ( key in store ) return foundry.utils.deepClone(store[key]); throw new Error("no settings in tests"); } };
+  const mal = new FakeDoc({});
+  Object.assign(mal, { id: "mal", name: "Malmstrom", type: "territory", img: "t.svg", effects: [] });
+  mal.system = new itemModels.TerritoryData({ kind: "wildland" }, { parent: mal });
+  const world = [mal];
+  world.get = id => world.find(d => d.id === id) ?? null;
+  world.has = id => world.some(d => d.id === id);
+  game.items = world;
+  const actors = [
+    { id: "k", name: "Kael", type: "operative", isOwner: true, system: { attributes: {}, skills: {} } },
+    { id: "v", name: "Vex", type: "operative", isOwner: false, system: { attributes: {}, skills: {} } }
+  ];
+  actors.get = id => actors.find(a => a.id === id);
+  game.actors = actors;
+  const ACTIONS = new Set(Object.keys(OdrBoard.DEFAULT_OPTIONS.actions));
+  const board = new OdrBoard();
+  board.tab = "factions";
+  const render = async () => inspect(`odr board factions ${game.user.isGM ? "gm" : "player"}`,
+    tpl("templates/apps/odr-board.hbs")(await board._prepareContext({})), { actions: ACTIONS, source: {} });
+  const texts = (doc, sel) => [...doc.querySelectorAll(sel)].map(e => e.textContent.replace(/\s+/g, " ").trim());
+  const eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+
+  // The GM's view.
+  game.user = { isGM: true, name: "GM" };
+  let b = await render();
+  check("factions tab: the badge counts open tasks, the hidden faction's among them for the GM",
+    texts(b, ".odr-tab").at(-1) === "Factions 3" && b.querySelector(".odr-tab.active")?.dataset.tab === "factions");
+  check("factions tab: taken first, then offered by deadline; drafts apart",
+    eq([...b.querySelectorAll(".odr-section:first-of-type > .faction-task")].map(e => e.dataset.taskId), ["t1", "t4", "t2"])
+      && eq([...b.querySelectorAll(".ft-drafts .faction-task")].map(e => e.dataset.taskId), ["t3"]));
+  const t1 = b.querySelector('.faction-task[data-task-id="t1"]');
+  check("factions tab: a taken task says who, what it offers, what failing costs, who it works against, and who went",
+    /Copperhides\. Due this turn\. Taken by Kael\./.test(t1.querySelector(".os-sub").textContent) && t1.classList.contains("due-now") && t1.classList.contains("status-accepted")
+      && /Offers\s*\+2 standing points, \+20 Logistics, A guide through Malmstrom/.test(t1.textContent) && /Failing it\s*-1 standing/.test(t1.textContent)
+      && /Works against\s*Pale Sons, -1 standing/.test(t1.textContent) && texts(t1, ".os-soldier").join() === "Kael"
+      && !!t1.querySelector('[data-action="resolveTask"]') && !!t1.querySelector('[data-action="releaseTask"]') && !t1.querySelector('[data-action="acceptTask"]'));
+  const t2 = b.querySelector('.faction-task[data-task-id="t2"]');
+  check("factions tab: an offered task can be taken, with an operative picked or no one yet",
+    /Due by turn 5, 2 turns left/.test(t2.textContent) && !t2.classList.contains("due-now") && !!t2.querySelector('[data-action="acceptTask"]')
+      && texts(t2, "select[data-task-soldier] option").join() === "No one yet,Kael (on Clear the dam road),Vex" && !!t2.querySelector("img[src='gia.webp']"));
+  const t3 = b.querySelector('.faction-task[data-task-id="t3"]');
+  check("factions tab: a draft is the GM's to offer, with no team or deadline yet",
+    !!t3.querySelector('[data-action="offerTask"]') && !t3.querySelector('[data-action="resolveTask"]') && !t3.querySelector(".os-team") && /Runs 2 turns once offered/.test(t3.textContent));
+  check("factions tab: standing by tier, highest first, the hidden faction marked",
+    eq(texts(b, ".ft-tier"), ["Major factions", "Minor factions"])
+      && eq([...b.querySelectorAll(".faction-row")].map(r => r.dataset.factionId), ["zb", "gi", "cu", "ps"])
+      && /Hidden/.test(b.querySelector('.faction-row[data-faction-id="zb"]').textContent));
+  const cuRow = b.querySelector('.faction-row[data-faction-id="cu"]');
+  const psRow = b.querySelector('.faction-row[data-faction-id="ps"]');
+  check("factions tab: a row shows stance, home, open tasks, its level, and the bar of points inside it in the level's color",
+    /Allied\. No Monarch\. Based in Malmstrom\. 1 task open\./.test(cuRow.querySelector(".or-sub").textContent) && cuRow.classList.contains("band-allied")
+      && cuRow.querySelector(".fr-value").textContent === "+4 Allied" && cuRow.querySelectorAll(".rep-pip.on").length === 7 && cuRow.querySelectorAll(".rep-pip").length === 10
+      && cuRow.querySelector(".rep-count").textContent === "7/10" && cuRow.querySelector(".rep-pips").classList.contains("tone-allied")
+      && psRow.querySelector(".fr-value").textContent === "-3 Hostile" && psRow.querySelectorAll(".rep-pip.on").length === 2 && psRow.classList.contains("band-hostile")
+      && /Mutant clan of Malmstrom/.test(cuRow.querySelector(".or-desc").textContent)
+      && /Stands with the ODR.*Turn 3: \+2, Task success: Scout the bridge/s.test(cuRow.querySelector(".fr-standing").dataset.tooltip));
+  check("factions tab: the GM's row tools", ["standingDown", "standingUp", "newTask", "hideFaction", "deleteFaction"].every(a => !!cuRow.querySelector(`[data-action="${a}"]`))
+    && cuRow.querySelector(".or-name").dataset.action === "editFaction" && !!b.querySelector('[data-action="newFaction"]'));
+  check("factions tab: the standing log, newest first, and the finished tasks",
+    eq(texts(b.querySelector(".faction-log li"), "span"), ["Turn 3", "Zaibatsu: Secret dealings", "-1", "Neutral, 5 of 10"]) && (texts(b, ".faction-log li").length === 2)
+      && eq(texts(b, ".odr-done:not(.ft-drafts):not(.ft-bands) .odr-log li span"), ["Turn 3", "Scout the bridge, for Copperhides", "Success", ""]));
+  check("factions tab: the ladder, top first, and how its bars work",
+    texts(b, ".ft-band-list li").length === 9 && /^Allied \+4 Stands with the ODR/.test(texts(b, ".ft-band-list li")[0]) && /^At War -4 Hunts the ODR/.test(texts(b, ".ft-band-list li")[8])
+      && /a bar of 10 points.*start the new level at 5/.test(b.querySelector(".ft-bands .hint").textContent));
+
+  // A player's view: no hidden faction, no drafts, no GM tools.
+  game.user = { isGM: false, name: "Johnald" };
+  b = await render();
+  check("factions tab: players see neither the hidden faction nor its task, nor the drafts",
+    texts(b, ".odr-tab").at(-1) === "Factions 2" && !b.querySelector('[data-faction-id="zb"]') && !b.querySelector('[data-task-id="t4"]') && !b.querySelector(".ft-drafts")
+      && texts(b, ".faction-log li").length === 1);
+  check("factions tab: players take tasks and send their own, nothing more",
+    !!b.querySelector('[data-task-id="t2"] [data-action="acceptTask"]') && !b.querySelector('[data-action="resolveTask"]') && !b.querySelector('[data-action="standingUp"]')
+      && !b.querySelector('[data-action="newTask"]') && !b.querySelector('[data-action="newFaction"]') && !b.querySelector(".faction-row .or-name[data-action]")
+      && texts(b, '[data-task-id="t2"] select[data-task-soldier] option').join() === "No one yet,Kael (on Clear the dam road)"
+      && !!b.querySelector('[data-task-id="t1"] .os-soldier [data-action="recallOperative"]'));
+
+  // The dialogs and the chat card render clean.
+  const clean = (label, html) => {
+    const doc = new JSDOM(`<body>${html}</body>`).window.document;
+    const bad = /undefined|\[object Object\]|NaN/;
+    check(`${label}: renders clean`, !bad.test(doc.body.textContent) && [...doc.querySelectorAll("*")].every(el => [...el.attributes].every(a => !bad.test(a.value))), doc.body.textContent.slice(0, 200));
+    return doc;
+  };
+  const fd = clean("faction dialog", tpl("templates/dialog/faction.hbs")({
+    faction: store.factions[0], tiers: { major: "Major", minor: "Minor" }, territories: { mal: "Malmstrom" },
+    levels: { 4: "+4 Allied", 3: "+3 Trusted", 0: "0 Neutral", "-4": "-4 At War" }, scale: IROP.reputationScale
+  }));
+  check("faction dialog: every field, set from the faction: its level and the points in its bar",
+    fd.querySelector('[name="name"]').value === "Copperhides" && fd.querySelector('[name="tier"] option[selected]')?.value === "minor"
+      && fd.querySelector('[name="standing"] option[selected]')?.value === "4" && fd.querySelector('[name="points"]').value === "7" && fd.querySelector('[name="points"]').getAttribute("max") === "10"
+      && fd.querySelector('[name="home"] option[selected]')?.value === "mal" && fd.querySelector('[name="notes"]').textContent === "Mutant clan of Malmstrom."
+      && !fd.querySelector('[name="hidden"]').checked && !!fd.querySelector("[data-pick-image]"));
+  const rules = IROP.strategyRules;
+  const td = clean("task dialog", tpl("templates/dialog/faction-task.hbs")({
+    task: { faction: "cu", term: rules.factions.taskTurns, standing: rules.factions.taskStanding, failure: rules.factions.taskFailure, rivalLoss: rules.factions.rivalLoss, logistics: 0, intel: 0 },
+    isNew: true, factions: { cu: "Copperhides", ps: "Pale Sons" }
+  }));
+  check("task dialog: a new task starts from the rules, offered at once unless unticked",
+    td.querySelector('[name="faction"] option[selected]')?.value === "cu" && td.querySelector('[name="standing"]').value === "2" && td.querySelector('[name="term"]').value === "1"
+      && td.querySelector('[name="rival"] option[selected]')?.value === "" && td.querySelector('[name="offer"]').checked
+      && ["title", "brief", "failure", "logistics", "intel", "reward", "rivalLoss"].every(n => !!td.querySelector(`[name="${n}"]`)));
+  const task1 = normalizeTask(store.factionTasks[0], rules);
+  const rd = clean("resolve dialog", tpl("templates/dialog/task-resolve.hbs")({
+    task: task1, defaults: resolveDefaults(task1, rules), faction: "Copperhides", rival: "Pale Sons", outcomes: IROP.missionOutcomes, offers: "+2 standing, +20 Logistics"
+  }));
+  check("resolve dialog: a success's numbers, and the rival's loss",
+    rd.querySelector('[name="outcome"] option[selected]')?.value === "success" && rd.querySelector('[name="standing"]').value === "2"
+      && rd.querySelector('[name="logistics"]').value === "20" && rd.querySelector('[name="rival"]').value === "-1" && /Standing with Pale Sons/.test(rd.body.textContent));
+  const factions = store.factions;
+  const offered = clean("task card offered", tpl("templates/chat/faction-task.hbs")(taskCardContext({ ...task1, status: "offered", week: 4, due: 4 }, "offered", { factions })));
+  check("task card: offered, with what it offers and when it is due",
+    /Task offered, turn 4/.test(offered.body.textContent) && /Offers \+2 standing points, \+20 Logistics, A guide through Malmstrom/.test(offered.body.textContent)
+      && /Works against Pale Sons: -1 with them/.test(offered.body.textContent) && /Due by the end of this turn/.test(offered.body.textContent));
+  const resolved = clean("task card resolved", tpl("templates/chat/faction-task.hbs")(taskCardContext({ ...task1, status: "resolved", outcome: "success", resolvedWeek: 4,
+    result: { standing: 2, rival: -1, logistics: 20, intel: 0, notes: "Road open." } }, "resolved",
+  { factions, log: [{ name: "Copperhides", delta: 2, from: { level: 4, points: 7 }, to: { level: 4, points: 9 } }, { name: "Pale Sons", delta: -1, from: { level: -3, points: 1 }, to: { level: -4, points: 5 } }] })));
+  check("task card: resolved, with what it gave and where each standing now sits",
+    resolved.querySelector(".faction-card").classList.contains("outcome-success")
+      && eq(texts(resolved, ".debrief-lines li"), ["+20 Logistics", "Copperhides: +2, Allied, 9 of 10", "Pale Sons: -1, down to At War"])
+      && eq([...resolved.querySelectorAll(".debrief-lines li")].map(li => li.className), ["gain", "gain", "heat"])
+      && /Road open\./.test(resolved.body.textContent));
 
   game.user = oldUser;
   game.items = oldItems;
@@ -1872,7 +2037,7 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   let ev = inspect("events window gm", tpl("templates/apps/events.hbs")(await new EventsApp()._prepareContext({})), { actions: EV_ACTIONS, source: {} });
   check("events window: the cards in play, where, until when, what they do on discard",
     ev.querySelectorAll('.ev-section:first-child .ev-card').length === 3 && /Portlandia, until turn 6 starts/.test(ev.querySelector('[data-card-id="p1"] .ev-where').textContent)
-      && /respond to it/.test(ev.querySelector('[data-card-id="p1"] .ev-where').textContent) && /Reputation -1\. No one came/.test(ev.querySelector('[data-card-id="p1"] .ev-discard').textContent)
+      && /respond to it/.test(ev.querySelector('[data-card-id="p1"] .ev-where').textContent) && /Reputation -3\. No one came/.test(ev.querySelector('[data-card-id="p1"] .ev-discard').textContent)
       && /Reprisal/.test(ev.querySelector('[data-card-id="p2"] .ev-flag').textContent) && ev.querySelector('[data-card-id="p2"]').classList.contains("kind-dark"));
   check("events window: the GM's hand plays with a territory, and the decks count what is left",
     !!ev.querySelector('[data-card-id="h1"] select[data-where]') && !!ev.querySelector('[data-card-id="h1"] [data-action="play"]')
@@ -1941,10 +2106,10 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   // Chat: a card played or discarded.
   const played = new JSDOM(tpl("templates/chat/event-card.hbs")(eventCardContext(darkHand.cards[0], { territory: items[1], action: "played", week: 4 }))).window.document;
   check("event card: the Dark Event played, where, what it does",
-    /Dark Event played: Portlandia/.test(played.querySelector(".card-sub").textContent) && /Strength \+1/.test(played.body.textContent)
+    /Dark Event played: Portlandia/.test(played.querySelector(".card-sub").textContent) && /Strength \+3/.test(played.body.textContent)
       && played.querySelector(".irop-card").classList.contains("kind-dark"));
   const gone = new JSDOM(tpl("templates/chat/event-card.hbs")(eventCardContext(inPlay.cards[0], { territory: items[1], action: "discarded", week: 6 }))).window.document;
-  check("event card: discarded, with its discard effect and words", /Reputation -1/.test(gone.body.textContent) && /No one came/.test(gone.body.textContent) && !/Stays until/.test(gone.body.textContent));
+  check("event card: discarded, with its discard effect and words", /Reputation -3/.test(gone.body.textContent) && /No one came/.test(gone.body.textContent) && !/Stays until/.test(gone.body.textContent));
 
   // The turn report: the cards with their pictures; a Dark Event that hits picks where.
   const plan = planTurn({ week: 3, territories: items.map(t => ({ id: t.id, name: t.name, system: { kind: "rural", control: "genesis", strength: 0, heat: 0, neighbors: [] } })),
@@ -6476,6 +6641,29 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   check("turn marker color: it runs each frame, once however many scenes are drawn", (added.length === 1) && (added[0] === tm.syncTurnMarkerTints));
   globalThis.CONFIG = savedConfig;
   globalThis.canvas = savedCanvas;
+}
+
+// Background perks' numbers (Johnald, 2026-10-11): the fields their effects raise, and where they show.
+{
+  const { concealmentLine } = await import("../module/sheets/actor-sheet.mjs");
+  const b = operative.system.bonuses;
+  check("perk fields: every operative has the Strategy Layer bonuses and the per place concealment, all at 0",
+    (b.strategy.mission.logistics === 0) && (b.strategy.mission.intel === 0) && (b.strategy.mission.reputation.megacity === 0)
+      && (b.strategy.mission.reputation.rural === 0) && (b.strategy.perRank.research.technology === 0) && (b.strategy.perRank.intelligence.deception === 0)
+      && (b.strategy.laborToughness === 0) && (b.strategy.intelMegacity === 0) && (b.concealmentAt.megacity === 0)
+      && (operative.system.concealment.bonusAt.megacity === 0) && (operative.system.concealment.bonusAt.slums === 0));
+  const line = concealmentLine({ visible: 14, hidden: 0, capacity: 40, bonus: 10, bonusAt: { megacity: 5 }, speciesBonus: 10, species: "Human" });
+  check("perk fields: the Concealment tooltip says a bonus at one place applies there only",
+    /Megacity allow 16 \(40%: 25% \+10% as a Human, \+5% here from effects\): passes/.test(line.tip) && /Slums allow 24 \(60%: 50% \+10% as a Human\): passes/.test(line.tip), line.tip);
+  const card = new JSDOM(tpl("templates/chat/mission-debrief.hbs")({ label: "Scavenge", territory: "Neo Seattle", outcomeLabel: "Success", week: 3,
+    perks: ["Kael (Supply Run): +10 Logistics", "Vale (Wake Them Up): +1 Reputation"] })).window.document;
+  check("perk fields: the debrief card lists what each operative's perks brought back",
+    [...card.querySelectorAll(".perk-line")].map(li => li.textContent).join(" | ") === "Kael (Supply Run): +10 Logistics | Vale (Wake Them Up): +1 Reputation");
+  const dialog = new JSDOM(tpl("templates/dialog/debrief.hbs")({ label: "Scavenge", territory: "Neo Seattle", defaults: {}, outcomes: {}, heatClasses: {}, reputationSteps: {},
+    perks: ["Kael (Supply Run): +10 Logistics"] })).window.document;
+  const none = new JSDOM(tpl("templates/dialog/debrief.hbs")({ label: "Scavenge", territory: "Neo Seattle", defaults: {}, outcomes: {}, heatClasses: {}, reputationSteps: {}, perks: [] })).window.document;
+  check("perk fields: the debrief dialog says what the perks will add on a success, and says nothing with none",
+    /On a success, background perks add/.test(dialog.querySelector(".debrief-perks")?.textContent ?? "") && /Supply Run/.test(dialog.body.textContent) && !none.querySelector(".debrief-perks"));
 }
 
 console.log(`${pass} passed, ${fail} failed`);

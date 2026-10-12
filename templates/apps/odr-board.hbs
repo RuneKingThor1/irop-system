@@ -16,7 +16,7 @@
   </header>
   <nav class="odr-tabs">
     {{#each tabs as |t|}}
-    <a class="odr-tab {{#if t.active}}active{{/if}}" data-action="switchTab" data-tab="{{t.key}}"><i class="{{t.icon}}"></i> {{t.label}} <span class="odr-badge">{{t.badge}}</span></a>
+    <a class="odr-tab {{#if t.active}}active{{/if}}" data-action="switchTab" data-tab="{{t.key}}" {{#if t.tip}}data-tooltip="{{t.tip}}"{{/if}}><i class="{{t.icon}}"></i> {{t.label}} <span class="odr-badge">{{t.badge}}</span></a>
     {{/each}}
   </nav>
 
@@ -86,6 +86,47 @@
     <div class="or-main"><a class="or-name" data-action="openProject">{{name}}</a>
       <span class="or-sub">{{#if unlocks}}Unlocked: {{unlocks}}{{/if}}{{#if builds}}{{builds}}{{#if where}}, {{where}}{{/if}}{{/if}}</span></div>
   </li>
+  {{/inline}}
+
+  {{!-- A faction task (2026-10-11): on offer, taken, or the GM's draft. --}}
+  {{#*inline "taskCard"}}
+  <article class="odr-slot faction-task status-{{status}} {{#if dueNow}}due-now{{/if}}" data-task-id="{{id}}" data-faction-id="{{factionId}}">
+    <header class="os-head">
+      {{#if img}}<img src="{{img}}" alt="">{{else}}<i class="{{icon}} os-icon"></i>{{/if}}
+      <div class="os-title"><span class="os-name">{{title}}</span>
+        <span class="os-sub">{{faction}}. {{#if (eq status "draft")}}Runs {{term}} turn{{#unless (eq term 1)}}s{{/unless}} once offered{{else}}{{due}}{{/if}}.{{#if by}} Taken by {{by}}.{{/if}}</span></div>
+      {{#if taken}}<span class="ft-flag taken">Taken</span>{{else}}{{#if (eq status "offered")}}<span class="ft-flag">Offered</span>{{/if}}{{/if}}
+    </header>
+    {{#if brief}}<p class="ft-brief">{{brief}}</p>{{/if}}
+    {{#if offers}}<p class="os-line"><span class="label">Offers</span> {{offers}}</p>{{/if}}
+    {{#if failure}}<p class="os-line"><span class="label">Failing it</span> -{{failure}} standing points</p>{{/if}}
+    {{#if rival}}<p class="os-line ft-rival"><span class="label">Works against</span> {{rival}}, -{{rivalLoss}} standing points with them when it is done</p>{{/if}}
+    {{#unless (eq status "draft")}}
+    <div class="os-team">
+      {{#each team as |a|}}
+      <span class="os-soldier" data-actor-id="{{a.id}}">{{a.name}}
+        {{#if a.canRemove}}<button type="button" class="icon" data-action="recallOperative" data-tooltip="Bring them back off this task"><i class="fa-solid fa-xmark"></i></button>{{/if}}</span>
+      {{/each}}
+      {{#if soldiers.length}}
+      <span class="os-assign">
+        <select data-task-soldier>{{#unless taken}}<option value="">No one yet</option>{{/unless}}{{#each soldiers as |s|}}<option value="{{s.id}}">{{s.name}}</option>{{/each}}</select>
+        {{#if taken}}<button type="button" data-action="sendOperative" data-tooltip="One open task at a time: they leave any other"><i class="fa-solid fa-user-plus"></i> Send</button>{{/if}}
+      </span>
+      {{/if}}
+    </div>
+    {{/unless}}
+    <div class="os-actions">
+      {{#if (eq status "offered")}}<button type="button" data-action="acceptTask" data-tooltip="Take it on for the ODR, with the operative picked, if any"><i class="fa-solid fa-handshake"></i> Take it</button>{{/if}}
+      {{#if taken}}<button type="button" class="ghost" data-action="releaseTask" data-tooltip="Put it back on offer">Put it back</button>{{/if}}
+      {{#if @root.isGM}}
+      {{#if (eq status "draft")}}<button type="button" data-action="offerTask" data-tooltip="Put it on the table for the players, due by the end of its last turn"><i class="fa-solid fa-bullhorn"></i> Offer</button>{{/if}}
+      {{#unless (eq status "draft")}}<button type="button" data-action="resolveTask" data-tooltip="Say how it went: standing, Logistics and Intel"><i class="fa-solid fa-clipboard-check"></i> Resolve</button>
+      <button type="button" class="ghost" data-action="withdrawTask" data-tooltip="Back to the drafts; no standing changes">Withdraw</button>{{/unless}}
+      <button type="button" class="ghost icon" data-action="editTask" data-tooltip="Edit"><i class="fa-solid fa-pen"></i></button>
+      <button type="button" class="ghost icon" data-action="deleteTask" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>
+      {{/if}}
+    </div>
+  </article>
   {{/inline}}
 
   <div class="odr-pane">
@@ -196,6 +237,73 @@
           <span class="ol-gains">{{#if m.logistics}}+{{m.logistics}} Logistics {{/if}}{{#if m.intel}}+{{m.intel}} Intel{{/if}}</span></li>
         {{else}}<li class="empty-row">No missions yet.</li>{{/each}}
       </ol>
+    </section>
+    {{/if}}
+
+    {{#if is.factions}}
+    {{!-- Factions (Johnald, 2026-10-11): standing with the other groups, and the tasks they offer each turn. --}}
+
+    <section class="odr-section">
+      <h4 class="section-title">Tasks this turn {{#if isGM}}{{#if factions.any}}<button type="button" class="ghost" data-action="newTask"><i class="fa-solid fa-plus"></i> New task</button>{{/if}}{{/if}}</h4>
+      {{#each factions.open as |t|}}{{> taskCard t}}
+      {{else}}<p class="odr-empty">No faction has work on offer. {{#if @root.isGM}}Write a task with New task, or from a faction's row below.{{else}}The GM puts tasks on the table as factions ask.{{/if}}</p>{{/each}}
+      {{#if factions.drafts.length}}
+      <details class="odr-done ft-drafts" open><summary>Drafts, not yet offered ({{factions.drafts.length}})</summary>
+        {{#each factions.drafts as |t|}}{{> taskCard t}}{{/each}}</details>
+      {{/if}}
+    </section>
+
+    <section class="odr-section">
+      <h4 class="section-title">Standing {{#if isGM}}<button type="button" class="ghost" data-action="newFaction"><i class="fa-solid fa-plus"></i> New faction</button>{{/if}}</h4>
+      {{#each factions.tiers as |tier|}}
+      <h5 class="ft-tier">{{tier.label}}</h5>
+      <ul class="odr-list faction-list">
+        {{#each tier.rows as |f|}}
+        <li class="odr-row faction-row band-{{f.band}} {{#if f.hidden}}hidden-project{{/if}}" data-faction-id="{{f.id}}">
+          {{#if f.img}}<img src="{{f.img}}" alt="">{{else}}<i class="{{f.icon}} or-icon"></i>{{/if}}
+          <div class="or-main">
+            <span class="or-name" {{#if @root.isGM}}data-action="editFaction"{{/if}}>{{f.name}}</span>{{#if f.hidden}} <span class="or-flag">Hidden</span>{{/if}}
+            <span class="or-sub">{{#if f.stance}}{{f.stance}}.{{/if}}{{#if f.home}} Based in {{f.home}}.{{/if}}{{#if f.openTasks}} {{f.openTasks}} task{{#unless (eq f.openTasks 1)}}s{{/unless}} open.{{/if}}</span>
+            <div class="fr-standing" data-tooltip="{{f.bandText}}{{#if f.history}}<br><br>{{f.history}}{{/if}}">
+              <span class="fr-value">{{f.standingText}}</span>
+              <span class="rep-pips tone-{{f.band}}">{{#each f.pips as |on|}}<span class="rep-pip {{#if on}}on{{/if}}"></span>{{/each}}<span class="rep-count">{{f.pointsText}}</span></span>
+            </div>
+            {{#if f.notes}}<details class="or-desc"><summary>What the ODR knows</summary><p>{{f.notes}}</p></details>{{/if}}
+          </div>
+          {{#if @root.isGM}}
+          <div class="or-actions">
+            <button type="button" class="ghost icon" data-action="standingDown" data-tooltip="Standing -1 point" {{#if f.atMin}}disabled{{/if}}><i class="fa-solid fa-minus"></i></button>
+            <button type="button" class="ghost icon" data-action="standingUp" data-tooltip="Standing +1 point" {{#if f.atMax}}disabled{{/if}}><i class="fa-solid fa-plus"></i></button>
+            <button type="button" class="ghost icon" data-action="newTask" data-tooltip="A task from {{f.name}}"><i class="fa-solid fa-file-circle-plus"></i></button>
+            {{#if f.hidden}}<button type="button" class="ghost icon" data-action="showFaction" data-tooltip="Let the players see them"><i class="fa-solid fa-eye"></i></button>
+            {{else}}<button type="button" class="ghost icon" data-action="hideFaction" data-tooltip="Hide them from the players"><i class="fa-solid fa-eye-slash"></i></button>{{/if}}
+            <button type="button" class="ghost icon" data-action="deleteFaction" data-tooltip="Remove"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          {{/if}}
+        </li>
+        {{else}}<li class="empty-row">None yet.</li>{{/each}}
+      </ul>
+      {{else}}<p class="odr-empty">The ODR has no dealings with any faction yet.</p>
+      {{/each}}
+      <details class="odr-done ft-bands"><summary>What standing means</summary>
+        <p class="hint">Each level has a bar of {{factions.pointsPerLevel}} points. Fill it and the faction rises a level, empty it and they fall one; either way they start the new level at {{factions.entry}}.</p>
+        <ul class="ft-band-list">{{#each factions.bands as |b|}}<li class="band-{{b.key}}"><span class="ftb-label">{{b.label}}</span> <span class="ftb-range">{{b.range}}</span> {{b.text}}</li>{{/each}}</ul>
+      </details>
+    </section>
+
+    <section class="odr-section">
+      <h4 class="section-title">Standing log</h4>
+      <ol class="odr-log faction-log">
+        {{#each factions.log as |l|}}
+        <li class="{{#if l.up}}outcome-success{{else}}outcome-failure{{/if}}"><span class="ol-week">Turn {{l.week}}</span><span class="ol-what">{{l.name}}: {{l.reason}}</span>
+          <span class="ol-outcome">{{l.delta}}</span><span class="ol-gains">{{l.to}}</span></li>
+        {{else}}<li class="empty-row">No standing has changed yet.</li>{{/each}}
+      </ol>
+      {{#if factions.finished.length}}
+      <details class="odr-done"><summary>Finished tasks ({{factions.finished.length}})</summary>
+        <ol class="odr-log">{{#each factions.finished as |t|}}<li class="outcome-{{t.outcome}}"><span class="ol-week">Turn {{t.week}}</span><span class="ol-what">{{t.title}}, for {{t.faction}}</span><span class="ol-outcome">{{t.outcomeLabel}}</span><span class="ol-gains"></span></li>{{/each}}</ol>
+      </details>
+      {{/if}}
     </section>
     {{/if}}
   </div>

@@ -43,11 +43,23 @@ export const RULE_FIELDS = [
     ["darkEventDraw", "Dark Events drawn"],
     ["darkEventKeep", "Dark Events used"],
     ["worldEventEvery", "World Events every (turns)"],
-    ["worldEventDraw", "World Event cards drawn"]
+    ["worldEventDraw", "World Event cards drawn"],
+    ["cardStrength", "Strength a card step"],
+    ["cardReputation", "Reputation points a card step"]
   ] },
   { section: "Missions", fields: [
-    ["missionReputation.success", "Reputation for a success"],
-    ["missionReputation.failure", "Reputation for a failure"]
+    ["missionReputation.success", "Reputation points, success"],
+    ["missionReputation.partial", "Reputation points, partial"],
+    ["missionReputation.failure", "Reputation points, failure"],
+    ["missionReputation.civilians", "Reputation points, civilians hurt"]
+  ] },
+  { section: "Factions", fields: [
+    ["factions.taskStanding", "Standing points a task earns"],
+    ["factions.taskFailure", "Standing points a failure costs"],
+    ["factions.rivalLoss", "Standing points a rival loses"],
+    ["factions.taskTurns", "Turns a new task runs"],
+    ["factions.partialPercent", "Partial success, % of rewards"],
+    ["factions.lapseLoss", "Standing points lost when untaken"]
   ] },
   { section: "Support (Logistics)", fields: [
     ["support.reinforcements", "Reinforcements"],

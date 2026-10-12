@@ -7,7 +7,7 @@
  * boxes, and a type. This turns each into a territory with STARTING values only
  * (the rules doc outranks these tracks; the GM sets the real ones):
  *   category          the territory's type and who holds it
- *   genesis_strength  Strength: the share of the 25 boxes, on the 0 to 10 scale
+ *   genesis_strength  Strength: the share of the 25 boxes, on the 0 to strengthMax scale (25 since 2026-10-11)
  *   genesis_vigilance Heat: the tier less one (Tier 1 None, Tier 2 Low, Tier 3 Medium)
  *   modifiers, art    carried over; the Lore journal text becomes the description
  * Reputation starts Neutral (the old track was never used). Neighbours are left

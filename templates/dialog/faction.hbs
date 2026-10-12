@@ -1,0 +1,17 @@
+<div class="irop-faction-form">
+  {{!-- A faction on the Strategy Layer (2026-10-11): the GM's to make and change. --}}
+  <div class="form-grid">
+    <label class="span-2"><span>Name</span><input type="text" name="name" value="{{faction.name}}" required autofocus></label>
+    <label><span>Tier</span><select name="tier">{{selectOptions tiers selected=faction.tier}}</select></label>
+    <label><span>Standing</span><select name="standing">{{selectOptions levels selected=faction.standing}}</select></label>
+    <label data-tooltip="0 to {{scale.points}}. Fill the bar to rise a level, empty it to fall one; a new level starts at {{scale.entry}}"><span>Points</span>
+      <input type="number" name="points" value="{{faction.points}}" min="0" max="{{scale.points}}" step="1"></label>
+    <label class="span-3" data-tooltip="What a level cannot say: Dangerous ally, Business only"><span>Stance</span><input type="text" name="stance" value="{{faction.stance}}" placeholder="Willing, not trustworthy"></label>
+  </div>
+  <label class="wide-field"><span>Based in</span><select name="home">{{selectOptions territories selected=faction.home blank="Nowhere in particular"}}</select></label>
+  <label class="wide-field"><span>Image</span>
+    <span class="ff-image"><input type="text" name="img" value="{{faction.img}}" placeholder="An icon by tier if left empty">
+      <button type="button" class="icon" data-pick-image data-tooltip="Browse"><i class="fa-solid fa-file-import"></i></button></span></label>
+  <label class="wide-field"><span>What the ODR knows</span><textarea name="notes" rows="4">{{faction.notes}}</textarea></label>
+  <label class="check-row" data-tooltip="Players see neither the faction nor its tasks"><input type="checkbox" name="hidden" {{#if faction.hidden}}checked{{/if}}> <span>Hidden from the players</span></label>
+</div>

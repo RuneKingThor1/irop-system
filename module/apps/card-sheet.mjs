@@ -1,5 +1,5 @@
 import { IROP } from "../config.mjs";
-import { getStrategyScale } from "../settings.mjs";
+import { getStrategyScale, getStrategyRules } from "../settings.mjs";
 
 const { HandlebarsApplicationMixin, DocumentSheetV2 } = foundry.applications.api;
 
@@ -42,7 +42,9 @@ export class EventCardSheet extends HandlebarsApplicationMixin(DocumentSheetV2) 
       isDark: system.kind === "dark",
       kinds: Object.fromEntries(Object.entries(IROP.cardKinds).map(([k, v]) => [k, v.label])),
       effects: Object.entries(IROP.cardEffects).map(([key, label]) => ({
-        key, label, effect: system.effect?.[key] ?? 0, discard: system.discard?.[key] ?? 0
+        key, label, effect: system.effect?.[key] ?? 0, discard: system.discard?.[key] ?? 0,
+        // Reputation (RULED 2026-10-11): a card counts in steps, each worth some points.
+        tip: { reputation: `Each step is ${getStrategyRules().cardReputation} Reputation points`, strength: `Each step is ${getStrategyRules().cardStrength} Strength` }[key] ?? ""
       })),
       ...EventCardSheet.neverIn(system.excluded)
     };

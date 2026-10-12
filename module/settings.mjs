@@ -151,6 +151,27 @@ export function registerSettings() {
     default: [],
     onChange: strategyChanged
   });
+  // The scales this world's data is in (strategy/migrate.mjs): Reputation 2 is the nine levels of
+  // 2026-10-11, Strength 25 is 0 to 25 (was 0 to 10).
+  for ( const key of ["reputationScale", "strengthScale"] ) {
+    game.settings.register(SYSTEM, key, {
+      scope: "world",
+      config: false,
+      type: Number,
+      default: 0
+    });
+  }
+  // Factions (2026-10-11): the ODR's standing with each, the tasks they offer, and every
+  // standing change with its reason, newest last. See rules/factions.mjs for their shapes.
+  for ( const key of ["factions", "factionTasks", "factionLog"] ) {
+    game.settings.register(SYSTEM, key, {
+      scope: "world",
+      config: false,
+      type: Array,
+      default: [],
+      onChange: strategyChanged
+    });
+  }
 
   // Which overlay this user sees on a War Room map (2026-10-08): each viewer picks their own.
   game.settings.register(SYSTEM, "warRoomLayer", {
@@ -401,7 +422,7 @@ export function getList(key) {
   }
 }
 
-/** Replace a world list setting (turnHistory, revealedActions, missionLog, incursions). GM only. */
+/** Replace a world list setting (turnHistory, revealedActions, missionLog, incursions, factions...). GM only. */
 export async function setList(key, list) {
   if ( !game.user.isGM ) throw new Error("Only a GM can change the War Room.");
   return game.settings.set(SYSTEM, key, list);

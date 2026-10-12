@@ -1,4 +1,5 @@
 import { IROP } from "../config.mjs";
+import { moveReputation } from "./reputation.mjs";
 
 /**
  * The ODR phase's projects (Strategy Layer step 5, 2026-10-08): Research,
@@ -35,17 +36,42 @@ export function qualifyingSkills(project) {
  */
 export function contribution(project, soldier, skill) {
   const attrs = soldier?.attributes ?? {};
-  if ( skill === "labor" ) return (project?.kind === "engineering") ? Math.max(0, Math.round(Number(attrs.str?.mod) || 0)) : 0;
+  const perks = soldier?.bonuses?.strategy ?? {};
+  // Background perks (Johnald, 2026-10-11): Boots on the Ground puts Toughness into labor too.
+  if ( skill === "labor" ) {
+    if ( project?.kind !== "engineering" ) return 0;
+    const tough = (Number(perks.laborToughness) || 0) > 0 ? (Number(attrs.tgh?.mod) || 0) : 0;
+    return Math.max(0, Math.round((Number(attrs.str?.mod) || 0) + tough));
+  }
+  // Insider Knowledge: Intel on an Intelligence Action in a Megacity, with or without a skill for it.
+  const insider = inMegacity(project) ? Math.max(0, Number(perks.intelMegacity) || 0) : 0;
+  if ( skill === INSIDER ) return Math.round(insider);
   if ( !skillQualifies(project, skill) ) return 0;
   const rank = Number(soldier?.skills?.[skill]?.rank) || 0;
   if ( rank < 1 ) return 0;
   const attr = (project.kind === "intelligence") ? IROP.skills[skill]?.attribute : "int";
-  return Math.max(0, Math.round((Number(attrs[attr]?.mod) || 0) + (5 * rank)));
+  // The Division perks and their like: more per rank in their skills on their kind of project.
+  const perRank = 5 + (Number(perks.perRank?.[project.kind]?.[skill]) || 0);
+  return Math.max(0, Math.round((Number(attrs[attr]?.mod) || 0) + (perRank * rank) + insider));
+}
+
+/** The way a soldier with Insider Knowledge and no fitting skill works a Megacity Intelligence Action. */
+export const INSIDER = "insider";
+
+/**
+ * Whether an Intelligence Action looks into a Megacity. The project names its territory; the kind is
+ * given with it (territoryKind), or read from the world's territory when Foundry is there.
+ */
+export function inMegacity(project) {
+  if ( project?.kind !== "intelligence" ) return false;
+  const kind = project.territoryKind ?? globalThis.game?.items?.get?.(project.territory)?.system?.kind;
+  return kind === "megacity";
 }
 
 /**
  * A soldier's best way to work a project: the skill that adds most, or labor on an
- * Engineering project when that adds more. Null when the soldier cannot work it.
+ * Engineering project when that adds more, or Insider Knowledge on a Megacity Intelligence
+ * Action. Null when the soldier cannot work it.
  * @returns {{skill: string, amount: number}|null}
  */
 export function bestSkill(project, soldier) {
@@ -59,12 +85,18 @@ export function bestSkill(project, soldier) {
     const amount = contribution(project, soldier, "labor");
     if ( !best || (amount > best.amount) ) best = { skill: "labor", amount };
   }
+  if ( !best ) {
+    const amount = contribution(project, soldier, INSIDER);
+    if ( amount > 0 ) best = { skill: INSIDER, amount };
+  }
   return best;
 }
 
 /** A skill as a project shows it. */
 export function skillLabel(skill) {
-  return (skill === "labor") ? "Labor" : (IROP.skills[skill]?.label ?? skill);
+  if ( skill === "labor" ) return "Labor";
+  if ( skill === INSIDER ) return "Insider Knowledge";
+  return IROP.skills[skill]?.label ?? skill;
 }
 
 /** The passive progress a project of this kind makes each turn. */
@@ -185,10 +217,13 @@ export function strengthBand(strength, max = IROP.strategyRules.strengthMax) {
   return IROP.strengthBands.find(b => share <= b.upTo) ?? IROP.strengthBands.at(-1);
 }
 
-/** What Reputation means on a mission: high, low or nothing either way. */
-export function reputationEffect(reputation) {
-  if ( reputation > 0 ) return IROP.reputationEffects.high;
-  if ( reputation < 0 ) return IROP.reputationEffects.low;
+/**
+ * What Reputation means on a mission (RULED 2026-10-11): the doc's high effect from Friendly
+ * (+2) up, its low effect from Wary (-2) down; a level either side of Neutral only leans.
+ */
+export function reputationEffect(level) {
+  if ( level >= 2 ) return IROP.reputationEffects.high;
+  if ( level <= -2 ) return IROP.reputationEffects.low;
   return "";
 }
 
@@ -218,25 +253,54 @@ export function tacticalChoices(revealed = [], responses = [], incursions = []) 
 
 /**
  * What a debrief does to the territory (doc): Heat rises by the action's class at the
- * start of next turn, the territory counts as active this week, and Reputation moves
- * by the outcome, held to -2 to +2.
+ * start of next turn, the territory counts as active this week, and Reputation moves by
+ * the points the GM entered (RULED 2026-10-11: through its bar, rules/reputation.mjs).
  * @param {object} territory   Its system data
- * @param {{heat: string, reputation: number}} debrief
+ * @param {{heat: string, reputation: number}} debrief   reputation in points
  * @returns {object}   Item update paths and values
  */
 export function debriefTerritory(territory, { heat = "none", reputation = 0 } = {}, rules = IROP.strategyRules) {
   const rise = Math.round(Number(rules?.heatRise?.[heat]) || 0);
-  const rep = Math.max(-2, Math.min(2, (Number(territory?.reputation) || 0) + (Math.round(Number(reputation)) || 0)));
+  const rep = moveReputation({ level: territory?.reputation, points: territory?.reputationPoints }, reputation);
   return {
     "system.heatPending": (Number(territory?.heatPending) || 0) + rise,
     "system.active": true,
-    "system.reputation": rep
+    "system.reputation": rep.level,
+    "system.reputationPoints": rep.points
   };
 }
 
-/** The Reputation change a debrief starts from, by outcome. */
+/**
+ * What the deployed squad's background perks add to a mission (Johnald, 2026-10-11): on a success,
+ * each operative's extra Logistics, Intel, and Reputation in the mission's kind of territory, as
+ * their perks' effects set them (Supply Run, Information Connoisseur, Waste Not, Wake them Up, One
+ * of Us, Community Focused). Each is once per strategy layer turn, and a turn has one mission.
+ * @param {{name: string, system: object, perks?: string[]}[]} squad
+ * @param {string} territoryKind   A key of IROP.territoryKinds
+ * @param {string} outcome
+ * @returns {{logistics: number, intel: number, reputation: number, lines: string[]}}
+ */
+export function perkRewards(squad, territoryKind, outcome) {
+  const out = { logistics: 0, intel: 0, reputation: 0, lines: [] };
+  if ( outcome !== "success" ) return out;
+  const whole = n => Math.max(0, Math.round(Number(n) || 0));
+  for ( const soldier of squad ?? [] ) {
+    const m = soldier?.system?.bonuses?.strategy?.mission ?? {};
+    const logistics = whole(m.logistics);
+    const intel = whole(m.intel);
+    const reputation = whole(m.reputation?.[territoryKind]);
+    if ( !(logistics || intel || reputation) ) continue;
+    out.logistics += logistics;
+    out.intel += intel;
+    out.reputation += reputation;
+    const gains = [logistics ? `+${logistics} Logistics` : "", intel ? `+${intel} Intel` : "", reputation ? `+${reputation} Reputation` : ""];
+    const from = soldier.perks?.length ? ` (${soldier.perks.join(", ")})` : "";
+    out.lines.push(`${soldier.name}${from}: ${gains.filter(Boolean).join(", ")}`);
+  }
+  return out;
+}
+
+/** The Reputation points a debrief starts from, by outcome (RULED 2026-10-11: +2, +1, -2). */
 export function defaultReputation(outcome, rules = IROP.strategyRules) {
-  if ( outcome === "success" ) return Math.round(Number(rules?.missionReputation?.success) || 0);
-  if ( outcome === "failure" ) return Math.round(Number(rules?.missionReputation?.failure) || 0);
-  return 0;
+  return Math.round(Number(rules?.missionReputation?.[outcome]) || 0);
 }

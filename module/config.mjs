@@ -669,13 +669,26 @@ IROP.heatLevels = [
   { label: "Maximum", response: "Alien combat units are teleported to the squad's position." }
 ];
 
-/** Reputation in a territory, -2 to +2 (the ladder proposed for the live board, 2026-10-01). */
+/**
+ * REPUTATION, RULED 2026-10-11 (Johnald): like Strength, a bar of points, here inside each of
+ * nine levels, four up from Neutral and four down. Gains and losses move the points; the level
+ * changes only when the bar fills (up) or empties (down), and the new level starts at the middle
+ * of its bar, the overflow thrown away. Hard to move, easy to hold. The same engine runs a
+ * territory's Reputation and a faction's standing (rules/reputation.mjs).
+ */
+IROP.reputationScale = { levels: 4, points: 10, entry: 5 };
+
+/** Reputation in a territory, -4 to +4: the populace's ladder. The old -2 to +2 doubled into it. */
 IROP.reputationLevels = {
-  "-2": "Hostile",
-  "-1": "Wary",
+  "-4": "Hostile",
+  "-3": "Resentful",
+  "-2": "Wary",
+  "-1": "Uneasy",
   "0": "Neutral",
-  "1": "Friendly",
-  "2": "Devoted"
+  "1": "Sympathetic",
+  "2": "Friendly",
+  "3": "Supportive",
+  "4": "Devoted"
 };
 
 /**
@@ -685,10 +698,10 @@ IROP.reputationLevels = {
  * the rest are ASSUMPTIONS the doc left open, marked so.
  */
 IROP.strategyRules = {
-  strengthMax: 10,              // ASSUMPTION: Strength runs 0 to 10 per territory
+  strengthMax: 25,              // RULED 2026-10-11 (Johnald): Strength runs 0 to 25 per territory (was 10; worlds scaled x2.5)
   megacityGrowthEvery: 8,       // doc: every 8 turns each Megacity gains +1 Strength
   megacityGrowth: 1,
-  strengthMoves: 1,             // ASSUMPTION: a hotter territory pulls 1 Strength from one cooler neighbour a turn
+  strengthMoves: 3,             // ASSUMPTION, scaled to 25 (RULED 2026-10-11): a hotter territory pulls 3 Strength from one cooler neighbour a turn
   heatRise: { minor: 1, major: 2, critical: 3 },   // ASSUMPTION: skirmish or ambush; security station or VIP; base or propaganda centre
   heatQuietWeeks: 2,            // doc: Heat falls where nothing happened for two turns
   heatFall: 1,                  // ASSUMPTION: by one level
@@ -704,15 +717,27 @@ IROP.strategyRules = {
   darkEventKeep: 2,
   worldEventEvery: 2,           // ASSUMPTION (Johnald asked for the deck, 2026-10-08): World Events come with the Event phase
   worldEventDraw: 1,            // ASSUMPTION: one World Event each time
-  incursionStrength: 8,         // RULED 2026-10-08: a neighbour of a liberated territory at this Strength launches an Incursion
+  incursionStrength: 20,        // RULED 2026-10-08 as 8 of 10, kept at 80% on the 25 scale (2026-10-11): a neighbour of a liberated territory at this Strength launches an Incursion
   incursionWeeks: 1,            // ASSUMPTION (step 7): weeks the ODR has to stop an Incursion before it lands
-  incursionMoves: 3,            // ASSUMPTION: Strength an Incursion that lands brings into the territory it retakes
-  incursionLoss: 3,             // ASSUMPTION: Strength the staging territory loses when its Incursion is broken
+  incursionMoves: 8,            // ASSUMPTION, scaled to 25: Strength an Incursion that lands brings into the territory it retakes
+  incursionLoss: 8,             // ASSUMPTION, scaled to 25: Strength the staging territory loses when its Incursion is broken
   liberationHeat: 2,            // ASSUMPTION: doc "nearby Megacities and their surrounding regions spike in Heat"; by this much
   liberationReach: 2,           // ASSUMPTION: as far as this many borders from the liberated area
-  missionReputation: {          // ASSUMPTION (step 5): the doc says successful missions raise Reputation and undeniable failures lower it, not by how much
-    success: 1,
-    failure: -1
+  missionReputation: {          // RULED 2026-10-11, in Reputation points: the doc says successes raise it and undeniable failures lower it
+    success: 2,
+    partial: 1,
+    failure: -2,
+    civilians: -4               // an undeniable failure, or civilians hurt
+  },
+  cardReputation: 3,            // RULED 2026-10-11: Reputation points in each step of a card's Reputation effect
+  cardStrength: 3,              // RULED 2026-10-11: Strength in each step of a card's Strength effect, on the 25 scale
+  factions: {                   // Faction tasks (2026-10-11), in standing points. RULED 2026-10-11: done +2, failed -2
+    taskStanding: 2,            // standing a task done earns with its faction
+    taskFailure: 2,             // standing a task failed, or left undone at its deadline, costs
+    rivalLoss: 2,               // ASSUMPTION: standing lost with a faction a task works against, when it is done
+    taskTurns: 1,               // turns a new task runs: 1 is due by the end of the turn it is offered
+    partialPercent: 50,         // a partial success earns this share of the rewards, rounded down
+    lapseLoss: 0                // standing lost when an offered task is left untaken (0: no cost to turning work down)
   },
   support: {                    // doc: General Uses of Logistics
     reinforcements: 10,
@@ -868,6 +893,39 @@ IROP.megacityObjectives = {
   government: "Center of government"
 };
 
+/**
+ * FACTIONS (2026-10-11): the ODR's standing with the other groups on the board, major and
+ * minor, and the tasks they offer from turn to turn. Standing runs on the Reputation engine
+ * (IROP.reputationScale), with its own ladder, as factions are organizations, not crowds
+ * (RULED 2026-10-11). The stance line on a faction carries the nuance a level cannot
+ * ("Dangerous ally", "Business only").
+ */
+IROP.factionTiers = {
+  major: { label: "Major factions", one: "Major", icon: "fa-solid fa-landmark" },
+  minor: { label: "Minor factions", one: "Minor", icon: "fa-solid fa-people-group" }
+};
+
+IROP.factionLevels = {
+  "-4": { label: "At War", text: "Hunts the ODR openly, and will spend its own people to hurt it." },
+  "-3": { label: "Hostile", text: "Works against the ODR when it can, and sells what it learns." },
+  "-2": { label: "Unfriendly", text: "Keeps its distance, deals only at a steep price, and may talk to the wrong people." },
+  "-1": { label: "Wary", text: "Will hear the ODR out, and trusts none of it." },
+  "0": { label: "Neutral", text: "Deals when it suits them. Neither help nor harm is promised." },
+  "1": { label: "Cordial", text: "Open to business, and to trading small favors." },
+  "2": { label: "Friendly", text: "Trades fairly, passes on what it hears, and offers regular work." },
+  "3": { label: "Trusted", text: "Shares supplies and safe houses, and asks the ODR for help in turn." },
+  "4": { label: "Allied", text: "Stands with the ODR: shelters operatives, and fights beside them when asked." }
+};
+
+/** Where a faction task stands. */
+IROP.factionTaskStatus = {
+  draft: "Draft",
+  offered: "Offered",
+  accepted: "Taken",
+  resolved: "Resolved",
+  lapsed: "Lapsed"
+};
+
 /** How a mission ended, at the debrief. */
 IROP.missionOutcomes = {
   success: "Success",
@@ -924,9 +982,9 @@ IROP.cardStacks = {
 IROP.cardEffects = {
   logistics: "Logistics",
   intel: "Intel",
-  strength: "Strength",
+  strength: "Strength steps",
   heat: "Heat next turn",
-  reputation: "Reputation"
+  reputation: "Reputation steps"
 };
 
 /** The Mortar Strike as the doc runs it. Scatter direction is the canon 1d8 from North. */

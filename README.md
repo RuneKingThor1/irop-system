@@ -31,7 +31,7 @@ How a release is made: the version in `system.json` goes up, the change is pushe
 - **Gear**: weapons, armor, gear and mods, mods fitted by dragging, special ammunition, stacking counted items, carried weight.
 - **Stores**: shops players buy from and sell to in three currencies, with stock, markup, hidden items, refunds and buy backs.
 - **Concealment**: what an operative carries that shows, against the Slums and Megacity limits, with GM checkpoints.
-- **Status effects** with their values, and the **Strategy Layer**: territories, the War Room, Logistics and Intel, Support, events and the ODR phase.
+- **Status effects** with their values, and the **Strategy Layer**: territories, the War Room, Logistics and Intel, Reputation, Support, events, the ODR phase, and factions with the tasks they offer.
 
 Players read items; the GM writes them. Players may rename their own weapons and armor, and make simple gear of their own.
 

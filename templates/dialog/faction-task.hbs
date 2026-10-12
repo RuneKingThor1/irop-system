@@ -1,0 +1,21 @@
+<div class="irop-faction-form">
+  {{!-- A faction task (2026-10-11): what they ask, what it pays, what failing it costs. --}}
+  <div class="form-grid">
+    <label class="span-2"><span>Task</span><input type="text" name="title" value="{{task.title}}" placeholder="Clear the dam road" required autofocus></label>
+    <label><span>For</span><select name="faction">{{selectOptions factions selected=task.faction}}</select></label>
+  </div>
+  <label class="wide-field"><span>Brief</span><textarea name="brief" rows="3" placeholder="What they ask, and why">{{task.brief}}</textarea></label>
+  <div class="form-grid">
+    <label data-tooltip="1: due by the end of the turn it is offered"><span>Turns to do it</span><input type="number" name="term" value="{{task.term}}" min="1" step="1"></label>
+    <label data-tooltip="Points on the faction's bar"><span>Standing earned</span><input type="number" name="standing" value="{{task.standing}}" min="0" step="1"></label>
+    <label data-tooltip="Also when it is taken and not done in time"><span>Standing if failed</span><input type="number" name="failure" value="{{task.failure}}" min="0" step="1"></label>
+    <label><span>Logistics</span><input type="number" name="logistics" value="{{task.logistics}}" min="0" step="1"></label>
+    <label><span>Intel</span><input type="number" name="intel" value="{{task.intel}}" min="0" step="1"></label>
+  </div>
+  <label class="wide-field"><span>Anything else it brings</span><input type="text" name="reward" value="{{task.reward}}" placeholder="A crate of rifles, a safe house, a name"></label>
+  <div class="form-grid">
+    <label class="span-2" data-tooltip="Doing this costs standing with them"><span>Works against</span><select name="rival">{{selectOptions factions selected=task.rival blank="No one"}}</select></label>
+    <label><span>Their loss</span><input type="number" name="rivalLoss" value="{{task.rivalLoss}}" min="0" step="1"></label>
+  </div>
+  {{#if isNew}}<label class="check-row"><input type="checkbox" name="offer" checked> <span>Offer it to the players now</span></label>{{/if}}
+</div>

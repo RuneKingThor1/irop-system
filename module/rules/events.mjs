@@ -48,28 +48,43 @@ export function touchesTerritory(effect = {}) {
   return ["strength", "heat", "reputation"].some(k => effect[k]);
 }
 
-/** A card's numbers in words: "+10 Logistics, Strength +1, Heat +1 next turn". */
-export function describeEffects(effect = {}) {
+/**
+ * A card's numbers in words: "+10 Logistics, Strength +3, Heat +1 next turn, Reputation -3".
+ * Strength and Reputation show what they do: each step on the card is rules.cardStrength
+ * or rules.cardReputation (RULED 2026-10-11).
+ */
+export function describeEffects(effect = {}, rules = IROP.strategyRules) {
   const sign = n => `${n > 0 ? "+" : ""}${n}`;
   const out = [];
   if ( effect.logistics ) out.push(`${sign(effect.logistics)} Logistics`);
   if ( effect.intel ) out.push(`${sign(effect.intel)} Intel`);
-  if ( effect.strength ) out.push(`Strength ${sign(effect.strength)}`);
+  if ( effect.strength ) out.push(`Strength ${sign(effect.strength * cardStrength(rules))}`);
   if ( effect.heat ) out.push(`Heat ${sign(effect.heat)} next turn`);
-  if ( effect.reputation ) out.push(`Reputation ${sign(effect.reputation)}`);
+  if ( effect.reputation ) out.push(`Reputation ${sign(effect.reputation * cardReputation(rules))}`);
   return out.join(", ");
+}
+
+/** Strength in each step of a card's Strength effect. */
+export function cardStrength(rules = IROP.strategyRules) {
+  return Math.round(Number(rules?.cardStrength ?? IROP.strategyRules.cardStrength) || 0);
+}
+
+/** Reputation points in each step of a card's Reputation effect. */
+export function cardReputation(rules = IROP.strategyRules) {
+  return Math.round(Number(rules?.cardReputation ?? IROP.strategyRules.cardReputation) || 0);
 }
 
 /**
  * A card's numbers as operations on its territory, in the turn plan's form: Strength
- * at once (held to 0 and the top), Heat waiting for next week, Reputation held to -2..+2.
+ * at once (held to 0 and the top), Heat waiting for next week, Reputation through its
+ * bar, in points (a "rep" op, resolved by rules/turn.mjs).
  */
 export function effectOps(effect = {}, territoryId, rules = IROP.strategyRules) {
   if ( !territoryId ) return [];
   const ops = [];
-  if ( effect.strength ) ops.push({ id: territoryId, path: "system.strength", delta: effect.strength, min: 0, max: rules.strengthMax ?? 10 });
+  if ( effect.strength ) ops.push({ id: territoryId, path: "system.strength", delta: effect.strength * cardStrength(rules), min: 0, max: rules.strengthMax ?? 25 });
   if ( effect.heat ) ops.push({ id: territoryId, path: "system.heatPending", delta: effect.heat });
-  if ( effect.reputation ) ops.push({ id: territoryId, path: "system.reputation", delta: effect.reputation, min: -2, max: 2 });
+  if ( effect.reputation ) ops.push({ id: territoryId, path: "system.reputation", rep: effect.reputation * cardReputation(rules) });
   return ops;
 }
 
@@ -174,7 +189,7 @@ export function planCards({ next, rules = IROP.strategyRules, territories = [], 
     if ( !r.persistent || ((Number(c.week) || 0) + PERSIST_WEEKS > next) ) continue;
     const where = r.worldwide ? "every territory" : name(c.territory);
     const reason = `${IROP.cardKinds[r.kind].label} discarded: ${c.name}${where ? `, ${where}` : ""}`;
-    const words = [describeEffects(r.discard), r.discardText].filter(Boolean).join(". ");
+    const words = [describeEffects(r.discard, rules), r.discardText].filter(Boolean).join(". ");
     // Doc: Engineering upgrades can be destroyed in GENESIS Reprisals. One left uncountered
     // takes a regional upgrade where it hit, which goes back on the list to rebuild (step 7).
     const lost = (r.reprisal && c.territory) ? upgrades.find(u => u.territory === c.territory) : null;
@@ -207,7 +222,7 @@ export function planCards({ next, rules = IROP.strategyRules, territories = [], 
       for ( const c of pickDistinct(darkDeck, want, random) ) {
         const r = cardRules(c, "dark");
         const notes = [
-          r.discretionary ? "Discretionary: held in the GENESIS hand to play this turn" : describeEffects(r.effect),
+          r.discretionary ? "Discretionary: held in the GENESIS hand to play this turn" : describeEffects(r.effect, rules),
           r.persistent && !r.discretionary ? `stays until turn ${next + PERSIST_WEEKS} starts` : "",
           r.reprisal ? "Reprisal" : ""
         ].filter(Boolean);
@@ -239,7 +254,7 @@ export function planCards({ next, rules = IROP.strategyRules, territories = [], 
         const r = cardRules(c, "event");
         const handled = r.negative && (t.system?.control === "liberated");
         const reason = `Event: ${c.name}, ${t.name}`;
-        const words = describeEffects(r.effect);
+        const words = describeEffects(r.effect, rules);
         lines.push({
           section: "events", tone: handled ? "info" : (r.negative ? "up" : "down"),
           text: `${c.name} lands on ${t.name}`,
@@ -268,7 +283,7 @@ export function planCards({ next, rules = IROP.strategyRules, territories = [], 
       for ( let n = 0; n < drawn.length; n++ ) {
         const c = drawn[n];
         const r = cardRules(c, "world");
-        const words = describeEffects(r.effect);
+        const words = describeEffects(r.effect, rules);
         const until = r.persistent ? `Stays until turn ${next + PERSIST_WEEKS} starts` : "";
         if ( r.worldwide ) {
           lines.push({

@@ -8,6 +8,8 @@
     <label data-tooltip="{{territory.heatResponse}}"><span>Heat</span>
       <select name="system.heat">{{selectOptions territory.heatLevels selected=system.heat}}</select></label>
     <label><span>Reputation</span><select name="system.reputation">{{selectOptions territory.reputationLevels selected=system.reputation}}</select></label>
+    <label data-tooltip="0 to 10. Fill the bar to rise a level, empty it to fall one; a new level starts at 5"><span>Reputation points</span>
+      <input type="number" name="system.reputationPoints" value="{{system.reputationPoints}}" min="0" max="10"></label>
     <label data-tooltip="Heat from this turn's actions. Doc: it lands when the next turn starts."><span>Heat next turn</span>
       <input type="number" name="system.heatPending" value="{{system.heatPending}}"></label>
     <label class="check" data-tooltip="A tactical action or relevant event here this turn, so its Heat will not cool"><input type="checkbox" name="system.active" {{checked system.active}}>
