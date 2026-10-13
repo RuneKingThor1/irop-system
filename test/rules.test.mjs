@@ -1284,5 +1284,65 @@ check("disorientated both ways",
   check("factions: ticked lines become faction ops; unticked, the task stays open", (all.factionOps.length === 2) && (all.factionOps[0].task === "f") && (none.factionOps.length === 0));
 }
 
+// Enlistment (Johnald, 2026-10-12, mockup A): the guided creator's rules.
+{
+  const en = await import("../module/rules/enlistment.mjs");
+  const species = { _id: "sp1", name: "Mutant", type: "species", img: "m.webp", folder: "f1", ownership: { default: 0, u: 3 },
+    system: { health: 10, energy: 6, attributes: { str: 35, agi: 35, tgh: 40, cha: 45, lck: 20, int: 40, per: 35 }, mutations: true } };
+  const role = { _id: "ro1", name: "Marauder", type: "role", system: { role: "marauder", startingSkills: "Awareness, Athletics or Survivalism", weaponSpecialties: "Shotguns" } };
+  const background = { _id: "bg1", name: "Slum Dweller", type: "background",
+    system: { startingSkills: "Awareness, Deception, Coercion, Insight, Atheltics, Lock Picking", skillPicks: 3, perks: [{ id: "pk1", uuid: "Item.ab1", name: "One of Us", img: "" }] } };
+  const ability = { _id: "ab1", name: "One of Us", type: "ability", img: "one.webp", system: { description: "<p>Slums.</p>", source: "generalist" }, flags: {} };
+
+  check("enlistment: six steps, in mockup A's order",
+    en.STEPS.map(s => s.key).join() === "species,role,background,skills,identity,review");
+  check("enlistment: a card's blurb is plain text, cut at a sentence",
+    en.blurb("<p>Short one.</p>") === "Short one." && en.blurb("<p>First sentence here. Second sentence is much longer than the room left for it.</p>", 30) === "First sentence here."
+      && en.blurb("") === "");
+  check("enlistment: a species' attributes against the baseline",
+    eq(en.speciesAttributes(species.system).map(a => `${a.abbr}${a.diff}`), ["STR-5", "AGI-5", "TGH0", "CHA5", "LCK-10", "INT0", "PER-5"]));
+  check("enlistment: a role gives its first skill and one pick of the rest; a background its picks of six",
+    eq(en.rolePlan(role), { source: "role", granted: ["awareness"], pick: 1, options: ["athletics", "survival"], unknown: [] })
+      && en.backgroundPlan(background).pick === 3 && en.backgroundPlan(background).options.length === 6);
+  const choices = { species: "sp1", role: "ro1", background: "bg1", roleSkill: "athletics", backgroundSkills: ["athletics", "deception", "insight", "coercion"], perk: "pk1",
+    firstName: "Kael", lastName: "Hart", callsign: "", img: "" };
+  const taken = en.skillsTaken(choices, role, background);
+  check("enlistment: the skills taken: the free one, the role's pick, and only as many background picks as it gives",
+    eq(taken, ["awareness", "athletics", "athletics", "deception", "insight"]));
+  check("enlistment: a skill taken from both comes out at rank 2", eq(en.startingRanks(taken), { athletics: 2, awareness: 1, deception: 1, insight: 1 }));
+  check("enlistment: a role pick it does not offer is not taken", eq(en.skillsTaken({ ...choices, roleSkill: "stealth" }, role, background).slice(0, 2), ["awareness", "athletics"]));
+  check("enlistment: the sheet and token go by the callsign, else the full name",
+    en.operativeName({ firstName: "Kael", lastName: "Hart", callsign: "Ghost" }) === "Ghost" && en.operativeName(choices) === "Kael Hart" && en.operativeName({}) === "");
+
+  const none = en.stepIssues({ backgroundSkills: [] });
+  check("enlistment: with nothing chosen, each step says what it needs",
+    none.species === "Choose a species." && none.role === "Choose a role." && none.background === "Choose a background."
+      && none.skills === "Choose a role and a background first." && none.identity === "Give a callsign or a name." && none.review === "Finish the steps marked above.");
+  const half = en.stepIssues({ ...choices, roleSkill: "", backgroundSkills: ["awareness"], perk: "" }, { species, role, background });
+  check("enlistment: the skills step names what is still to pick",
+    half.skills === "Pick 1 of Marauder's skills. Pick 3 of Slum Dweller's skills (1 picked). Pick one of Slum Dweller's perks.", half.skills);
+  const full = { ...choices, backgroundSkills: ["athletics", "deception", "insight"] };
+  check("enlistment: all chosen, nothing is missing", Object.values(en.stepIssues(full, { species, role, background })).every(v => v === ""));
+
+  const data = en.operativeData(full, { species, role, background, perkAbility: ability }, { owner: "p1", date: "17 May 2040", request: "rq1" });
+  check("enlistment: the operative: named, the default picture, the player's own, the token to match",
+    data.name === "Kael Hart" && data.type === "operative" && data.img === en.DEFAULT_IMG && eq(data.ownership, { default: 0, p1: 3 })
+      && data.prototypeToken.name === "Kael Hart" && data.prototypeToken.texture.src === en.DEFAULT_IMG);
+  check("enlistment: the species sets the base attributes; the skills land at their ranks; the starting skills are marked taken",
+    data.system.attributes.cha.base === 45 && data.system.attributes.lck.base === 20 && data.system.skills.athletics.rank === 2 && data.system.skills.awareness.rank === 1
+      && !("stealth" in data.system.skills) && eq(data.system.details.startingSkills, { role: "Marauder", background: "Slum Dweller" }));
+  check("enlistment: the record keeps the full name and the day enlisted",
+    data.system.details.record.firstName === "Kael" && data.system.details.record.enlisted === "17 May 2040"
+      && eq(data.system.details.record.timeline, [{ date: "17 May 2040", entry: "Enlisted with Eclipse." }]));
+  const perk = data.items[3];
+  check("enlistment: the species, role and background come along as copies, and the perk as the background's own",
+    data.items.length === 4 && eq(data.items.map(i => i.type), ["species", "role", "background", "ability"]) && data.items.every(i => !("_id" in i) && !("folder" in i) && !("ownership" in i))
+      && perk.system.source === "background" && perk.system.tree === "Slum Dweller" && eq(perk.flags.irop.backgroundPerk, { background: "Slum Dweller", perk: "pk1", uuid: "Item.ab1" }));
+  check("enlistment: the request it answers is on the operative, for the player's client to find",
+    data.flags.irop.enlistment.request === "rq1" && data.flags.irop.enlistment.by === "p1" && species._id === "sp1");
+  const bare = en.operativeData({ ...full, perk: "" }, { species, role, background, perkAbility: null }, {});
+  check("enlistment: with no perk, owner or date, none is invented", bare.items.length === 3 && eq(bare.ownership, { default: 0 }) && bare.system.details.record.timeline.length === 0);
+}
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

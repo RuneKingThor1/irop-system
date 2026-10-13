@@ -30,6 +30,7 @@ import { OdrBoard, TurnReport, ProjectStrip, confirmUndo, showWeekBanner } from 
 import { TerritoryCard, WarRoomBar } from "./apps/war-room.mjs";
 import { registerOdrActions, briefMission } from "./strategy/odr.mjs";
 import { migrateReputation, migrateStrength } from "./strategy/migrate.mjs";
+import { EnlistmentApp, registerEnlistment, addEnlistButton } from "./apps/enlistment.mjs";
 import {
   registerFactionActions, getFactions, getTasks, getFactionLog, saveFaction, deleteFaction, adjustStanding, saveTask, offerTask, resolveTask
 } from "./strategy/factions.mjs";
@@ -80,6 +81,8 @@ Hooks.once("init", () => {
   // What players may ask the GM's client to do in the ODR phase (step 5).
   registerOdrActions();
   registerFactionActions();
+  // Enlistment (2026-10-12): players' new operatives are made by the GM's client.
+  registerEnlistment();
   // And at a store: buy what is in limited stock (2026-10-10).
   registerStoreActions();
   registerConcealmentActions();
@@ -214,7 +217,9 @@ Hooks.once("init", () => {
     // The calendar (2026-10-08): today in words, and the GM's ways to move it.
     calendar: { open: () => CalendarApp.open(), settings: () => CalendarEditor.open(), get: getCalendar, today: dateInfo,
       setDate, advanceDays, setTime: setWorldTime, rules: calendarRules },
-    importEventCards
+    importEventCards,
+    // The enlistment terminal (2026-10-12): a guided new operative.
+    enlist: () => EnlistmentApp.open()
   };
 });
 
@@ -246,6 +251,8 @@ Hooks.on("renderActorDirectory", addBanksButton);
 // Support beside it, for calling in mid mission; it and the ledger follow the stock (step 3).
 Hooks.on("renderActorDirectory", addSupportButton);
 Hooks.on("renderActorDirectory", addCheckpointButton);
+// The enlistment terminal (2026-10-12), for everyone.
+Hooks.on("renderActorDirectory", addEnlistButton);
 Hooks.on("irop.strategyChanged", () => {
   ResourceLedger.refresh();
   SupportApp.refresh();

@@ -6666,5 +6666,176 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     /On a success, background perks add/.test(dialog.querySelector(".debrief-perks")?.textContent ?? "") && /Supply Run/.test(dialog.body.textContent) && !none.querySelector(".debrief-perks"));
 }
 
+// The enlistment terminal (Johnald, 2026-10-12, mockup A): every step rendered, the picks, and the operative made.
+{
+  foundry.applications.api.ApplicationV2 ??= class { constructor(options = {}) { this.options = options; } render() { return this; } };
+  const { EnlistmentApp, enlistmentItems, createOperative, registerEnlistment, addEnlistButton } = await import("../module/apps/enlistment.mjs");
+  const oldUser = game.user;
+  const oldUsers = game.users;
+  const oldItems = game.items;
+  const oldUi = globalThis.ui;
+  const oldActor = globalThis.Actor;
+  const oldSocket = game.socket;
+  const oldUtils = foundry.utils;
+  const said = [];
+  globalThis.ui = { notifications: { warn: m => said.push(m), info: m => said.push(m) } };
+  const mk = (id, name, type, system, img = `${id}.webp`) => {
+    const d = new FakeDoc({});
+    Object.assign(d, { id, name, type, img, uuid: `Item.${id}`, flags: {} });
+    d.system = new MODELS[type](system, { parent: d });
+    d.toObject = () => ({ _id: id, name, type, img, folder: null, system: d.system.toObject(), flags: {} });
+    return d;
+  };
+  const world = [
+    mk("hu", "Human", "species", { health: 8, energy: 10, boons: true, description: "<p>Earth's own. Adaptable above all.</p>" }),
+    mk("mu", "Mutant", "species", { health: 10, energy: 6, mutations: true, attributes: { str: 35, agi: 35, tgh: 40, cha: 45, lck: 20, int: 40, per: 35 } }),
+    mk("ge", "GENESIS", "species", { playable: false }),
+    mk("lg", "Legionary", "role", { role: "legionary", startingSkills: "Awareness, Investigate or Athletics" }),
+    mk("mr", "Marauder", "role", { role: "marauder", startingSkills: "Awareness, Athletics or Survivalism", weaponSpecialties: "Shotguns, SMGs, Shields, Axes",
+      description: "<p>The Marauder doctrine did not emerge from a planning room. It emerged from a wheat field.</p>" }),
+    mk("sd", "Slum Dweller", "background", { startingSkills: "Awareness, Deception, Coercion, Insight, Atheltics, Lock Picking", skillPicks: 3,
+      perks: [{ id: "pk1", uuid: "Item.ab1", name: "One of Us", img: "" }, { id: "pk2", uuid: "Item.gone", name: "Lost Perk", img: "" }] }),
+    mk("ab1", "One of Us", "ability", { description: "<p>Reputation in the slums rises by 2 extra points.</p>", kind: "passive" })
+  ];
+  world.get = id => world.find(d => d.id === id) ?? null;
+  game.items = world;
+  // The client's uuid lookups, over this world (the common utils are a frozen module).
+  foundry.utils = { ...oldUtils, fromUuidSync: uuid => world.find(d => d.uuid === uuid) ?? null, fromUuid: async uuid => world.find(d => d.uuid === uuid) ?? null };
+  const player = { id: "p1", name: "Johnald", isGM: false, character: null, updates: [], update(d) { this.updates.push(d); return this; } };
+  const gm = { id: "gm", name: "GM", isGM: true };
+  const users = [gm, player];
+  users.get = id => users.find(u => u.id === id);
+  users.activeGM = gm;
+  game.users = users;
+  game.user = gm;
+  const made = [];
+  globalThis.Actor = { implementation: { create: async data => { made.push(data); return { id: `a${made.length}`, name: data.name, img: data.img, system: data.system, flags: data.flags }; } } };
+  const ACTIONS = new Set(Object.keys(EnlistmentApp.DEFAULT_OPTIONS.actions));
+  const act = (app, name, dataset = {}) => EnlistmentApp.DEFAULT_OPTIONS.actions[name].call(app, {}, { dataset });
+  const show = async (app, label) => inspect(`enlistment ${label}`, tpl("templates/apps/enlistment.hbs")(await app._prepareContext({})), { actions: ACTIONS, source: {} });
+  const texts = (doc, sel) => [...doc.querySelectorAll(sel)].map(e => e.textContent.replace(/\s+/g, " ").trim());
+  const eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+
+  const app = new EnlistmentApp();
+  check("enlistment: playable species, roles in doctrine order, backgrounds", eq(Object.fromEntries(Object.entries(enlistmentItems()).map(([k, v]) => [k, v.map(i => i.id)])),
+    { species: ["hu", "mu"], roles: ["lg", "mr"], backgrounds: ["sd"] }));
+  let d = await show(app, "species");
+  check("enlistment: it opens on species: six steps down the rail, the first lit, the record a blank draft",
+    texts(d, ".en-step .t").join() === "Species,Role,Background,Skills and perk,Identity,Review" && d.querySelector(".en-step.on")?.dataset.index === "0"
+      && /SELECT SPECIES|Select species/.test(d.querySelector(".en-prompt-text").textContent) && d.querySelector(".en-ds-name").textContent === "Unidentified recruit"
+      && /Choose a species to see your attributes/.test(d.querySelector(".en-dossier").textContent) && !d.querySelector('[data-action="back"]'));
+  check("enlistment: species cards, without the unplayable", texts(d, ".en-card .en-name").join() === "Human,Mutant" && /Takes boons/.test(d.querySelector('[data-id="hu"]').textContent));
+  await act(app, "pick", { kind: "species", id: "mu" });
+  d = await show(app, "species picked");
+  const mutant = d.querySelector('[data-id="mu"]');
+  check("enlistment: a species picked: its card lit, attributes against the baseline, the record shows its health, energy and bars",
+    mutant.classList.contains("on") && mutant.querySelector(".en-stats .hi")?.textContent === "CHA45" && [...mutant.querySelectorAll(".en-stats .lo")].length === 4
+      && /Health\s*10/.test(d.querySelector(".en-vitals").textContent) && d.querySelectorAll(".en-bar").length === 7 && /Carries mutations/.test(mutant.textContent));
+  await act(app, "next");
+  d = await show(app, "role");
+  const mr = d.querySelector('[data-id="mr"]');
+  check("enlistment: roles in their colors, with the free skill, the pick and the weapons; species marked done on the rail",
+    mr.getAttribute("style") === "--c: #e08a3c" && mr.querySelector(".en-hex").textContent === "MR" && /Awareness, then Athletics or Survivalism/.test(mr.textContent)
+      && /Shotguns, SMGs/.test(mr.textContent) && /wheat field|planning room/.test(mr.querySelector(".en-blurb").textContent)
+      && d.querySelector('.en-step[data-index="0"]').classList.contains("done") && /Mutant/.test(d.querySelector('.en-step[data-index="0"] .v').textContent));
+  await act(app, "pick", { kind: "role", id: "mr" });
+  d = await show(app, "role picked");
+  check("enlistment: a role picked colors the record", /--rc: #e08a3c/.test(d.querySelector(".en-dossier").getAttribute("style")) && /Marauder/.test(d.querySelector(".en-ds-line b").textContent));
+  await act(app, "goStep", { index: "2" });
+  d = await show(app, "background");
+  check("enlistment: backgrounds with their skills to pick and their perks", /Skills, pick 3/.test(d.querySelector('[data-id="sd"]').textContent)
+    && texts(d, '[data-id="sd"] .en-perks > span').join() === "One of Us,Lost Perk");
+  await act(app, "pick", { kind: "background", id: "sd" });
+  await act(app, "next");
+  d = await show(app, "skills");
+  check("enlistment: the skills step: the role's free skill fixed, its pick, the background's six, and its perks with their text",
+    texts(d, ".en-chip.fixed").join() === "Awareness, free" && texts(d, '[data-action="roleSkill"]').join() === "Athletics,Survivalism"
+      && d.querySelectorAll('[data-action="backgroundSkill"]').length === 6 && texts(d, ".en-perk-name").join() === "One of Us,Lost Perk"
+      && /rises by 2 extra points/.test(d.querySelector('[data-perk="pk1"] .en-perk-text').textContent) && /missing from this world/.test(d.querySelector('[data-perk="pk2"]').textContent)
+      && /Pick 1 of Marauder/.test(d.querySelector(".en-issue").textContent));
+  await act(app, "roleSkill", { skill: "athletics" });
+  for ( const skill of ["athletics", "deception", "insight", "coercion"] ) await act(app, "backgroundSkill", { skill });
+  check("enlistment: no more background skills than it gives; a fourth is refused with a word why",
+    eq(app.choices.backgroundSkills, ["athletics", "deception", "insight"]) && /gives 3\. Take one off/.test(said.at(-1) ?? ""));
+  await act(app, "backgroundSkill", { skill: "deception" });
+  await act(app, "backgroundSkill", { skill: "coercion" });
+  await act(app, "perk", { perk: "pk1" });
+  d = await show(app, "skills picked");
+  check("enlistment: picks can change; the record lists the ranks, Athletics from both at 2, and the perk",
+    eq(app.choices.backgroundSkills, ["athletics", "insight", "coercion"]) && /Athletics 2/.test(d.querySelector(".en-dossier").textContent)
+      && /One of Us/.test(d.querySelector(".en-dossier").textContent) && !d.querySelector(".en-issue"));
+  await act(app, "next");
+  d = await show(app, "identity");
+  check("enlistment: identity: names, callsign, a portrait, and for the GM, who it is for",
+    ["firstName", "lastName", "callsign", "owner"].every(f => !!d.querySelector(`[data-field="${f}"]`)) && texts(d, '[data-field="owner"] option').join() === "GM (you),Johnald"
+      && !!d.querySelector('[data-action="browse"]'));
+  Object.assign(app.choices, { firstName: "Kael", lastName: "Hart", callsign: "Ghost", owner: "p1" });
+  await act(app, "next");
+  d = await show(app, "review");
+  check("enlistment: review: the whole file, and Enlist", /Ghost/.test(d.querySelector(".en-kv").textContent) && /Marauder/.test(d.querySelector(".en-kv").textContent)
+    && !!d.querySelector('[data-action="enlist"]') && !d.querySelector('[data-action="next"]') && !d.querySelector(".en-issues"));
+
+  // As the GM: made at once, for the player picked, and theirs as their character.
+  await act(app, "enlist");
+  const data = made.at(-1);
+  check("enlistment: the GM enlists for a player: the operative is theirs, named by callsign, with the picks applied",
+    data?.name === "Ghost" && eq(data.ownership, { default: 0, p1: 3 }) && data.system.skills.athletics.rank === 2 && data.system.attributes.cha.base === 45
+      && data.items.map(i => i.name).join() === "Mutant,Marauder,Slum Dweller,One of Us" && data.system.details.record.firstName === "Kael");
+  check("enlistment: a player with no character gets this one", player.updates.at(-1)?.character === "a1");
+  d = await show(app, "finish");
+  check("enlistment: the finish: the record printed and stamped, the rail locked, the sheet a click away",
+    /ENLISTED|Enlisted/.test(d.querySelector(".en-stamp").textContent) && /Kael Hart/.test(d.querySelector(".en-record").textContent) && /One of Us/.test(d.querySelector(".en-record").textContent)
+      && [...d.querySelectorAll(".en-step")].every(b => b.disabled) && !!d.querySelector('[data-action="openSheet"]') && !!d.querySelector('[data-action="again"]'));
+  await act(app, "again");
+  check("enlistment: Enlist another starts a fresh recruit", app.step === 0 && !app.result && !app.choices.species);
+
+  // A refused file: the GM's client says what is missing.
+  const refused = await createOperative({ species: "mu", role: "mr", background: "sd", roleSkill: "", backgroundSkills: [], perk: "", callsign: "X" }, gm);
+  check("enlistment: an incomplete file is refused, saying what is missing", /Pick 1 of Marauder/.test(refused.error ?? ""));
+
+  const oldHooks = globalThis.Hooks;
+  const hooked = [];
+  globalThis.Hooks = { on: (name, fn) => hooked.push(name), callAll() {} };
+  registerEnlistment();
+  check("enlistment: the GM's client takes players' files, and every client listens for its operative", hooked.includes("createActor"));
+  globalThis.Hooks = oldHooks;
+  // As a player: the file goes to the GM's client, and the operative arriving finishes it here.
+  const sent = [];
+  game.socket = { on() {}, emit: (channel, payload) => sent.push(payload) };
+  game.user = player;
+  const mine = new EnlistmentApp();
+  Object.assign(mine.choices, { species: "hu", role: "mr", background: "sd", roleSkill: "survival", backgroundSkills: ["awareness", "insight", "coercion"], perk: "pk1", callsign: "Vale", owner: "gm" });
+  mine.step = 5;
+  await act(mine, "enlist");
+  check("enlistment: a player's Enlist goes to the GM's client with the file and a request to wait on",
+    sent[0]?.action === "enlist.create" && sent[0].payload.choices.callsign === "Vale" && !!mine.waiting && sent[0].payload.request === mine.waiting);
+  d = await show(mine, "waiting");
+  check("enlistment: while it waits, the button says so", /Filing with the GM/.test(d.querySelector('[data-action="enlist"]').textContent));
+  const request = mine.waiting;
+  game.user = gm;
+  const handled = await createOperative(sent[0].payload.choices, player, request);
+  check("enlistment: on the GM's client a player's file is always for that player", eq(made.at(-1).ownership, { default: 0, p1: 3 }) && made.at(-1).flags.irop.enlistment.request === request);
+  EnlistmentApp.received(handled.actor);
+  check("enlistment: the operative arriving finishes the player's terminal", !mine.waiting && mine.result?.name === "Vale");
+
+  // The sidebar button.
+  const sideWindow = new JSDOM('<section><div class="header-actions"><button>Create Actor</button></div></section>').window;
+  const side = sideWindow.document;
+  const oldElement = globalThis.HTMLElement;
+  globalThis.HTMLElement = sideWindow.HTMLElement;
+  addEnlistButton(null, side.body.firstElementChild);
+  addEnlistButton(null, side.body.firstElementChild);
+  globalThis.HTMLElement = oldElement;
+  check("enlistment: an Enlist button in the Actors sidebar, once", side.querySelectorAll(".irop-enlist-button").length === 1 && /Enlist/.test(side.querySelector(".irop-enlist-button").textContent));
+
+  foundry.utils = oldUtils;
+  game.user = oldUser;
+  game.users = oldUsers;
+  game.items = oldItems;
+  game.socket = oldSocket;
+  globalThis.ui = oldUi;
+  globalThis.Actor = oldActor;
+}
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

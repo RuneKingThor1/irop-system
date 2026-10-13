@@ -2853,3 +2853,135 @@
 .irop .rep-count { flex: none; min-width: 36px; text-align: right; font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); }
 .irop .territory-card .rep-pips { margin-bottom: 6px; }
 .irop-faction-dialog .form-grid .span-3 { grid-column: span 3; }
+
+/* The enlistment terminal (Johnald, 2026-10-12, mockup A): steps, cards, and the draft record filling in. */
+.irop-enlistment .window-content { padding: 0; overflow: hidden; display: flex; }
+.irop .en-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr) 290px; font-size: 14px;
+  background-image: radial-gradient(circle at 1px 1px, rgba(58, 92, 133, 0.14) 1px, transparent 0); background-size: 22px 22px; }
+.irop .en-rail { background: rgba(13, 17, 22, 0.92); border-right: 1px solid var(--irop-line); padding: 16px 0; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.irop .en-boot { font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); padding: 0 16px 14px; line-height: 1.6; }
+.irop .en-boot b { color: var(--irop-good); font-weight: normal; }
+.irop :where(.window-content) .en-step { display: grid; grid-template-columns: 30px 1fr; gap: 0 8px; align-items: center; text-align: left; width: 100%; height: auto; min-height: 0;
+  background: none; border: 0; border-left: 3px solid transparent; border-radius: 0; padding: 9px 14px 9px 13px; color: var(--irop-muted); box-shadow: none; }
+.irop .en-step .n { font-family: var(--irop-mono); font-size: 12px; }
+.irop .en-step .t { font-family: var(--irop-display); font-weight: 600; font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; }
+.irop .en-step .v { grid-column: 2; font-size: 12px; color: var(--irop-label-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irop .en-step:hover { color: var(--irop-ink-bright); }
+.irop .en-step.on { border-left-color: var(--irop-sky); background: linear-gradient(90deg, rgba(66, 171, 242, 0.14), transparent); color: var(--irop-ink-bright); }
+.irop .en-step.on .n { color: var(--irop-sky); }
+.irop .en-step.done .n::after { content: " \2713"; color: var(--irop-good); }
+.irop .en-step.warn .n::after { content: " !"; color: var(--irop-warn); }
+.irop .en-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 18px 22px 16px; }
+.irop .en-prompt { font-family: var(--irop-mono); color: var(--irop-sky); font-size: 13px; letter-spacing: 0.1em; min-height: 18px; }
+.irop .en-caret { display: inline-block; width: 8px; height: 14px; background: var(--irop-sky); vertical-align: -2px; margin-left: 2px; animation: irop-en-blink 1s steps(1) infinite; }
+@keyframes irop-en-blink { 50% { opacity: 0; } }
+.irop .en-pane { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding-right: 4px; }
+.irop .en-pane.en-slide { animation: irop-en-slide 0.35s ease both; }
+@keyframes irop-en-slide { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+.irop .en-pane h3 { font-family: var(--irop-display); font-weight: 700; font-size: 30px; margin: 4px 0 2px; color: var(--irop-ink-bright); letter-spacing: 0.03em; border: none; }
+.irop .en-sub { margin: 0 0 14px; color: var(--irop-label-ink); }
+.irop .en-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.irop .en-empty { color: var(--irop-muted); font-style: italic; }
+.irop :where(.window-content) .en-card { --c: var(--irop-sky); position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: left; width: auto; height: auto; min-height: 0;
+  background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-radius: 4px; padding: 16px 14px 14px; color: var(--irop-ink); overflow: hidden; box-shadow: none;
+  font-family: inherit; font-size: 14px; line-height: 1.4; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease; }
+.irop .en-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--c); }
+.irop :where(.window-content) .en-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--c) 55%, var(--irop-line)); box-shadow: none; }
+.irop :where(.window-content) .en-card.on { border-color: var(--c);
+  box-shadow: 0 0 0 1px var(--c), 0 10px 30px -12px color-mix(in srgb, var(--c) 80%, transparent), inset 0 0 50px -24px var(--c); }
+.irop .en-card-top { display: flex; align-items: center; gap: 10px; }
+.irop .en-card-top > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.irop .en-thumb { width: 40px; height: 40px; flex: none; border: 1px solid var(--irop-line-bright); border-radius: 3px; object-fit: cover; background: var(--irop-sunk); }
+.irop .en-hex { width: 38px; height: 42px; flex: none; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 22%, var(--irop-sunk)); color: var(--c);
+  font-family: var(--irop-display); font-weight: 700; font-size: 15px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.irop .en-name { font-family: var(--irop-display); font-weight: 700; font-size: 21px; letter-spacing: 0.04em; color: var(--irop-ink-bright); line-height: 1.05; }
+.irop .en-blurb { font-size: 12.5px; color: var(--irop-label-ink); line-height: 1.4; }
+.irop .en-row { display: block; font-size: 12.5px; color: var(--irop-ink); line-height: 1.4; }
+.irop .en-row .k { display: block; font-family: var(--irop-mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--irop-muted); }
+.irop .en-row .free { color: var(--c); }
+.irop .en-stats { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 4px; }
+.irop .en-stats > span { font-family: var(--irop-mono); font-size: 12px; text-align: center; padding: 3px 0; background: var(--irop-sunk); border-radius: 2px; color: var(--irop-label-ink); }
+.irop .en-stats b { display: block; font-weight: normal; font-size: 13px; color: var(--irop-ink-bright); }
+.irop .en-stats .hi b { color: var(--irop-good); }
+.irop .en-stats .lo b { color: var(--irop-bad); }
+.irop .en-perks { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+.irop .en-perks > span { position: relative; padding-left: 14px; }
+.irop .en-perks > span::before { content: ""; position: absolute; left: 0; top: 6px; width: 6px; height: 6px; background: var(--c); transform: rotate(45deg); }
+.irop .en-block { background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-radius: 4px; padding: 12px 14px; margin-bottom: 12px; }
+.irop .en-label { display: block; font-family: var(--irop-mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--irop-label-ink); margin-bottom: 8px; }
+.irop .en-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.irop .en-chip { display: inline-block; font-size: 13px; padding: 5px 12px; border: 1px solid var(--irop-line-bright); border-radius: 14px; background: var(--irop-sunk); color: var(--irop-label-ink); }
+.irop :where(.window-content) button.en-chip { width: auto; height: auto; min-height: 0; line-height: 1.3; box-shadow: none; }
+.irop :where(.window-content) button.en-chip:hover { border-color: var(--irop-sky); }
+.irop :where(.window-content) button.en-chip.on { border-color: var(--irop-sky); background: rgba(66, 171, 242, 0.16); color: var(--irop-ink-bright); }
+.irop .en-chip.fixed { border-color: var(--irop-good); color: var(--irop-good); }
+.irop .en-perk-list { display: grid; gap: 8px; }
+.irop .en-perk { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--irop-line); border-radius: 4px; background: var(--irop-sunk); cursor: pointer; transition: border-color 0.15s ease; }
+.irop .en-perk:hover { border-color: var(--irop-line-bright); }
+.irop .en-perk.on { border-color: var(--irop-sky); box-shadow: inset 0 0 30px -18px var(--irop-sky); }
+.irop .en-perk:focus-visible { outline: 2px solid var(--irop-sky); outline-offset: 2px; }
+.irop .en-perk img { width: 40px; height: 40px; flex: none; border: 1px solid var(--irop-line-bright); border-radius: 3px; }
+.irop .en-perk-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.irop .en-perk-name { font-family: var(--irop-display); font-weight: 700; font-size: 17px; color: var(--irop-ink-bright); }
+.irop .en-perk-meta { font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.irop .en-perk-text { font-size: 13px; color: var(--irop-ink); }
+.irop .en-perk-text p { margin: 2px 0; }
+.irop .en-identity { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 16px; }
+.irop .en-fields { display: grid; gap: 10px; align-content: start; }
+.irop .en-fields label { display: block; }
+.irop .en-fields input, .irop .en-fields select { width: 100%; }
+.irop .en-portrait-pick { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.irop .en-portrait-pick img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border: 1px solid var(--irop-line-bright); background: var(--irop-sunk); }
+.irop :where(.window-content) .en-portrait-pick button { width: 100%; }
+.irop .en-issues p { margin: 4px 0; color: var(--irop-warn); }
+.irop .en-foot { margin-top: auto; padding-top: 14px; display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+.irop .en-hint { margin-right: auto; font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); }
+.irop .en-issue { margin-right: auto; font-size: 13px; color: var(--irop-warn); }
+.irop :where(.window-content) .en-foot button { width: auto; height: 34px; padding: 0 18px; font-family: var(--irop-display); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 14px; }
+.irop :where(.window-content) .en-foot button.go { background: var(--irop-sky); border-color: var(--irop-sky); color: #04121f; }
+.irop :where(.window-content) .en-foot button.go:hover { background: #6cc0f6; }
+.irop .en-dossier { --rc: #3fb8b0; border-left: 1px solid var(--irop-line); background: rgba(10, 13, 18, 0.94); padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.irop .en-dossier > .en-label { color: #3fb8b0; margin: 0; }
+.irop .en-ds-id { display: grid; grid-template-columns: 78px 1fr; gap: 12px; align-items: center; }
+.irop .en-ds-portrait { width: 78px; height: 92px; border: 1px solid var(--rc); background: var(--irop-sunk); transition: border-color 0.3s ease; }
+.irop .en-ds-portrait img { width: 100%; height: 100%; object-fit: cover; border: 0; }
+.irop .en-ds-name { font-family: "Jura", var(--irop-display); font-weight: 700; font-size: 19px; color: var(--irop-ink-bright); line-height: 1.15; }
+.irop .en-ds-line { font-size: 12.5px; color: var(--irop-label-ink); }
+.irop .en-ds-line b { font-weight: 600; color: var(--rc); }
+.irop .en-kv { display: grid; grid-template-columns: 92px 1fr; gap: 4px 8px; font-size: 13px; margin: 0; }
+.irop .en-kv dt { font-family: var(--irop-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-muted); padding-top: 2px; }
+.irop .en-kv dd { margin: 0; color: var(--irop-ink); }
+.irop .en-kv dd.pending { color: var(--irop-muted); font-style: italic; }
+.irop .en-vitals { display: flex; gap: 8px; }
+.irop .en-vitals > div { flex: 1; background: var(--irop-sunk); border: 1px solid var(--irop-line); border-radius: 3px; padding: 6px 8px; font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); }
+.irop .en-vitals b { display: block; font-family: var(--irop-display); font-size: 20px; color: var(--irop-ink-bright); line-height: 1; }
+.irop .en-bars { display: grid; gap: 4px; }
+.irop .en-bar { display: grid; grid-template-columns: 34px 1fr 24px; gap: 8px; align-items: center; font-family: var(--irop-mono); font-size: 12px; color: var(--irop-muted); }
+.irop .en-bar i { height: 6px; background: var(--irop-sunk); border-radius: 3px; overflow: hidden; display: block; }
+.irop .en-bar i span { display: block; height: 100%; background: #3fb8b0; border-radius: 3px; transition: width 0.4s ease; }
+.irop .en-bar em { font-style: normal; color: var(--irop-ink-bright); text-align: right; }
+/* The finish: the record printed and stamped. */
+.irop .en-finish { justify-content: center; align-items: center; gap: 18px; overflow-x: hidden; }
+.irop .en-finish .en-foot { margin-top: 0; padding-top: 0; justify-content: center; }
+.irop .en-record { position: relative; width: min(640px, 100%); border: 1px solid #3fb8b0; background: rgba(8, 18, 20, 0.92); font-family: "Jura", var(--irop-display); color: #cfe9e6; padding: 0 0 76px; }
+.irop .en-rec-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 18px; background: rgba(63, 184, 176, 0.14); border-bottom: 1px solid #3fb8b0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 26px 100%, 0 calc(100% - 14px)); }
+.irop .en-rec-head b { letter-spacing: 0.16em; text-transform: uppercase; font-size: 14px; color: #e6fbf8; }
+.irop .en-rec-head span { font-family: var(--irop-mono); font-size: 12px; color: #3fb8b0; text-transform: uppercase; }
+.irop .en-rec-grid { display: grid; grid-template-columns: 120px 1fr 1fr; gap: 16px; padding: 16px 18px 0; }
+.irop .en-rec-photo { width: 120px; height: 140px; border: 1px solid #3fb8b0; background: #0a1517; }
+.irop .en-rec-photo img { width: 100%; height: 100%; object-fit: cover; border: 0; }
+.irop .en-rec-kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 13px; align-content: start; margin: 0; }
+.irop .en-rec-kv dt { color: #3fb8b0; text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px; padding-top: 2px; }
+.irop .en-rec-kv dd { margin: 0; color: #e6fbf8; }
+.irop .en-rec-log { margin: 14px 18px 0; border-top: 1px dashed rgba(63, 184, 176, 0.5); padding-top: 10px; font-size: 12.5px; color: #a8cfcb; }
+.irop .en-rec-log b { color: #3fb8b0; margin-right: 8px; }
+.irop .en-stamp { position: absolute; right: 30px; bottom: 14px; font-family: var(--irop-display); font-weight: 700; font-size: 44px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: #c4121c; border: 4px double #c4121c; padding: 0 14px; transform: rotate(-9deg); opacity: 0.88; pointer-events: none; }
+.irop .en-stamp small { display: block; font-family: var(--irop-mono); font-size: 12px; letter-spacing: 0.2em; text-align: center; margin-top: -6px; padding-bottom: 4px; }
+.irop .en-stamp.hit { animation: irop-en-stamp 0.55s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes irop-en-stamp { 0% { opacity: 0; transform: rotate(-9deg) scale(2.4); } 60% { opacity: 0.95; transform: rotate(-9deg) scale(0.94); } 100% { opacity: 0.88; transform: rotate(-9deg) scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .irop .en-pane.en-slide, .irop .en-caret, .irop .en-stamp.hit { animation: none; }
+  .irop :where(.window-content) .en-card { transition: none; }
+}

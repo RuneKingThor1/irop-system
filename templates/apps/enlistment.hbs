@@ -1,0 +1,195 @@
+<div class="en-body">
+  {{!-- The enlistment terminal (Johnald, 2026-10-12, mockup A): steps, cards, and the draft record. --}}
+  <nav class="en-rail" aria-label="Enlistment steps">
+    <div class="en-boot">ODR // ARTEMIS<br>link <b>secure</b><br>recruit file <b>{{#if result}}filed{{else}}open{{/if}}</b></div>
+    {{#each steps as |s|}}
+    <button type="button" class="en-step {{#if s.on}}on{{/if}} {{#if s.done}}done{{/if}} {{#if s.warn}}warn{{/if}}" data-action="goStep" data-index="{{s.index}}" {{#if @root.result}}disabled{{/if}}>
+      <span class="n">{{s.n}}</span><span class="t">{{s.label}}</span><span class="v">{{s.value}}</span>
+    </button>
+    {{/each}}
+  </nav>
+
+  <div class="en-main">
+    {{#if result}}
+    {{!-- Enlisted: the record printed and stamped. --}}
+    {{#with result}}
+    <div class="en-pane en-finish">
+      <div class="en-record">
+        <div class="en-rec-head"><b>Eclipse personnel record</b><span>Filed</span></div>
+        <div class="en-rec-grid">
+          <div class="en-rec-photo" style="border-color: {{color}}"><img src="{{img}}" alt=""></div>
+          <dl class="en-rec-kv">
+            <dt>Name</dt><dd>{{#if first}}{{first}} {{last}}{{else}}{{name}}{{/if}}</dd>
+            <dt>Callsign</dt><dd>{{#if callsign}}{{callsign}}{{else}}None{{/if}}</dd>
+            <dt>Species</dt><dd>{{species}}</dd>
+            <dt>Doctrine</dt><dd style="color: {{color}}">{{role}}</dd>
+          </dl>
+          <dl class="en-rec-kv">
+            <dt>Background</dt><dd>{{background}}</dd>
+            {{#if perk}}<dt>Perk</dt><dd>{{perk}}</dd>{{/if}}
+            <dt>Assignment</dt><dd>Eclipse</dd>
+          </dl>
+        </div>
+        <div class="en-rec-log">{{#if enlisted}}<b>{{enlisted}}</b>{{/if}}Enlisted with Eclipse. Starting skills: {{skills}}.</div>
+        <div class="en-stamp">Enlisted<small>ODR command</small></div>
+      </div>
+      <div class="en-foot">
+        <button type="button" class="ghost" data-action="restamp">Stamp again</button>
+        <button type="button" class="ghost" data-action="again">Enlist another</button>
+        <button type="button" class="go" data-action="openSheet"><i class="fa-solid fa-id-badge"></i> Open {{name}}'s sheet</button>
+      </div>
+    </div>
+    {{/with}}
+    {{else}}
+    <div class="en-prompt"><span class="en-prompt-text">&gt; {{prompt}}</span><span class="en-caret"></span></div>
+    <div class="en-pane {{#if slide}}en-slide{{/if}}">
+
+      {{#if is.species}}
+      <h3>Species</h3>
+      <p class="en-sub">Sets your base attributes, health and energy. Each attribute is shown against the human baseline.</p>
+      <div class="en-grid">
+        {{#each species as |s|}}
+        <button type="button" class="en-card {{#if s.on}}on{{/if}}" style="--c: var(--irop-sky)" data-action="pick" data-kind="species" data-id="{{s.id}}" aria-pressed="{{#if s.on}}true{{else}}false{{/if}}">
+          <span class="en-card-top"><img class="en-thumb" src="{{s.img}}" alt=""><span><span class="en-name">{{s.name}}</span><span class="en-blurb">{{s.blurb}}</span></span></span>
+          <span class="en-row"><span class="k">Health / energy</span>{{s.health}} / {{s.energy}}{{#each s.tags as |t|}}. {{t}}{{/each}}</span>
+          <span class="en-stats">{{#each s.attributes as |a|}}<span class="{{#if (gt a.diff 0)}}hi{{/if}}{{#if (lt a.diff 0)}}lo{{/if}}">{{a.abbr}}<b>{{a.value}}</b></span>{{/each}}</span>
+        </button>
+        {{else}}<p class="en-empty">No playable species in this world yet. The GM adds them to the Items sidebar.</p>{{/each}}
+      </div>
+      {{/if}}
+
+      {{#if is.role}}
+      <h3>Doctrine</h3>
+      <p class="en-sub">Your role sets your starting skills, the weapons you train with, and the perk trees you grow into.</p>
+      <div class="en-grid">
+        {{#each roles as |r|}}
+        <button type="button" class="en-card {{#if r.on}}on{{/if}}" style="--c: {{r.color}}" data-action="pick" data-kind="role" data-id="{{r.id}}" aria-pressed="{{#if r.on}}true{{else}}false{{/if}}">
+          <span class="en-card-top"><span class="en-hex">{{r.abbr}}</span><span class="en-name">{{r.name}}</span></span>
+          <span class="en-blurb">{{r.blurb}}</span>
+          {{#if r.free}}<span class="en-row"><span class="k">Starting skills</span><span class="free">{{r.free}}</span>{{#if r.options}}, then {{r.options}}{{/if}}</span>{{/if}}
+          {{#if r.weapons}}<span class="en-row"><span class="k">Weapons</span>{{r.weapons}}</span>{{/if}}
+        </button>
+        {{else}}<p class="en-empty">No roles in this world yet.</p>{{/each}}
+      </div>
+      {{/if}}
+
+      {{#if is.background}}
+      <h3>Background</h3>
+      <p class="en-sub">Who you were before Eclipse. You pick some of its skills, and one of its perks.</p>
+      <div class="en-grid">
+        {{#each backgrounds as |b|}}
+        <button type="button" class="en-card {{#if b.on}}on{{/if}}" style="--c: var(--irop-teal, #3fb8b0)" data-action="pick" data-kind="background" data-id="{{b.id}}" aria-pressed="{{#if b.on}}true{{else}}false{{/if}}">
+          <span class="en-card-top"><img class="en-thumb" src="{{b.img}}" alt=""><span class="en-name">{{b.name}}</span></span>
+          {{#if b.blurb}}<span class="en-blurb">{{b.blurb}}</span>{{/if}}
+          {{#if b.skills}}<span class="en-row"><span class="k">Skills, pick {{b.pick}}</span>{{b.skills}}</span>{{/if}}
+          {{#if b.perks.length}}<span class="en-perks">{{#each b.perks as |p|}}<span>{{p}}</span>{{/each}}</span>{{/if}}
+          {{#if b.paraphysical}}<span class="en-row"><span class="k">Paraphysical</span>Opens the Paraphysics panel</span>{{/if}}
+        </button>
+        {{else}}<p class="en-empty">No backgrounds in this world yet.</p>{{/each}}
+      </div>
+      {{/if}}
+
+      {{#if is.skills}}
+      <h3>Skills and perk</h3>
+      <p class="en-sub">Each skill picked goes up one rank. One taken from both goes up two.</p>
+      {{#with skills}}
+      <div class="en-block">
+        <span class="en-label">{{role.name}}: {{#if role.free.length}}one free{{/if}}{{#if role.pick}}, pick {{role.pick}} more{{/if}}</span>
+        <div class="en-chips">
+          {{#each role.free as |f|}}<span class="en-chip fixed">{{f.label}}, free</span>{{/each}}
+          {{#each role.options as |o|}}<button type="button" class="en-chip {{#if o.on}}on{{/if}}" data-action="roleSkill" data-skill="{{o.key}}">{{o.label}}</button>{{/each}}
+        </div>
+      </div>
+      <div class="en-block">
+        <span class="en-label">{{background.name}}: pick {{background.pick}} ({{background.count}} of {{background.pick}})</span>
+        <div class="en-chips">
+          {{#each background.options as |o|}}<button type="button" class="en-chip {{#if o.on}}on{{/if}}" data-action="backgroundSkill" data-skill="{{o.key}}">{{o.label}}</button>{{/each}}
+        </div>
+      </div>
+      {{#if perks.length}}
+      <div class="en-block">
+        <span class="en-label">{{background.name}}: one background perk</span>
+        <div class="en-perk-list">
+          {{#each perks as |p|}}
+          <div role="button" tabindex="0" class="en-perk {{#if p.on}}on{{/if}}" data-action="perk" data-perk="{{p.id}}" aria-pressed="{{#if p.on}}true{{else}}false{{/if}}">
+            <img src="{{p.img}}" alt="">
+            <span class="en-perk-body"><span class="en-perk-name">{{p.name}}</span>{{#if p.meta}}<span class="en-perk-meta">{{p.meta}}</span>{{/if}}
+              {{#if p.missing}}<span class="en-perk-meta">Its ability is missing from this world. The GM can fix the background.</span>{{/if}}
+              <div class="en-perk-text">{{{p.description}}}</div></span>
+          </div>
+          {{/each}}
+        </div>
+      </div>
+      {{/if}}
+      {{else}}<p class="en-empty">Choose a role and a background first.</p>{{/with}}
+      {{/if}}
+
+      {{#if is.identity}}
+      <h3>Identity</h3>
+      <p class="en-sub">Your record keeps your full name. Your sheet and token go by your callsign, or your name if you have none.</p>
+      <div class="en-block en-identity">
+        <div class="en-fields">
+          <label><span class="en-label">First name</span><input type="text" data-field="firstName" value="{{identity.firstName}}" autocomplete="off"></label>
+          <label><span class="en-label">Last name</span><input type="text" data-field="lastName" value="{{identity.lastName}}" autocomplete="off"></label>
+          <label><span class="en-label">Callsign</span><input type="text" data-field="callsign" value="{{identity.callsign}}" autocomplete="off"></label>
+          {{#if identity.owners.length}}
+          <label><span class="en-label">For</span><select data-field="owner">{{#each identity.owners as |o|}}<option value="{{o.id}}" {{#if o.on}}selected{{/if}}>{{o.name}}</option>{{/each}}</select></label>
+          {{/if}}
+        </div>
+        <div class="en-portrait-pick">
+          <span class="en-label">Portrait</span>
+          <img src="{{identity.img}}" alt="">
+          <button type="button" class="ghost" data-action="browse"><i class="fa-solid fa-image"></i> Choose an image</button>
+        </div>
+      </div>
+      {{/if}}
+
+      {{#if is.review}}
+      <h3>Review</h3>
+      <p class="en-sub">Check your file. Enlisting makes the operative and hands it to you.</p>
+      {{#if review.length}}
+      <div class="en-block en-issues">{{#each review as |r|}}<p><b>{{r.step}}:</b> {{r.text}}</p>{{/each}}</div>
+      {{else}}
+      <div class="en-block">
+        <dl class="en-kv">
+          <dt>Name</dt><dd>{{dossier.name}}</dd>
+          <dt>Species</dt><dd>{{dossier.species}}</dd>
+          <dt>Role</dt><dd style="color: {{dossier.color}}">{{dossier.role}}</dd>
+          <dt>Background</dt><dd>{{dossier.background}}{{#if dossier.perk}}, {{dossier.perk}}{{/if}}</dd>
+          <dt>Skills</dt><dd>{{dossier.skills}}</dd>
+        </dl>
+      </div>
+      {{/if}}
+      {{/if}}
+
+      <div class="en-foot">
+        {{#if issue}}<span class="en-issue">{{issue}}</span>{{else}}<span class="en-hint">Step {{stepNo}} of {{stepCount}}</span>{{/if}}
+        {{#unless first}}<button type="button" class="ghost" data-action="back">Back</button>{{/unless}}
+        {{#if last}}
+        <button type="button" class="go" data-action="enlist" {{#if waiting}}disabled{{/if}}>{{#if waiting}}Filing with the GM...{{else}}<i class="fa-solid fa-stamp"></i> Enlist{{/if}}</button>
+        {{else}}
+        <button type="button" class="go" data-action="next">Next</button>
+        {{/if}}
+      </div>
+    </div>
+    {{/if}}
+  </div>
+
+  <aside class="en-dossier" style="--rc: {{#if dossier.color}}{{dossier.color}}{{else}}var(--irop-teal, #3fb8b0){{/if}}">
+    <span class="en-label">Personnel record, {{#if result}}filed{{else}}draft{{/if}}</span>
+    <div class="en-ds-id">
+      <div class="en-ds-portrait"><img src="{{dossier.img}}" alt=""></div>
+      <div><div class="en-ds-name">{{dossier.name}}</div>
+        <div class="en-ds-line">{{dossier.species}} {{#if dossier.role}}<b>{{dossier.role}}</b>{{/if}}</div></div>
+    </div>
+    <dl class="en-kv">
+      <dt>Background</dt><dd class="{{#unless dossier.background}}pending{{/unless}}">{{#if dossier.background}}{{dossier.background}}{{else}}Pending{{/if}}</dd>
+      <dt>Perk</dt><dd class="{{#unless dossier.perk}}pending{{/unless}}">{{#if dossier.perk}}{{dossier.perk}}{{else}}Pending{{/if}}</dd>
+      <dt>Skills</dt><dd class="{{#unless dossier.skills}}pending{{/unless}}">{{#if dossier.skills}}{{dossier.skills}}{{else}}Pending{{/if}}</dd>
+    </dl>
+    {{#if dossier.bars.length}}
+    <div class="en-vitals"><div>Health<b>{{dossier.health}}</b></div><div>Energy<b>{{dossier.energy}}</b></div></div>
+    <div class="en-bars">{{#each dossier.bars as |a|}}<div class="en-bar">{{a.abbr}}<i><span style="width: {{a.pct}}%"></span></i><em>{{a.value}}</em></div>{{/each}}</div>
+    {{else}}<p class="en-empty">Choose a species to see your attributes.</p>{{/if}}
+  </aside>
+</div>
