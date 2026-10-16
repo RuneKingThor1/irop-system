@@ -2985,3 +2985,17 @@
   .irop .en-pane.en-slide, .irop .en-caret, .irop .en-stamp.hit { animation: none; }
   .irop :where(.window-content) .en-card { transition: none; }
 }
+
+/* The enlistment terminal's Mutations step (2026-10-16): the Baron's rolls. */
+.irop .en-mut-list { display: grid; gap: 8px; margin-bottom: 12px; }
+.irop .en-mut { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--irop-line); border-left: 3px solid var(--irop-good); background: var(--irop-sunk); }
+.irop .en-mut.negative { border-left-color: var(--irop-bad); }
+.irop .en-mut img { width: 40px; height: 40px; flex: none; border: 1px solid var(--irop-line-bright); border-radius: 3px; }
+.irop .en-mut-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.irop .en-mut-head { display: flex; align-items: baseline; gap: 10px; }
+.irop .en-mut-roll { font-family: var(--irop-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-muted); }
+.irop .en-mut-log p { margin: 2px 0; font-family: var(--irop-mono); font-size: 12px; color: var(--irop-label-ink); }
+.irop :where(.window-content) .en-roll, .irop :where(.window-content) .en-reroll { align-self: flex-start; width: auto; height: 38px; padding: 0 22px; margin-bottom: 10px;
+  font-family: var(--irop-display); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 15px; }
+.irop :where(.window-content) .en-roll { background: var(--irop-sky); border-color: var(--irop-sky); color: #04121f; }
+.irop :where(.window-content) .en-roll:hover { background: #6cc0f6; }

@@ -27,6 +27,7 @@
           <dl class="en-rec-kv">
             <dt>Background</dt><dd>{{background}}</dd>
             {{#if perk}}<dt>Perk</dt><dd>{{perk}}</dd>{{/if}}
+            {{#if mutations}}<dt>Mutations</dt><dd>{{mutations}}</dd>{{/if}}
             <dt>Assignment</dt><dd>Eclipse</dd>
           </dl>
         </div>
@@ -124,6 +125,33 @@
       {{else}}<p class="en-empty">Choose a role and a background first.</p>{{/with}}
       {{/if}}
 
+      {{#if is.mutations}}
+      {{!-- Mutations (2026-10-16): the Baron's rolls, for a species that carries them. --}}
+      <h3>Mutations</h3>
+      <p class="en-sub">Roll twice on the Positive table and once on the Negative. A duplicate Positive is rerolled, and the Negative may be rerolled once. Every roll goes to chat.</p>
+      {{#with mutations}}
+      {{#if ready}}
+      {{#if rolled}}
+      <div class="en-mut-list">
+        {{#each chosen as |m|}}
+        <div class="en-mut {{m.polarity}}"><img src="{{m.img}}" alt="">
+          <span class="en-mut-body"><span class="en-mut-head"><span class="en-mut-roll">{{m.label}} {{m.n}}</span><span class="en-perk-name">{{m.name}}</span></span>
+            <div class="en-perk-text">{{{m.description}}}</div></span></div>
+        {{/each}}
+      </div>
+      <div class="en-block en-mut-log"><span class="en-label">Rolls</span>{{#each log as |l|}}<p>{{l}}</p>{{/each}}</div>
+      {{#if canReroll}}<button type="button" class="ghost en-reroll" data-action="rerollNegative"><i class="fa-solid fa-rotate"></i> Reroll the Negative, once</button>
+      {{else}}{{#if rerolled}}<p class="hint">The Negative was rerolled; the second outcome stands.</p>{{/if}}{{/if}}
+      {{else}}
+      <button type="button" class="en-roll" data-action="rollMutations"><i class="fa-solid fa-dice-d20"></i> Roll mutations</button>
+      {{/if}}
+      <p class="hint">{{#if fromTables}}Rolled on the world's Positive and Negative mutations (d20) tables.{{else}}This world has no mutation roll tables, so each mutation of the kind is equally likely.{{/if}}</p>
+      {{else}}
+      <p class="en-empty">This world has no player mutations yet. The GM runs the player mutations macro, then this step can roll.</p>
+      {{/if}}
+      {{/with}}
+      {{/if}}
+
       {{#if is.identity}}
       <h3>Identity</h3>
       <p class="en-sub">Your record keeps your full name. Your sheet and token go by your callsign, or your name if you have none.</p>
@@ -157,6 +185,7 @@
           <dt>Role</dt><dd style="color: {{dossier.color}}">{{dossier.role}}</dd>
           <dt>Background</dt><dd>{{dossier.background}}{{#if dossier.perk}}, {{dossier.perk}}{{/if}}</dd>
           <dt>Skills</dt><dd>{{dossier.skills}}</dd>
+          {{#if dossier.mutations}}<dt>Mutations</dt><dd>{{dossier.mutations}}</dd>{{/if}}
         </dl>
       </div>
       {{/if}}
@@ -186,6 +215,7 @@
       <dt>Background</dt><dd class="{{#unless dossier.background}}pending{{/unless}}">{{#if dossier.background}}{{dossier.background}}{{else}}Pending{{/if}}</dd>
       <dt>Perk</dt><dd class="{{#unless dossier.perk}}pending{{/unless}}">{{#if dossier.perk}}{{dossier.perk}}{{else}}Pending{{/if}}</dd>
       <dt>Skills</dt><dd class="{{#unless dossier.skills}}pending{{/unless}}">{{#if dossier.skills}}{{dossier.skills}}{{else}}Pending{{/if}}</dd>
+      {{#if dossier.carriesMutations}}<dt>Mutations</dt><dd class="{{#unless dossier.mutations}}pending{{/unless}}">{{#if dossier.mutations}}{{dossier.mutations}}{{else}}Pending{{/if}}</dd>{{/if}}
     </dl>
     {{#if dossier.bars.length}}
     <div class="en-vitals"><div>Health<b>{{dossier.health}}</b></div><div>Energy<b>{{dossier.energy}}</b></div></div>

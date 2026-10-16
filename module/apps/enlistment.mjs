@@ -1,6 +1,7 @@
 import { IROP } from "../config.mjs";
 import {
-  STEPS, DEFAULT_IMG, blurb, speciesAttributes, rolePlan, backgroundPlan, skillsTaken, startingRanks, operativeName, stepIssues, operativeData
+  STEPS, DEFAULT_IMG, blurb, speciesAttributes, rolePlan, backgroundPlan, skillsTaken, startingRanks, operativeName, stepIssues, operativeData,
+  stepsFor, rollMutations, rerollNegative, mutationsRolled, mutationIds
 } from "../rules/enlistment.mjs";
 import { perkMeta, liveBackground } from "../rules/backgrounds.mjs";
 import { asGM, registerAction } from "../socket.mjs";
@@ -31,9 +32,43 @@ export function enlistmentItems(items = game.items ?? []) {
   const order = Object.keys(IROP.roles);
   return {
     species: items.filter(i => (i.type === "species") && (i.system.playable !== false)).sort(byName),
-    roles: items.filter(i => i.type === "role").sort((a, b) => (order.indexOf(a.system.role) - order.indexOf(b.system.role)) || byName(a, b)),
-    backgrounds: items.filter(i => i.type === "background").sort(byName)
+    // Roles and backgrounds the GM unticked "Offered at enlistment" for stay out (2026-10-16).
+    roles: items.filter(i => (i.type === "role") && (i.system.enlist !== false)).sort((a, b) => (order.indexOf(a.system.role) - order.indexOf(b.system.role)) || byName(a, b)),
+    backgrounds: items.filter(i => (i.type === "background") && (i.system.enlist !== false)).sort(byName)
   };
+}
+
+/**
+ * The player mutation tables (2026-10-16): the world's "Positive mutations (d20)" and "Negative
+ * mutations (d20)" roll tables when there (dev/player-mutations-macro.js makes them), whose results
+ * point at Mutation items; otherwise every Mutation item of that polarity, flat odds, leaving out
+ * the test kit's placeholders.
+ * @returns {{positive: object[], negative: object[], fromTables: boolean, ready: boolean}}
+ */
+export function mutationTables({ tables = game.tables, items = game.items } = {}) {
+  const out = { fromTables: false };
+  for ( const polarity of ["positive", "negative"] ) {
+    const label = (polarity === "positive") ? "Positive" : "Negative";
+    const table = tables?.find?.(t => t.name === `${label} mutations (d20)`);
+    let rows = Array.from(table?.results ?? []).map(r => {
+      const doc = r.documentUuid ? foundry.utils.fromUuidSync(r.documentUuid) : null;
+      return (doc?.type === "mutation") ? { lo: r.range[0], hi: r.range[1], id: doc.id, name: doc.name } : null;
+    }).filter(Boolean);
+    if ( rows.length ) out.fromTables = true;
+    else {
+      rows = (items?.filter?.(i => (i.type === "mutation") && (i.system.polarity === polarity) && !/\(test\)\s*$/i.test(i.name)) ?? [])
+        .sort(byName).map((m, i) => ({ lo: i + 1, hi: i + 1, id: m.id, name: m.name }));
+    }
+    out[polarity] = rows;
+  }
+  out.ready = (new Set(out.positive.map(r => r.id)).size >= 2) && (out.negative.length >= 1);
+  return out;
+}
+
+/** A die from 1 to faces, on Foundry's own random numbers. */
+function rollDie(faces) {
+  const u = globalThis.CONFIG?.Dice?.randomUniform?.() ?? Math.random();
+  return Math.min(faces, Math.max(1, Math.ceil(u * faces)));
 }
 
 /** The ability a background's perk entry points at, if it is in this world. */
@@ -63,9 +98,20 @@ export async function createOperative(choices = {}, user = game.user, request = 
   const species = game.items.get(choices.species);
   const role = game.items.get(choices.role);
   const background = game.items.get(choices.background);
-  const issues = Object.values(stepIssues(choices, { species, role, background })).filter(Boolean);
+  const tables = mutationTables();
+  const issues = Object.values(stepIssues(choices, { species, role, background, mutationsReady: tables.ready })).filter(Boolean);
   if ( issues.length ) return { error: issues[0] };
   if ( (species.type !== "species") || (role.type !== "role") || (background.type !== "background") ) return { error: "Those choices are not a species, role and background." };
+  // The mutations rolled: two Positive and one Negative, all this world's Mutation items.
+  let mutations = [];
+  if ( species.system.mutations && tables.ready ) {
+    const docs = mutationIds(choices.mutations).map(id => game.items.get(id));
+    const count = polarity => docs.filter(d => (d?.type === "mutation") && (d.system.polarity === polarity)).length;
+    if ( (docs.length !== 3) || (new Set(docs.map(d => d?.id)).size !== 3) || (count("positive") !== 2) || (count("negative") !== 1) ) {
+      return { error: "The mutations rolled are not two different Positives and one Negative from this world. Roll them again." };
+    }
+    mutations = docs.map(d => d.toObject());
+  }
   const live = liveBackground(background);
   const entry = (live.system?.perks ?? []).find(p => p.id === choices.perk);
   const ability = entry?.uuid ? await foundry.utils.fromUuid(entry.uuid) : null;
@@ -73,7 +119,7 @@ export async function createOperative(choices = {}, user = game.user, request = 
   const owner = user.isGM ? (game.users.get(choices.owner)?.id ?? user.id) : user.id;
   const data = operativeData(choices, {
     species: species.toObject(), role: role.toObject(), background: live.toObject?.() ?? background.toObject(),
-    perkAbility: (ability?.type === "ability") ? ability.toObject() : null
+    perkAbility: (ability?.type === "ability") ? ability.toObject() : null, mutations
   }, { owner, date: await today(), request });
   const actor = await Actor.implementation.create(data);
   if ( !actor ) return { error: "The operative could not be made." };
@@ -100,6 +146,8 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       roleSkill: EnlistmentApp.#onRoleSkill,
       backgroundSkill: EnlistmentApp.#onBackgroundSkill,
       perk: EnlistmentApp.#onPerk,
+      rollMutations: EnlistmentApp.#onRollMutations,
+      rerollNegative: EnlistmentApp.#onRerollNegative,
       browse: EnlistmentApp.#onBrowse,
       enlist: EnlistmentApp.#onEnlist,
       openSheet: EnlistmentApp.#onOpenSheet,
@@ -124,16 +172,26 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Where the recruit is: the step, the choices, and the operative once made. */
   step = 0;
 
-  choices = { species: "", role: "", background: "", roleSkill: "", backgroundSkills: [], perk: "", firstName: "", lastName: "", callsign: "", img: DEFAULT_IMG, owner: "" };
+  choices = EnlistmentApp.freshChoices();
 
-  /** The operative made, the request waiting on the GM's client, and the steps visited. */
+  /** A recruit with nothing chosen yet. */
+  static freshChoices() {
+    return { species: "", role: "", background: "", roleSkill: "", backgroundSkills: [], perk: "", firstName: "", lastName: "", callsign: "", img: DEFAULT_IMG, owner: "", mutations: null };
+  }
+
+  /** The operative made, the request waiting on the GM's client, and the steps visited, by key. */
   result = null;
   waiting = "";
-  visited = new Set([0]);
+  visited = new Set(["species"]);
   #typed = -1;
   #typer = null;
   /** The step last shown: the pane slides in only when the step changes, not on every pick. */
   #shown = -1;
+
+  /** The steps for the species chosen: Mutations only for one that carries them. */
+  get steps() {
+    return stepsFor(this.picked.species);
+  }
 
   /** The chosen species, role and background items. */
   get picked() {
@@ -146,7 +204,10 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const c = this.choices;
     const { species, role, background } = this.picked;
     const list = enlistmentItems();
-    const issues = stepIssues(c, { species, role, background });
+    const tables = mutationTables();
+    const issues = stepIssues(c, { species, role, background, mutationsReady: tables.ready });
+    const steps = this.steps;
+    if ( this.step >= steps.length ) this.step = steps.length - 1;
     const roleColor = role ? (IROP.roles[role.system.role]?.color ?? "#42abf2") : "";
     const rp = rolePlan(role);
     const bp = backgroundPlan(background);
@@ -154,7 +215,8 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const taken = skillsTaken(c, role, background);
     const ranks = startingRanks(taken);
     const perkEntry = (bgLive?.system?.perks ?? []).find(p => p.id === c.perk);
-    const key = STEPS[this.step].key;
+    const key = steps[this.step].key;
+    const mutationItems = (species?.system?.mutations ? mutationIds(c.mutations) : []).map(id => game.items?.get(id)).filter(Boolean);
 
     // The cards on each step.
     const speciesCards = list.species.map(s => ({
@@ -194,17 +256,35 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }))
     } : null;
 
+    // Mutations, for a species that carries them.
+    const pad = n => String(n).padStart(2, "0");
+    const mutations = (key === "mutations") ? {
+      ready: tables.ready, fromTables: tables.fromTables, rolled: mutationsRolled(c.mutations), canReroll: mutationsRolled(c.mutations) && !c.mutations.rerolled,
+      rerolled: !!c.mutations?.rerolled,
+      chosen: await Promise.all(mutationItems.map(async (m, i) => ({
+        name: m.name, img: m.img, polarity: m.system.polarity, label: (m.system.polarity === "negative") ? "Negative" : "Positive",
+        n: pad(i < 2 ? c.mutations.positive[i].n : c.mutations.negative.n),
+        description: await foundry.applications.ux.TextEditor.implementation.enrichHTML(m.system.description ?? "", { relativeTo: m })
+      }))),
+      log: (c.mutations?.log ?? []).map(l => `${(l.table === "negative") ? "Negative" : "Positive"} ${pad(l.n)}: ${l.name}${l.note ? `, ${l.note}` : ""}`)
+    } : null;
+
     const isGM = !!game.user?.isGM;
     const name = operativeName(c);
     const s = species?.system;
     return {
-      step: this.step, stepNo: this.step + 1, stepCount: STEPS.length, key, is: { [key]: true }, slide: this.#shown !== this.step, prompt: STEPS[this.step].prompt, isGM,
-      steps: STEPS.map((st, i) => ({
+      step: this.step, stepNo: this.step + 1, stepCount: steps.length, key, is: { [key]: true }, slide: this.#shown !== this.step, prompt: steps[this.step].prompt, isGM,
+      steps: steps.map((st, i) => ({
         n: `0${i + 1}`, index: i, label: st.label, on: i === this.step,
-        done: !issues[st.key] && (i < this.step || this.visited.has(i)) && (st.key !== "review"),
-        warn: !!issues[st.key] && this.visited.has(i) && (i !== this.step),
-        value: [species?.name, role?.name, background?.name, taken.length ? `${taken.length} skills${perkEntry ? ", a perk" : ""}` : "", name, ""][i] ?? ""
+        done: !issues[st.key] && (i < this.step || this.visited.has(st.key)) && (st.key !== "review"),
+        warn: !!issues[st.key] && this.visited.has(st.key) && (i !== this.step),
+        value: {
+          species: species?.name, role: role?.name, background: background?.name,
+          skills: taken.length ? `${taken.length} skills${perkEntry ? ", a perk" : ""}` : "",
+          mutations: mutationItems.length ? `${mutationItems.length} rolled` : "", identity: name
+        }[st.key] ?? ""
       })),
+      mutations,
       issue: issues[key], first: this.step === 0, last: key === "review",
       species: speciesCards, roles: roleCards, backgrounds: backgroundCards, skills,
       identity: {
@@ -219,6 +299,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
         species: species?.name ?? "", role: role?.name ?? "", background: background?.name ?? "",
         perk: perkEntry ? (perkAbility(perkEntry)?.name ?? perkEntry.name) : "",
         skills: Object.entries(ranks).map(([k, r]) => (r > 1 ? `${skillLabel(k)} ${r}` : skillLabel(k))).join(", "),
+        carriesMutations: !!s?.mutations, mutations: mutationItems.map(m => m.name).join(", "),
         health: s?.health ?? "", energy: s?.energy ?? "",
         bars: s ? speciesAttributes(s).map(a => ({ ...a, pct: Math.min(100, Math.round((a.value / 70) * 100)) })) : []
       },
@@ -228,6 +309,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
         first: c.firstName, last: c.lastName, species: species?.name ?? "", role: role?.name ?? "", background: background?.name ?? "",
         perk: perkEntry ? (perkAbility(perkEntry)?.name ?? perkEntry.name) : "",
         enlisted: this.result.system?.details?.record?.enlisted ?? "",
+        mutations: mutationItems.map(m => m.name).join(", "),
         skills: Object.entries(ranks).map(([k, r]) => (r > 1 ? `${skillLabel(k)} ${r}` : skillLabel(k))).join(", ")
       } : null
     };
@@ -278,8 +360,9 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Go to a step; the card grid starts at the top. */
   #goTo(i) {
-    this.step = Math.max(0, Math.min(STEPS.length - 1, i));
-    this.visited.add(this.step);
+    const steps = this.steps;
+    this.step = Math.max(0, Math.min(steps.length - 1, i));
+    this.visited.add(steps[this.step].key);
     return this.render();
   }
 
@@ -329,6 +412,37 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return this.render();
   }
 
+  /** Roll the mutations, once: two Positives (duplicates rerolled) and a Negative, posted to chat. */
+  static async #onRollMutations() {
+    if ( mutationsRolled(this.choices.mutations) ) return null;
+    const tables = mutationTables();
+    if ( !tables.ready ) return ui.notifications.warn("This world has no player mutation tables yet. The GM runs the player mutations macro.");
+    this.choices.mutations = rollMutations(tables, rollDie);
+    await this.#announce(this.choices.mutations.log);
+    return this.render();
+  }
+
+  /** Controlled Mutation: the Negative rolled once more, posted to chat. */
+  static async #onRerollNegative() {
+    const before = this.choices.mutations;
+    if ( !mutationsRolled(before) || before.rerolled ) return null;
+    this.choices.mutations = rerollNegative(before, mutationTables(), rollDie);
+    await this.#announce(this.choices.mutations.log.slice(before.log.length));
+    return this.render();
+  }
+
+  /** The rolls in chat, for the table to see. */
+  async #announce(lines) {
+    if ( !lines?.length ) return null;
+    const who = foundry.utils.escapeHTML(operativeName(this.choices) || `${game.user.name}'s recruit`);
+    const pad = n => String(n).padStart(2, "0");
+    const rows = lines.map(l => `<li>${(l.table === "negative") ? "Negative" : "Positive"} <strong>${pad(l.n)}</strong>: ${foundry.utils.escapeHTML(l.name)}${l.note ? ` <em>(${foundry.utils.escapeHTML(l.note)})</em>` : ""}</li>`);
+    return globalThis.ChatMessage?.implementation?.create?.({
+      speaker: { alias: "ODR enlistment" },
+      content: `<div class="irop-card"><header class="card-head"><span class="card-sub">Mutations, d20</span><h3>${who}</h3></header><ul class="debrief-lines">${rows.join("")}</ul></div>`
+    });
+  }
+
   /** Pick a portrait. */
   static #onBrowse() {
     const Picker = foundry.applications.apps.FilePicker.implementation;
@@ -337,7 +451,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Enlist: made here by a GM, or by the active GM's client for a player. */
   static async #onEnlist() {
-    const issues = Object.values(stepIssues(this.choices, this.picked)).filter(Boolean);
+    const issues = Object.values(stepIssues(this.choices, { ...this.picked, mutationsReady: mutationTables().ready })).filter(Boolean);
     if ( issues.length ) return ui.notifications.warn(issues[0]);
     if ( game.user.isGM ) {
       const done = await createOperative(this.choices, game.user);
@@ -389,9 +503,9 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Start a fresh recruit. */
   static #onAgain() {
     this.step = 0;
-    this.visited = new Set([0]);
+    this.visited = new Set(["species"]);
     this.result = null;
-    this.choices = { species: "", role: "", background: "", roleSkill: "", backgroundSkills: [], perk: "", firstName: "", lastName: "", callsign: "", img: DEFAULT_IMG, owner: "" };
+    this.choices = EnlistmentApp.freshChoices();
     return this.render();
   }
 }

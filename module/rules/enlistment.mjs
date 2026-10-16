@@ -11,7 +11,14 @@ import { perkCopy } from "./backgrounds.mjs";
  * tested; strategy-free, it reads plain item data.
  *
  * Choices: {species, role, background (item ids), roleSkill (a skill key), backgroundSkills
- * (skill keys), perk (the background's perk entry id), firstName, lastName, callsign, img, owner}
+ * (skill keys), perk (the background's perk entry id), firstName, lastName, callsign, img, owner,
+ * mutations (the rolls, below)}
+ *
+ * Mutations (Johnald, 2026-10-16): a species that carries them (Mutant) gets a Mutations step. The
+ * Playable Mutants rules: roll twice on the Positive table, rerolling duplicates, and once on the
+ * Negative, which may be rerolled once (Controlled Mutation) for the second outcome. A table is a
+ * list of {lo, hi, id, name}; the rolls kept are {positive: [entry], negative: entry, rerolled,
+ * log: [{table, n, name, note}]}, an entry being {n, id, name}.
  */
 
 /** The steps, in order. */
@@ -20,9 +27,70 @@ export const STEPS = [
   { key: "role", label: "Role", prompt: "Select doctrine" },
   { key: "background", label: "Background", prompt: "Select background" },
   { key: "skills", label: "Skills and perk", prompt: "Assign starting skills" },
+  { key: "mutations", label: "Mutations", prompt: "Sequence mutations" },
   { key: "identity", label: "Identity", prompt: "Identify recruit" },
   { key: "review", label: "Review", prompt: "Confirm enlistment" }
 ];
+
+/** The steps for a species: Mutations only when it carries them. */
+export function stepsFor(species) {
+  return STEPS.filter(s => (s.key !== "mutations") || !!species?.system?.mutations);
+}
+
+/** The table entry a roll lands on, or null. */
+export function entryAt(table, n) {
+  const e = (table ?? []).find(x => (n >= x.lo) && (n <= x.hi));
+  return e ? { n, id: e.id, name: e.name } : null;
+}
+
+/** The die a table rolls: its highest number. */
+export function dieOf(table) {
+  return Math.max(0, ...(table ?? []).map(x => x.hi));
+}
+
+/**
+ * Roll a Baron's mutations: two different Positives (duplicates rerolled) and one Negative.
+ * @param {{positive: object[], negative: object[]}} tables
+ * @param {(faces: number) => number} roll   A die: 1 to faces
+ */
+export function rollMutations(tables, roll) {
+  const log = [];
+  const positive = [];
+  const pDie = dieOf(tables.positive);
+  for ( let tries = 0; (positive.length < 2) && (tries < 60) && pDie; tries++ ) {
+    const hit = entryAt(tables.positive, roll(pDie));
+    if ( !hit ) continue;
+    const dup = positive.some(p => p.id === hit.id);
+    log.push({ table: "positive", n: hit.n, name: hit.name, note: dup ? "duplicate, rerolled" : "" });
+    if ( !dup ) positive.push(hit);
+  }
+  const nDie = dieOf(tables.negative);
+  let negative = null;
+  for ( let tries = 0; !negative && (tries < 60) && nDie; tries++ ) negative = entryAt(tables.negative, roll(nDie));
+  if ( negative ) log.push({ table: "negative", n: negative.n, name: negative.name, note: "" });
+  return { positive, negative, rerolled: false, log };
+}
+
+/** Controlled Mutation: the Negative rolled once more, the second outcome taken. Only once. */
+export function rerollNegative(state, tables, roll) {
+  if ( !state?.negative || state.rerolled ) return state;
+  const nDie = dieOf(tables.negative);
+  let negative = null;
+  for ( let tries = 0; !negative && (tries < 60) && nDie; tries++ ) negative = entryAt(tables.negative, roll(nDie));
+  if ( !negative ) return state;
+  return { ...state, negative, rerolled: true,
+    log: [...state.log, { table: "negative", n: negative.n, name: negative.name, note: `rerolled, replacing ${state.negative.name}` }] };
+}
+
+/** Whether the rolls are complete: two Positives and a Negative. */
+export function mutationsRolled(state) {
+  return !!state && ((state.positive?.length ?? 0) >= 2) && !!state.negative;
+}
+
+/** The mutation item ids the rolls give, Positives first. */
+export function mutationIds(state) {
+  return mutationsRolled(state) ? [...state.positive.map(p => p.id), state.negative.id] : [];
+}
 
 /** The default picture for a new operative. */
 export const DEFAULT_IMG = "icons/svg/mystery-man.svg";
@@ -86,7 +154,7 @@ export function operativeName(choices) {
  * @param {{species?: object, role?: object, background?: object}} items   The chosen items
  * @returns {Record<string, string>}   By step key
  */
-export function stepIssues(choices, { species = null, role = null, background = null } = {}) {
+export function stepIssues(choices, { species = null, role = null, background = null, mutationsReady = true } = {}) {
   const rp = rolePlan(role);
   const bp = backgroundPlan(background);
   const picked = (choices.backgroundSkills ?? []).filter(k => bp.options.includes(k)).length;
@@ -103,6 +171,8 @@ export function stepIssues(choices, { species = null, role = null, background = 
     role: role ? "" : "Choose a role.",
     background: background ? "" : "Choose a background.",
     skills: skills.join(" "),
+    // A species that carries mutations rolls them, once the world has the tables to roll on.
+    mutations: (species?.system?.mutations && mutationsReady && !mutationsRolled(choices.mutations)) ? "Roll your mutations." : "",
     identity: operativeName(choices) ? "" : "Give a callsign or a name.",
     review: ""
   };
@@ -119,7 +189,7 @@ export function stepIssues(choices, { species = null, role = null, background = 
  * @param {{owner?: string, date?: string, request?: string}} [options]
  * @returns {object}   Actor creation data
  */
-export function operativeData(choices, { species, role, background, perkAbility = null }, { owner = "", date = "", request = "" } = {}) {
+export function operativeData(choices, { species, role, background, perkAbility = null, mutations = [] }, { owner = "", date = "", request = "" } = {}) {
   const strip = data => {
     const copy = structuredClone(data);
     for ( const key of ["_id", "folder", "sort", "ownership", "_stats"] ) delete copy[key];
@@ -134,6 +204,8 @@ export function operativeData(choices, { species, role, background, perkAbility 
   const items = [strip(species), strip(role), strip(background)];
   const entry = (background.system?.perks ?? []).find(p => p.id === choices.perk);
   if ( entry && perkAbility ) items.push(perkCopy(strip(perkAbility), background.name, entry));
+  // The mutations rolled, for a species that carries them.
+  if ( species.system?.mutations ) for ( const m of mutations ) items.push(strip(m));
   const record = {
     firstName: String(choices.firstName ?? "").trim(),
     lastName: String(choices.lastName ?? "").trim(),

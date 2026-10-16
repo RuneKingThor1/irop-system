@@ -1,6 +1,7 @@
 <section class="tab details {{tab.cssClass}}" data-group="primary" data-tab="details">
   <div class="form-grid">
     <label><span>Doctrine</span><select name="system.role">{{selectOptions config.roles selected=system.role}}</select></label>
+    {{#if isGM}}<label class="check" data-tooltip="Untick to keep it out of the enlistment terminal, without deleting it"><input type="checkbox" name="system.enlist" {{checked system.enlist}}><span>Offered at enlistment</span></label>{{/if}}
   </div>
   <label class="wide-field"><span>Starting skills</span><input type="text" name="system.startingSkills" value="{{system.startingSkills}}" placeholder="Athletics, Tactics or History" data-tooltip="The first comes free; a new character picks one of the others"></label>
   <label class="wide-field"><span>Preferred attributes</span><input type="text" name="system.preferredAttributes" value="{{system.preferredAttributes}}"></label>

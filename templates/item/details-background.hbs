@@ -5,6 +5,7 @@
   <p class="hint">If a background grants a skill the operative already has, raise that skill by one rank instead.</p>
   {{!-- The GM's call, so players never see it (Johnald, 2026-10-10). --}}
   {{#if isGM}}
+  <label class="check" data-tooltip="Untick to keep it out of the enlistment terminal, without deleting it"><input type="checkbox" name="system.enlist" {{checked system.enlist}}><span>Offered at enlistment</span></label>
   <label class="check" data-tooltip="Grants the Paraphysical tag: the Abilities tab shows the Paraphysics panel">
     <input type="checkbox" name="system.paraphysical" {{checked system.paraphysical}}><span>Paraphysical</span></label>
   {{/if}}

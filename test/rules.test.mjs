@@ -1294,8 +1294,9 @@ check("disorientated both ways",
     system: { startingSkills: "Awareness, Deception, Coercion, Insight, Atheltics, Lock Picking", skillPicks: 3, perks: [{ id: "pk1", uuid: "Item.ab1", name: "One of Us", img: "" }] } };
   const ability = { _id: "ab1", name: "One of Us", type: "ability", img: "one.webp", system: { description: "<p>Slums.</p>", source: "generalist" }, flags: {} };
 
-  check("enlistment: six steps, in mockup A's order",
-    en.STEPS.map(s => s.key).join() === "species,role,background,skills,identity,review");
+  check("enlistment: mockup A's steps, with Mutations only for a species that carries them (2026-10-16)",
+    en.stepsFor({ system: { mutations: false } }).map(s => s.key).join() === "species,role,background,skills,identity,review"
+      && en.stepsFor(species).map(s => s.key).join() === "species,role,background,skills,mutations,identity,review" && en.stepsFor(null).length === 6);
   check("enlistment: a card's blurb is plain text, cut at a sentence",
     en.blurb("<p>Short one.</p>") === "Short one." && en.blurb("<p>First sentence here. Second sentence is much longer than the room left for it.</p>", 30) === "First sentence here."
       && en.blurb("") === "");
@@ -1322,7 +1323,32 @@ check("disorientated both ways",
   check("enlistment: the skills step names what is still to pick",
     half.skills === "Pick 1 of Marauder's skills. Pick 3 of Slum Dweller's skills (1 picked). Pick one of Slum Dweller's perks.", half.skills);
   const full = { ...choices, backgroundSkills: ["athletics", "deception", "insight"] };
-  check("enlistment: all chosen, nothing is missing", Object.values(en.stepIssues(full, { species, role, background })).every(v => v === ""));
+  check("enlistment: a Mutant still has mutations to roll; with none in the world, that does not block",
+    en.stepIssues(full, { species, role, background }).mutations === "Roll your mutations."
+      && en.stepIssues(full, { species, role, background, mutationsReady: false }).mutations === "");
+
+  // Mutations (2026-10-16): two different Positives, duplicates rerolled; one Negative, rerolled once at most.
+  const tables = {
+    positive: [{ lo: 1, hi: 1, id: "p1", name: "Armored Hide" }, { lo: 2, hi: 2, id: "p2", name: "Twin Hearts" }, { lo: 3, hi: 3, id: "p3", name: "Iron Gut" }],
+    negative: [{ lo: 1, hi: 1, id: "n1", name: "Frayed Focus" }, { lo: 2, hi: 2, id: "n2", name: "Molt Cycle" }]
+  };
+  const dice = list => { let i = 0; const faces = []; const roll = f => { faces.push(f); return list[i++]; }; roll.faces = faces; return roll; };
+  const d1 = dice([2, 2, 3, 1]);
+  const rolled = en.rollMutations(tables, d1);
+  check("mutations: two Positives, a duplicate rerolled, then one Negative, each on its own die",
+    eq(rolled.positive.map(p => p.id), ["p2", "p3"]) && rolled.negative.id === "n1" && eq(d1.faces, [3, 3, 3, 2]) && !rolled.rerolled
+      && eq(rolled.log.map(l => `${l.table[0]}${l.n} ${l.note}`.trim()), ["p2", "p2 duplicate, rerolled", "p3", "n1"]));
+  check("mutations: the rolls give their items, Positives first, and count as done", en.mutationsRolled(rolled) && eq(en.mutationIds(rolled), ["p2", "p3", "n1"])
+    && !en.mutationsRolled(null) && eq(en.mutationIds({ positive: [{ id: "p1" }] }), []));
+  const again = en.rerollNegative(rolled, tables, dice([2]));
+  check("mutations: Controlled Mutation rerolls the Negative once, the second outcome taken and logged",
+    again.negative.id === "n2" && again.rerolled && /rerolled, replacing Frayed Focus/.test(again.log.at(-1).note)
+      && (en.rerollNegative(again, tables, dice([1])) === again));
+  check("mutations: a roll off the table is rolled again; an empty table rolls nothing",
+    en.rollMutations({ positive: [{ lo: 1, hi: 2, id: "a", name: "A" }, { lo: 4, hi: 4, id: "b", name: "B" }], negative: [] }, dice([3, 1, 4])).positive.length === 2
+      && en.rollMutations({ positive: [], negative: [] }, dice([])).negative === null && en.entryAt(tables.negative, 7) === null);
+  const withMutations = { ...full, mutations: rolled };
+  check("enlistment: all chosen and mutations rolled, nothing is missing", Object.values(en.stepIssues(withMutations, { species, role, background })).every(v => v === ""));
 
   const data = en.operativeData(full, { species, role, background, perkAbility: ability }, { owner: "p1", date: "17 May 2040", request: "rq1" });
   check("enlistment: the operative: named, the default picture, the player's own, the token to match",
@@ -1340,6 +1366,12 @@ check("disorientated both ways",
       && perk.system.source === "background" && perk.system.tree === "Slum Dweller" && eq(perk.flags.irop.backgroundPerk, { background: "Slum Dweller", perk: "pk1", uuid: "Item.ab1" }));
   check("enlistment: the request it answers is on the operative, for the player's client to find",
     data.flags.irop.enlistment.request === "rq1" && data.flags.irop.enlistment.by === "p1" && species._id === "sp1");
+  const mutated = en.operativeData(withMutations, { species, role, background, perkAbility: ability,
+    mutations: [{ _id: "p2", name: "Twin Hearts", type: "mutation", system: { polarity: "positive" } }, { _id: "n1", name: "Frayed Focus", type: "mutation", system: { polarity: "negative" } }] });
+  const humanData = en.operativeData(withMutations, { species: { ...species, system: { ...species.system, mutations: false } }, role, background,
+    mutations: [{ _id: "p2", name: "Twin Hearts", type: "mutation", system: {} }] });
+  check("enlistment: a Mutant's mutations come along as copies; a species without them takes none",
+    eq(mutated.items.slice(4).map(i => i.name), ["Twin Hearts", "Frayed Focus"]) && !("_id" in mutated.items[4]) && !humanData.items.some(i => i.type === "mutation"));
   const bare = en.operativeData({ ...full, perk: "" }, { species, role, background, perkAbility: null }, {});
   check("enlistment: with no perk, owner or date, none is invented", bare.items.length === 3 && eq(bare.ownership, { default: 0 }) && bare.system.details.record.timeline.length === 0);
 }

@@ -216,6 +216,8 @@ export class ArmorData extends foundry.abstract.TypeDataModel {
       // of shots against you." RULED 2026-10-07: worn Defense is added to every attack
       // roll against the wearer, paraphysical ones included ("all attacks", Field Manual).
       defense: int(0, { min: 0 }),
+      // Barrier (Johnald, 2026-10-13: some armor provides it): added to the wearer's Barrier maximum while worn.
+      barrier: int(0, { min: 0 }),
       dr: new fields.SchemaField(dr),
       // Flat bonus per speed, which varies from armor to armor. Usually +1 Run and +1 Sprint.
       mobility: new fields.SchemaField(Object.fromEntries(Object.keys(IROP.speeds).map(k => [k, int(0)]))),
@@ -379,7 +381,9 @@ export class RoleData extends foundry.abstract.TypeDataModel {
       preferredAttributes: text(""),
       weaponSpecialties: text(""),
       roleAbilities: text(""),
-      specializations: text("")
+      specializations: text(""),
+      // Offered in the enlistment terminal (Johnald, 2026-10-16): untick to keep it out of character creation.
+      enlist: new fields.BooleanField({ initial: true }),
     };
   }
 }
@@ -396,6 +400,8 @@ export class BackgroundData extends foundry.abstract.TypeDataModel {
       skillPicks: int(3, { min: 0 }),
       // RULED 2026-10-08: grants the Paraphysical tag (the Awakened background does).
       paraphysical: new fields.BooleanField({ initial: false }),
+      // Offered in the enlistment terminal (Johnald, 2026-10-16): untick to keep it out of character creation.
+      enlist: new fields.BooleanField({ initial: true }),
       // Background perks (Johnald, 2026-10-10): a new character takes one. Each points at its
       // ability, with the name and picture as last seen (rules/backgrounds.mjs).
       perks: new fields.ArrayField(new fields.SchemaField({

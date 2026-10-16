@@ -124,6 +124,11 @@ check("worn armor points only", m.vitals.armor.max === 4, m.vitals.armor.max);
 // RULED 2026-10-07: Defense (the live Armor Bonus) is its own number, from worn armor only, separate from armor HP.
 check("worn armor Defense only, apart from armor HP", m.defense === 6 && m.vitals.armor.max === 4, m.defense);
 check("no armor, no Defense", prepare(OperativeData, {}).defense === 0);
+// Barrier from armor (Johnald, 2026-10-13): worn armor adds its Barrier to the maximum, beside effect bonuses.
+check("worn armor's Barrier adds to the Barrier maximum, with bonuses; armor not worn adds none",
+  prepare(OperativeData, { vitals: { barrier: { bonus: 2 } } }, [
+    { type: "armor", system: { equipped: true, barrier: 5 } }, { type: "armor", system: { equipped: false, barrier: 9 } }]).vitals.barrier.max === 7
+    && prepare(OperativeData, {}).vitals.barrier.max === 0);
 check("armor both worn and stowed counts for nothing (2026-10-08)", prepare(OperativeData, {}, [
   { type: "armor", system: { equipped: true, stowed: true, defense: 6, points: 4 } }]).defense === 0);
 check("a Defense bonus outside armor adds on", prepare(OperativeData, { bonuses: { defense: 5 } }, [

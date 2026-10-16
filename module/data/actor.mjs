@@ -195,13 +195,14 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     const d = IROP.derived;
     const v = this.vitals;
 
-    // Equipped armor feeds armor points, defense, damage reduction, mobility and dodges.
-    const armor = { points: 0, defense: 0, dodges: 0, dr: {}, move: Object.fromEntries(Object.keys(IROP.speeds).map(k => [k, 0])) };
+    // Equipped armor feeds armor points, defense, barrier, damage reduction, mobility and dodges.
+    const armor = { points: 0, defense: 0, barrier: 0, dodges: 0, dr: {}, move: Object.fromEntries(Object.keys(IROP.speeds).map(k => [k, 0])) };
     for ( const item of this.parent.items ) {
       // Worn and not stowed (2026-10-08): stowing takes armor off, but older data may carry both.
       if ( (item.type !== "armor") || !item.system.equipped || item.system.stowed ) continue;
       armor.points += item.system.points;
       armor.defense += item.system.defense;
+      armor.barrier += item.system.barrier ?? 0;
       for ( const k of Object.keys(armor.move) ) armor.move[k] += item.system.mobility[k] ?? 0;
       armor.dodges += item.system.dodges;
       for ( const [type, n] of Object.entries(item.system.dr) ) armor.dr[type] = (armor.dr[type] ?? 0) + n;
@@ -210,7 +211,7 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     v.hp.max = d.health(mods, species) + v.hp.bonus;
     v.energy.max = d.energy(mods, species) + v.energy.bonus;
     v.armor.max = armor.points + v.armor.bonus;
-    v.barrier.max = v.barrier.bonus;
+    v.barrier.max = armor.barrier + v.barrier.bonus;
     v.luck.max = d.luck(mods);
     v.dodges.max = d.dodges(mods) + armor.dodges + v.dodges.bonus;
 

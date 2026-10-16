@@ -58,6 +58,7 @@ export function itemStats(item) {
   if ( item.type === "armor" ) {
     add("Defense", s.defense ?? 0);
     add("Armor", s.points ?? 0);
+    if ( s.barrier ) add("Barrier", s.barrier);
     const dr = Object.entries(s.dr ?? {}).filter(([, n]) => n).map(([k, n]) => `${IROP.damageTypes[k]?.label ?? k} ${n}`);
     if ( dr.length ) add("Damage reduction", dr.join(", "));
     const move = Object.entries(s.mobility ?? {}).filter(([, n]) => n).map(([k, n]) => `${signed(n)} ${IROP.speeds[k] ?? k}`);

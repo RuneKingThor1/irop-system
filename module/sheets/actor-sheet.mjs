@@ -121,6 +121,7 @@ function armorStats(s) {
   return [
     { label: "Defense", value: String(s.defense), dim: !s.defense, tip: "Defense Value: added to every attack roll against the wearer" },
     { label: "Armor HP", value: String(s.points), dim: !s.points, tip: "Adaptive Armor: bonus HP that soaks damage first" },
+    { label: "Barrier", value: String(s.barrier ?? 0), dim: !s.barrier, tip: "Added to your Barrier maximum while worn" },
     { label: "DR", value: dr.value, dim: dr.dim, tip: dr.tip ? `Damage reduction: ${dr.tip}` : "No damage reduction" },
     { label: "Mobility", value: mob.value, dim: mob.dim, tip: mob.tip ? `Mobility: ${mob.tip}` : "No mobility bonus" },
     { label: "Dodges", value: s.dodges ? signed(s.dodges) : "0", dim: !s.dodges, tip: "Extra dodges per round" }

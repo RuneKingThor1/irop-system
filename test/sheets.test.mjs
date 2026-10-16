@@ -313,10 +313,10 @@ for ( const editMode of [false, true] ) {
   const statsOf = row => [...row.querySelectorAll(".item-stats > .item-stat")]
     .map(c => `${c.querySelector(".label").textContent.trim()}=${c.querySelector(".value").textContent.trim().replace(/\s+/g, " ")}`);
   const kevlarStats = statsOf(combatDoc.querySelector('.armor-row[data-item-id="kevlar"]'));
-  check(`operative ${mode}: an armor row reads Defense, Armor HP, DR, Mobility, Dodges, each labelled`,
-    kevlarStats.join() === "Defense=6,Armor HP=4,DR=1,Mobility=0,Dodges=0", kevlarStats.join());
+  check(`operative ${mode}: an armor row reads Defense, Armor HP, Barrier, DR, Mobility, Dodges, each labelled`,
+    kevlarStats.join() === "Defense=6,Armor HP=4,Barrier=0,DR=1,Mobility=0,Dodges=0", kevlarStats.join());
   check(`operative ${mode}: armor DR explains itself on hover`,
-    combatDoc.querySelector('.armor-row[data-item-id="kevlar"] .item-stat:nth-child(3)').dataset.tooltip === "Damage reduction: Ballistic 1, Physical 1");
+    combatDoc.querySelector('.armor-row[data-item-id="kevlar"] .item-stat:nth-child(4)').dataset.tooltip === "Damage reduction: Ballistic 1, Physical 1");
   check(`operative ${mode}: the combat tab shows the character's Defense`,
     operative.system.defense === 6 && /Defense <strong>6<\/strong>/.test(out.combat));
   // Weapon chips read as the D.M. on the roll, as the Field Manual prints them: accuracy 30 is "ACC -30" (2026-10-07).
@@ -6669,7 +6669,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
 // The enlistment terminal (Johnald, 2026-10-12, mockup A): every step rendered, the picks, and the operative made.
 {
   foundry.applications.api.ApplicationV2 ??= class { constructor(options = {}) { this.options = options; } render() { return this; } };
-  const { EnlistmentApp, enlistmentItems, createOperative, registerEnlistment, addEnlistButton } = await import("../module/apps/enlistment.mjs");
+  const { EnlistmentApp, enlistmentItems, createOperative, registerEnlistment, addEnlistButton, mutationTables } = await import("../module/apps/enlistment.mjs");
   const oldUser = game.user;
   const oldUsers = game.users;
   const oldItems = game.items;
@@ -6695,7 +6695,17 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
       description: "<p>The Marauder doctrine did not emerge from a planning room. It emerged from a wheat field.</p>" }),
     mk("sd", "Slum Dweller", "background", { startingSkills: "Awareness, Deception, Coercion, Insight, Atheltics, Lock Picking", skillPicks: 3,
       perks: [{ id: "pk1", uuid: "Item.ab1", name: "One of Us", img: "" }, { id: "pk2", uuid: "Item.gone", name: "Lost Perk", img: "" }] }),
-    mk("ab1", "One of Us", "ability", { description: "<p>Reputation in the slums rises by 2 extra points.</p>", kind: "passive" })
+    mk("ab1", "One of Us", "ability", { description: "<p>Reputation in the slums rises by 2 extra points.</p>", kind: "passive" }),
+    // Unticked "Offered at enlistment" (2026-10-16): kept out of the creator.
+    mk("hp", "Hidden Past", "background", { enlist: false }),
+    // Player mutations (2026-10-16), and the test kit's placeholder, which is never rolled.
+    mk("m1", "Armored Hide", "mutation", { polarity: "positive", description: "<p>Gain +3 Defense.</p>" }),
+    mk("m2", "Twin Hearts", "mutation", { polarity: "positive" }),
+    mk("m3", "Iron Gut", "mutation", { polarity: "positive" }),
+    mk("mt", "Positive Mutation (test)", "mutation", { polarity: "positive" }),
+    mk("n1", "Frayed Focus", "mutation", { polarity: "negative" }),
+    mk("n2", "Molt Cycle", "mutation", { polarity: "negative" }),
+    mk("ow", "Old Warmachine", "role", { role: "warmachine", enlist: false })
   ];
   world.get = id => world.find(d => d.id === id) ?? null;
   game.items = world;
@@ -6710,14 +6720,28 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   game.user = gm;
   const made = [];
   globalThis.Actor = { implementation: { create: async data => { made.push(data); return { id: `a${made.length}`, name: data.name, img: data.img, system: data.system, flags: data.flags }; } } };
+  // Foundry's dice, on a list we choose (each u in 0 to 1); and chat, collected.
+  const oldConfig = globalThis.CONFIG;
+  const oldChat = globalThis.ChatMessage;
+  const uniforms = [];
+  globalThis.CONFIG = { ...(oldConfig ?? {}), Dice: { randomUniform: () => uniforms.shift() ?? 0.01 } };
+  const posted = [];
+  globalThis.ChatMessage = { implementation: { create: async m => { posted.push(m); return m; } } };
   const ACTIONS = new Set(Object.keys(EnlistmentApp.DEFAULT_OPTIONS.actions));
   const act = (app, name, dataset = {}) => EnlistmentApp.DEFAULT_OPTIONS.actions[name].call(app, {}, { dataset });
   const show = async (app, label) => inspect(`enlistment ${label}`, tpl("templates/apps/enlistment.hbs")(await app._prepareContext({})), { actions: ACTIONS, source: {} });
   const texts = (doc, sel) => [...doc.querySelectorAll(sel)].map(e => e.textContent.replace(/\s+/g, " ").trim());
   const eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
 
+  const fromTable = mutationTables({ items: world, tables: [{ name: "Positive mutations (d20)",
+    results: [{ range: [1, 10], documentUuid: "Item.m2" }, { range: [11, 20], documentUuid: "Item.m1" }, { range: [21, 21], documentUuid: "Item.gone" }] }] });
+  check("enlistment: mutations roll on the world's d20 table when there, its ranges kept; otherwise on the items, placeholder left out",
+    fromTable.fromTables && eq(fromTable.positive.map(r => `${r.lo}-${r.hi} ${r.name}`), ["1-10 Twin Hearts", "11-20 Armored Hide"])
+      && eq(fromTable.negative.map(r => r.name), ["Frayed Focus", "Molt Cycle"]) && fromTable.ready
+      && eq(mutationTables({ items: world, tables: [] }).positive.map(r => r.name), ["Armored Hide", "Iron Gut", "Twin Hearts"])
+      && !mutationTables({ items: [], tables: [] }).ready);
   const app = new EnlistmentApp();
-  check("enlistment: playable species, roles in doctrine order, backgrounds", eq(Object.fromEntries(Object.entries(enlistmentItems()).map(([k, v]) => [k, v.map(i => i.id)])),
+  check("enlistment: playable species, roles in doctrine order, backgrounds; none the GM took off the offer", eq(Object.fromEntries(Object.entries(enlistmentItems()).map(([k, v]) => [k, v.map(i => i.id)])),
     { species: ["hu", "mu"], roles: ["lg", "mr"], backgrounds: ["sd"] }));
   let d = await show(app, "species");
   check("enlistment: it opens on species: six steps down the rail, the first lit, the record a blank draft",
@@ -6765,6 +6789,33 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     eq(app.choices.backgroundSkills, ["athletics", "insight", "coercion"]) && /Athletics 2/.test(d.querySelector(".en-dossier").textContent)
       && /One of Us/.test(d.querySelector(".en-dossier").textContent) && !d.querySelector(".en-issue"));
   await act(app, "next");
+  d = await show(app, "mutations");
+  check("enlistment: a Mutant's Mutations step, after skills, with nothing rolled yet",
+    texts(d, ".en-step .t").join() === "Species,Role,Background,Skills and perk,Mutations,Identity,Review" && d.querySelector(".en-step.on")?.dataset.index === "4"
+      && !!d.querySelector('[data-action="rollMutations"]') && /Roll your mutations/.test(d.querySelector(".en-issue")?.textContent ?? "")
+      && /Mutations\s*Pending/.test(d.querySelector(".en-dossier").textContent) && /equally likely/.test(d.querySelector(".en-pane").textContent));
+  // Positive die of 3 (the placeholder left out): 2, 2 again, then 3; Negative die of 2: 1.
+  uniforms.push(0.5, 0.5, 0.9, 0.1);
+  await act(app, "rollMutations");
+  d = await show(app, "mutations rolled");
+  check("enlistment: rolled: two different Positives, the duplicate rerolled, and a Negative, each shown with its roll and text",
+    texts(d, ".en-mut .en-perk-name").join() === "Iron Gut,Twin Hearts,Frayed Focus" && texts(d, ".en-mut-roll").join() === "Positive 02,Positive 03,Negative 01"
+      && d.querySelector(".en-mut.negative .en-perk-name")?.textContent === "Frayed Focus", texts(d, ".en-mut .en-perk-name").join());
+  check("enlistment: the rolls are logged, the duplicate named, and posted to chat",
+    texts(d, ".en-mut-log p").join(" | ") === "Positive 02: Iron Gut | Positive 02: Iron Gut, duplicate, rerolled | Positive 03: Twin Hearts | Negative 01: Frayed Focus"
+      && /Mutations, d20/.test(posted.at(-1)?.content ?? "") && /duplicate, rerolled/.test(posted.at(-1).content), texts(d, ".en-mut-log p").join(" | "));
+  check("enlistment: the record lists them; one reroll of the Negative is offered",
+    /Iron Gut, Twin Hearts, Frayed Focus/.test(d.querySelector(".en-dossier").textContent) && !!d.querySelector('[data-action="rerollNegative"]')
+      && !d.querySelector('[data-action="rollMutations"]') && !d.querySelector(".en-issue"));
+  uniforms.push(0.9);
+  await act(app, "rerollNegative");
+  await act(app, "rollMutations");
+  d = await show(app, "mutations rerolled");
+  check("enlistment: Controlled Mutation: the Negative rerolled once, the second outcome kept, no third chance and no fresh roll",
+    /Molt Cycle/.test(d.querySelector(".en-dossier").textContent) && !/Frayed Focus/.test(d.querySelector(".en-dossier").textContent)
+      && !d.querySelector('[data-action="rerollNegative"]') && /second outcome stands/.test(d.querySelector(".en-pane").textContent)
+      && /replacing Frayed Focus/.test(posted.at(-1).content) && (app.choices.mutations.log.length === 5));
+  await act(app, "next");
   d = await show(app, "identity");
   check("enlistment: identity: names, callsign, a portrait, and for the GM, who it is for",
     ["firstName", "lastName", "callsign", "owner"].every(f => !!d.querySelector(`[data-field="${f}"]`)) && texts(d, '[data-field="owner"] option').join() === "GM (you),Johnald"
@@ -6780,14 +6831,18 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   const data = made.at(-1);
   check("enlistment: the GM enlists for a player: the operative is theirs, named by callsign, with the picks applied",
     data?.name === "Ghost" && eq(data.ownership, { default: 0, p1: 3 }) && data.system.skills.athletics.rank === 2 && data.system.attributes.cha.base === 45
-      && data.items.map(i => i.name).join() === "Mutant,Marauder,Slum Dweller,One of Us" && data.system.details.record.firstName === "Kael");
+      && data.items.map(i => i.name).join() === "Mutant,Marauder,Slum Dweller,One of Us,Iron Gut,Twin Hearts,Molt Cycle" && data.system.details.record.firstName === "Kael");
   check("enlistment: a player with no character gets this one", player.updates.at(-1)?.character === "a1");
   d = await show(app, "finish");
   check("enlistment: the finish: the record printed and stamped, the rail locked, the sheet a click away",
     /ENLISTED|Enlisted/.test(d.querySelector(".en-stamp").textContent) && /Kael Hart/.test(d.querySelector(".en-record").textContent) && /One of Us/.test(d.querySelector(".en-record").textContent)
-      && [...d.querySelectorAll(".en-step")].every(b => b.disabled) && !!d.querySelector('[data-action="openSheet"]') && !!d.querySelector('[data-action="again"]'));
+      && [...d.querySelectorAll(".en-step")].every(b => b.disabled) && !!d.querySelector('[data-action="openSheet"]') && !!d.querySelector('[data-action="again"]')
+      && /Iron Gut, Twin Hearts, Molt Cycle/.test(d.querySelector(".en-record").textContent));
   await act(app, "again");
-  check("enlistment: Enlist another starts a fresh recruit", app.step === 0 && !app.result && !app.choices.species);
+  check("enlistment: Enlist another starts a fresh recruit, rolls and all", app.step === 0 && !app.result && !app.choices.species && !app.choices.mutations);
+  const forged = await createOperative({ ...app.choices, species: "mu", role: "mr", background: "sd", roleSkill: "athletics", backgroundSkills: ["athletics", "insight", "coercion"],
+    perk: "pk1", callsign: "Forge", mutations: { positive: [{ n: 1, id: "m1" }, { n: 1, id: "m1" }], negative: { n: 1, id: "n1" }, rerolled: false, log: [] } }, gm);
+  check("enlistment: the GM's client refuses mutations that are not two different Positives and a Negative", /not two different Positives and one Negative/.test(forged.error ?? ""), forged.error);
 
   // A refused file: the GM's client says what is missing.
   const refused = await createOperative({ species: "mu", role: "mr", background: "sd", roleSkill: "", backgroundSkills: [], perk: "", callsign: "X" }, gm);
@@ -6835,6 +6890,8 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   game.socket = oldSocket;
   globalThis.ui = oldUi;
   globalThis.Actor = oldActor;
+  globalThis.CONFIG = oldConfig;
+  globalThis.ChatMessage = oldChat;
 }
 
 console.log(`${pass} passed, ${fail} failed`);

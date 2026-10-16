@@ -3,6 +3,7 @@
     <label><span>Class</span><select name="system.armorClass">{{selectOptions config.armorClasses selected=system.armorClass}}</select></label>
     <label data-tooltip="Defense Value: added to every attack roll against the wearer (the old sheet's Armor Bonus)"><span>Defense</span><input type="number" name="system.defense" value="{{system.defense}}"></label>
     <label data-tooltip="Adaptive Armor: bonus HP added while worn (the old sheet's HP Bonus)"><span>Armor HP</span><input type="number" name="system.points" value="{{system.points}}"></label>
+    <label data-tooltip="Added to the wearer's Barrier maximum while worn"><span>Barrier</span><input type="number" name="system.barrier" value="{{system.barrier}}" min="0"></label>
     <label data-tooltip="Extra dodges per round"><span>Dodges</span><input type="number" name="system.dodges" value="{{system.dodges}}"></label>
     <label data-tooltip="Blank uses the default for the class ({{defaultSlots}})"><span>Mod slots</span>
       <input type="number" name="system.modSlots" value="{{systemSource.modSlots}}" placeholder="{{defaultSlots}}"></label>
