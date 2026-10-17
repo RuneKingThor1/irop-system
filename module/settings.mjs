@@ -212,6 +212,16 @@ export function registerSettings() {
     onChange: () => Hooks.callAll("irop.tokenBarsChanged")
   });
 
+  // Hover previews (Johnald, 2026-10-16): a portrait or token's picture full size in the lower left.
+  game.settings.register(SYSTEM, "hoverPreview", {
+    name: "Picture previews on hover",
+    hint: "Rest the mouse on a portrait, a store's picture or a token to see the picture full size in the lower left corner. Each person chooses their own.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // The turn order ribbon across the top in combat (Johnald, 2026-10-11): each person shows it or not,
   // and the GM picks whether the line turns so whoever acts leads it, or keeps initiative order.
   const ribbonChanged = () => Hooks.callAll("irop.turnRibbonChanged");

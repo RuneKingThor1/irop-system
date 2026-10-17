@@ -10,7 +10,8 @@
   </nav>
   {{/if}}
   <header class="store-head">
-    <img class="store-img" src="{{store.img}}" alt="" {{#if editing}}data-action="editImage" data-edit="img" data-tooltip="Change the picture"{{/if}}>
+    {{!-- Larger, for detailed art (Johnald, 2026-10-16); in the shop a click shows it full size. --}}
+    <img class="store-img" src="{{store.img}}" alt="{{store.name}}" data-irop-preview {{#if editing}}data-action="editImage" data-edit="img" data-tooltip="Change the picture"{{else}}data-action="showImage" data-shop data-tooltip="Show the picture full size"{{/if}}>
     <div class="store-title">
       {{#if editing}}
       <input class="store-name" type="text" name="name" value="{{store.name}}" placeholder="Store name">
@@ -27,14 +28,14 @@
       {{else}}
       <h1 class="store-name">{{store.name}}</h1>
       <p class="store-terms-read">Prefers {{preferredLabel}}. {{#if markupText}}Prices {{markupText}}. {{/if}}{{#if sellBack}}Buys back at {{sellBack}}% of an item's price.{{else}}Buys nothing.{{/if}}</p>
+      {{!-- Beside the larger picture, so it takes no room from the shelf (2026-10-16). --}}
+      {{#if descriptionHTML}}<div class="store-description">{{{descriptionHTML}}}</div>{{/if}}
       {{/if}}
     </div>
   </header>
 
   {{#if editing}}
   <prose-mirror class="store-description" name="system.description" value="{{system.description}}" toggled>{{{descriptionHTML}}}</prose-mirror>
-  {{else if descriptionHTML}}
-  <div class="store-description">{{{descriptionHTML}}}</div>
   {{/if}}
 
   <section class="store-buyer">

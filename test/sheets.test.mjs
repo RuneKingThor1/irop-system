@@ -6717,6 +6717,45 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     /On a success, background perks add/.test(dialog.querySelector(".debrief-perks")?.textContent ?? "") && /Supply Run/.test(dialog.body.textContent) && !none.querySelector(".debrief-perks"));
 }
 
+// Hover previews (Johnald, 2026-10-16): a portrait or token's picture full size in the lower left.
+{
+  const hp = await import("../module/hover-preview.mjs");
+  const eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const player = { id: "p1", isGM: false };
+  const actor = (img, may) => ({ img, name: "Wraith", testUserPermission: () => may });
+  const token = (a, src = "tokens/wraith.webp") => ({ actor: a, document: { name: "Wraith", texture: { src } } });
+  check("hover preview: a token shows its actor's portrait to whoever may see the actor, with its name",
+    eq(hp.tokenPreview(token(actor("art/wraith-hd.webp", true)), player), { src: "art/wraith-hd.webp", name: "Wraith" }));
+  check("hover preview: an actor kept from the player shows only the token's own art, unnamed; a blank portrait falls back too",
+    eq(hp.tokenPreview(token(actor("art/secret.webp", false)), player), { src: "tokens/wraith.webp", name: "" })
+      && (hp.tokenPreview(token(actor("icons/svg/mystery-man.svg", true)), player).src === "tokens/wraith.webp")
+      && (hp.tokenPreview(token(null, ""), player) === null));
+  const win = new JSDOM("<body><div class=\"adjusting\"><img id=\"framing\" src=\"b.webp\" data-irop-preview></div><img id=\"p\" src=\"a.webp\" alt=\"Ghost\" data-irop-preview><img id=\"icon\" src=\"i.webp\"></body>").window;
+  const keep = { document: globalThis.document, Hooks: globalThis.Hooks, setTimeout: globalThis.setTimeout };
+  const hooks = {};
+  globalThis.document = win.document;
+  globalThis.Hooks = { on: (name, fn) => { hooks[name] = fn; } };
+  globalThis.setTimeout = fn => { fn(); return 0; };
+  hp.registerHoverPreview();
+  const over = (el, from = null) => el.dispatchEvent(new win.MouseEvent("pointerover", { bubbles: true, relatedTarget: from }));
+  over(win.document.getElementById("p"));
+  const panel = win.document.getElementById("irop-hover-preview");
+  check("hover preview: resting on an opted in picture shows it full size with its name",
+    panel?.classList.contains("on") && /a\.webp$/.test(panel.querySelector("img").src) && panel.querySelector("figcaption").textContent === "Ghost");
+  win.document.getElementById("p").dispatchEvent(new win.MouseEvent("pointerout", { bubbles: true }));
+  check("hover preview: moving off hides it", !panel.classList.contains("on"));
+  over(win.document.getElementById("icon"));
+  over(win.document.getElementById("framing"));
+  check("hover preview: item icons and a photo being framed show nothing", !panel.classList.contains("on"));
+  hooks.hoverToken(token(actor("art/wraith-hd.webp", true)), true);
+  check("hover preview: hovering a token shows it; leaving hides it",
+    panel.classList.contains("on") && /wraith-hd/.test(panel.querySelector("img").src) && (hooks.hoverToken(null, false), !panel.classList.contains("on")));
+  Object.assign(globalThis, keep);
+  check("hover preview: the sheet portrait, record photo and store picture opt in",
+    [["templates/actor/header.hbs", 'class="portrait"'], ["templates/actor/record.hbs", 'class="record-portrait"'], ["templates/actor/store.hbs", 'class="store-img"']]
+      .every(([f, c]) => new RegExp(`<img ${c}[^>]*data-irop-preview`).test(fs.readFileSync(path.join(ROOT, f), "utf8"))));
+}
+
 // The enlistment terminal (Johnald, 2026-10-12, mockup A): every step rendered, the picks, and the operative made.
 {
   foundry.applications.api.ApplicationV2 ??= class { constructor(options = {}) { this.options = options; } render() { return this; } };

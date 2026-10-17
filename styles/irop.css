@@ -2446,7 +2446,10 @@
 .irop .store-sheet-body { display: flex; flex-direction: column; gap: 14px; height: 100%; overflow-y: auto; padding: 18px 22px 20px; font-size: 18px; }
 .irop .store-head { display: flex; gap: 16px; align-items: center; padding-bottom: 12px; border-bottom: 2px solid var(--irop-accent); }
 /* As big as the portrait on an operative's sheet (2026-10-16). */
-.irop .store-img { width: var(--irop-portrait, 112px); height: var(--irop-portrait, 112px); object-fit: cover; border: 1px solid var(--irop-line-bright); border-radius: 4px; flex: none; }
+/* Larger for detailed art (Johnald, 2026-10-16: "details are getting fuzzy when small"), top aligned. */
+.irop .store-head { align-items: flex-start; }
+.irop .store-head .store-title .store-description { max-height: 150px; overflow-y: auto; font-size: 16px; }
+.irop .store-img { width: 200px; height: 200px; object-fit: cover; object-position: center top; image-rendering: auto; border: 1px solid var(--irop-line-bright); border-radius: 4px; flex: none; }
 .irop .store-img[data-edit] { cursor: pointer; }
 .irop .store-title { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .irop .store-name { margin: 0; font-size: 28px; font-weight: 700; line-height: 1.15; color: var(--irop-ink-bright); border: none; }
@@ -3107,3 +3110,15 @@
 .irop :where(.window-content) button.en-tree-tab.on { border-color: var(--irop-sky); background: rgba(66, 171, 242, 0.16); color: var(--irop-ink-bright); }
 .irop .en-tree-tab b { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 4px; border-radius: 9px; background: var(--irop-good); color: #04121f; font-size: 14px; letter-spacing: 0; }
 .irop .en-train-tree > .hint { margin: 0 0 10px; }
+
+/* Hover previews (Johnald, 2026-10-16): a picture full size in the lower left, over everything, never in the way. */
+/* Foundry gives every figure width: 100%, which stretched the panel across the screen (bug, Johnald, 2026-10-16): sized to its picture. */
+#irop-hover-preview { position: fixed; left: 10px; bottom: 10px; right: auto; top: auto; width: max-content; max-width: calc(22vw + 8px); height: auto; box-sizing: border-box; z-index: 10000; margin: 0; padding: 4px; pointer-events: none;
+  background: rgba(8, 11, 15, 0.94); border: 1px solid #33404f; border-radius: 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  opacity: 0; transform: translateY(8px); transition: opacity 0.15s ease, transform 0.15s ease; }
+#irop-hover-preview.on { opacity: 1; transform: none; }
+/* Its lower left corner, half again the first small size (Johnald, 2026-10-16: the first was "way too large", then "bump it up"). */
+#irop-hover-preview img { display: block; margin: 0; max-width: 22vw; max-height: 45vh; width: auto; height: auto; object-fit: contain; border: none; border-radius: 3px; box-shadow: none; }
+#irop-hover-preview figcaption { display: none; margin: 0; font-style: normal; padding: 4px 2px 0; max-width: 22vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Signika", sans-serif; font-size: 16px; color: #dce1e9; text-align: center; }
+#irop-hover-preview.captioned figcaption { display: block; }
+@media (prefers-reduced-motion: reduce) { #irop-hover-preview { transition: none; transform: none; } }

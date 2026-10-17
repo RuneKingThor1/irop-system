@@ -39,7 +39,7 @@
       {{!-- The photo, framed as its owner set it (2026-10-16): drag to move, zoom with the slider or wheel. --}}
       <div class="record-portrait-frame {{#if record.adjusting}}adjusting{{/if}}" data-portrait-frame
         style="--px: {{record.frame.x}}%; --py: {{record.frame.y}}%; --pz: {{record.frame.scale}};">
-        <img class="record-portrait" src="{{record.photo}}" alt="{{actor.name}}" draggable="false">
+        <img class="record-portrait" src="{{record.photo}}" alt="{{actor.name}}" draggable="false" data-irop-preview>
         {{#if record.canFrame}}
         {{#if record.adjusting}}
         {{!-- Zoom down the right side, tall, plus at the top (Johnald, 2026-10-16). --}}

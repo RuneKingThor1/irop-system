@@ -37,6 +37,7 @@ import {
 import { currentPlan } from "./strategy/turn.mjs";
 import { initSocket } from "./socket.mjs";
 import { StoreData } from "./data/store.mjs";
+import { registerHoverPreview } from "./hover-preview.mjs";
 import { StoreSheet } from "./sheets/store-sheet.mjs";
 import { registerStoreActions } from "./store.mjs";
 import { addCheckpointButton, openCheckpoint, postCheckpoint, checkFor, registerConcealmentActions } from "./concealment.mjs";
@@ -341,6 +342,8 @@ Hooks.on("updateCombat", (combat, changed) => {
 Hooks.once("ready", () => {
   // Players' ODR actions reach the GM's client over the system socket (step 5).
   initSocket();
+  // Portraits and tokens shown full size in the lower left on hover (2026-10-16).
+  registerHoverPreview();
   // Reputation's nine levels and Strength to 25 (2026-10-11): an older world's territories move onto them, once.
   migrateReputation().then(() => migrateStrength())
     .catch(err => console.error("irop | The world could not be moved to the new Reputation and Strength scales", err));

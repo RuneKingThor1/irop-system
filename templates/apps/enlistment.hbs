@@ -51,7 +51,7 @@
       <div class="en-record">
         <div class="en-rec-head"><b>Eclipse personnel record</b><span>Filed</span></div>
         <div class="en-rec-grid">
-          <div class="en-rec-photo" style="border-color: {{color}}"><img src="{{img}}" alt=""></div>
+          <div class="en-rec-photo" style="border-color: {{color}}"><img src="{{img}}" alt="" data-irop-preview></div>
           <dl class="en-rec-kv">
             <dt>Name</dt><dd>{{#if first}}{{first}} {{last}}{{else}}{{name}}{{/if}}</dd>
             <dt>Callsign</dt><dd>{{#if callsign}}{{callsign}}{{else}}None{{/if}}</dd>
@@ -335,7 +335,7 @@
   <aside class="en-dossier" style="--rc: {{#if dossier.color}}{{dossier.color}}{{else}}var(--irop-teal, #3fb8b0){{/if}}">
     <span class="en-label">Personnel record, {{#if result}}filed{{else}}draft{{/if}}</span>
     <div class="en-ds-id">
-      <div class="en-ds-portrait"><img src="{{dossier.img}}" alt=""></div>
+      <div class="en-ds-portrait"><img src="{{dossier.img}}" alt="" data-irop-preview></div>
       <div><div class="en-ds-name">{{dossier.name}}</div>
         <div class="en-ds-line">{{dossier.species}} {{#if dossier.role}}<b>{{dossier.role}}</b>{{/if}}</div></div>
     </div>

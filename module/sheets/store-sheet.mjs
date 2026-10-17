@@ -132,6 +132,7 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     form: { submitOnChange: true },
     actions: {
       buy: StoreSheet.#onBuy,
+      showImage: StoreSheet.#onShowImage,
       sell: StoreSheet.#onSell,
       switchView: StoreSheet.#onSwitchView,
       category: StoreSheet.#onCategory,
@@ -190,6 +191,12 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /** Hooks that redraw the sheet when the buyer's purse or kit changes. */
   #hooks = [];
+
+  /** The store's picture full size, for detailed art (Johnald, 2026-10-16). */
+  static #onShowImage() {
+    const Popout = foundry.applications.apps.ImagePopout;
+    return new Popout({ src: this.actor.img, uuid: this.actor.uuid, window: { title: this.actor.name } }).render({ force: true });
+  }
 
   /** Buy for this operative (the enlistment terminal opens a store for the recruit it just made). */
   setBuyer(id) {
