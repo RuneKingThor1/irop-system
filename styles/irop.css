@@ -1862,7 +1862,9 @@
 
 /* The card (Johnald, 2026-10-08): a header image the GM sets, edge to edge, with the name over it; the
    numbers below; then the territory's journal as intel, scrolling in its own box. */
-.irop-territory-card .window-content { padding: 0; }
+.irop-territory-card .window-content { padding: 0; overflow-y: auto; }
+/* Never taller than the screen; the card scrolls, and its buttons stay in view at the bottom (2026-10-16). */
+.application.irop-territory-card { max-height: calc(100vh - 120px); min-height: 260px; }
 .irop .territory-card { display: flex; flex-direction: column; font-size: 20px; line-height: 1.35; }
 .irop .territory-card .tc-header {
   position: relative; display: flex; align-items: flex-end; min-height: 104px; padding: 12px 14px 10px; overflow: hidden;
@@ -1930,7 +1932,8 @@
 .irop .territory-card .tc-fac-list li.hidden-fac { color: var(--irop-label-ink); }
 .irop .territory-card .tc-fac-list li.hidden-fac i { color: var(--irop-muted); font-size: 14px; }
 .irop .territory-card .tc-fac-list li.none { color: var(--irop-faint); font-style: italic; font-size: 17.5px; }
-.irop .territory-card .tc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.irop .territory-card .tc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; position: sticky; bottom: 0; z-index: 2;
+  padding: 8px 0 10px; background: var(--irop-panel); box-shadow: 0 -10px 12px -8px rgba(0, 0, 0, 0.6); }
 .irop :where(.window-content) .territory-card .tc-actions .tc-open { flex: 1 1 0; margin-top: 0; white-space: nowrap; }
 
 /* The territory sheet's facility lists. */

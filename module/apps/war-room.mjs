@@ -147,7 +147,9 @@ export class TerritoryCard extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "irop-territory-card",
     classes: ["irop", "irop-territory-card"],
-    window: { title: "Territory", icon: "fa-solid fa-map-location-dot", resizable: false },
+    // Resizable, and never taller than the screen (bug, Johnald, 2026-10-16: since the larger fonts the
+    // card ran off the bottom, taking Open its sheet with it).
+    window: { title: "Territory", icon: "fa-solid fa-map-location-dot", resizable: true },
     // 600 wide (Johnald, 2026-10-08: half as wide again), the numbers and the facilities side by side.
     position: { width: 600, height: "auto" },
     actions: {
@@ -230,7 +232,8 @@ export class TerritoryCard extends HandlebarsApplicationMixin(ApplicationV2) {
       intel: await territoryIntel(t),
       heatLabel: IROP.heatLevels[s.heat]?.label ?? "",
       heatResponse: IROP.heatLevels[s.heat]?.response ?? "",
-      heatPips: [0, 1, 2, 3, 4].map(i => i < (s.heat ?? 0)),
+      // One pip per level above None, so all four light at Maximum (Johnald, 2026-10-16: the fifth never lit).
+      heatPips: Array.from({ length: IROP.heatLevels.length - 1 }, (_, i) => i < (s.heat ?? 0)),
       strength: s.strength ?? 0,
       strengthMax: max,
       strengthPct: Math.max(0, Math.min(100, Math.round(((s.strength ?? 0) / max) * 100))),

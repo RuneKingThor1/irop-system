@@ -1402,7 +1402,7 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
     system: new itemModels.TerritoryData({ kind: "megacity", strength: 15, heat: 2, reputation: 2, reputationPoints: 7, modifiers: "GENESIS Megacity", objectives: { citadel: true } }) };
   const c = new JSDOM(tpl("templates/apps/territory-card.hbs")(await card._prepareContext({}))).window.document;
   check("territory card: type and holder, Heat with its pips, Strength of 25, Reputation with its bar, objectives",
-    /Megacity, GENESIS held/.test(c.querySelector(".tc-sub").textContent) && c.querySelectorAll(".tc-pip.on").length === 2
+    /Megacity, GENESIS held/.test(c.querySelector(".tc-sub").textContent) && c.querySelectorAll(".tc-pip.on").length === 2 && c.querySelectorAll(".tc-pip").length === 4
       && /15 \/ 25/.test(c.body.textContent) && /\+2 Friendly/.test(c.body.textContent) && /1 of 3/.test(c.body.textContent)
       && c.querySelectorAll(".rep-pip").length === 10 && c.querySelectorAll(".rep-pip.on").length === 7 && c.querySelector(".rep-count").textContent === "7/10"
       && c.querySelector(".rep-pips").classList.contains("tone-friendly") && /Fill the bar to rise a level/.test(c.querySelector(".rep-pips").dataset.tooltip)
