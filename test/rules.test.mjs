@@ -1387,6 +1387,25 @@ check("disorientated both ways",
   check("enlistment: a plan keeps only one of a Pick one tier, the first taken, and nothing below an empty tier",
     eq(en.trainingPlan({ perks: ["a", "b"] }, recruit).perks, ["a"]) && eq(en.trainingPlan({ perks: ["c"] }, recruit).perks, [])
       && /Tier 1 first/.test(en.trainingPlan({ attributes: { tgh: 1 }, perks: ["c"] }, recruit).dropped[0].reason));
+  // Mutations that ask for a choice (2026-10-17).
+  const aberrant = { _id: "ma", name: "Aberrant Potential", system: { choice: { attribute: 5, skill: 1, noLuck: false } } };
+  const degraded = { _id: "md", name: "Genetic Degradation", system: { choice: { attribute: -5, skill: 0, noLuck: true } } };
+  const needs = en.mutationNeeds([aberrant, degraded, { _id: "mx", name: "Iron Gut", system: { choice: { attribute: 0, skill: 0 } } }]);
+  check("enlistment: Aberrant Potential and Genetic Degradation ask for a choice; Iron Gut does not",
+    eq(needs.map(n => `${n.name} ${n.attribute} ${n.skill} ${n.noLuck}`), ["Aberrant Potential 5 1 false", "Genetic Degradation -5 0 true"]));
+  const adj = en.mutationAdjust({ ma: { attribute: "per", skill: "stealth" }, md: { attribute: "str" } }, needs, { athletics: 2 });
+  check("enlistment: the picks add +5 Perception, -5 Strength and a Stealth rank, with nothing missing",
+    eq(adj.attributes, { per: 5, str: -5 }) && eq(adj.skills, { stealth: 1 }) && !adj.missing.length && (en.withMutationRanks({ athletics: 2 }, adj).stealth === 1));
+  const bad = en.mutationAdjust({ ma: { attribute: "per", skill: "athletics" }, md: { attribute: "lck" } }, needs, { athletics: 2 });
+  check("enlistment: Luck refused where excluded, and no skill past rank 2 at creation; each is asked for again",
+    eq(bad.missing, ["Choose a skill for Aberrant Potential.", "Choose an attribute for Genetic Degradation."]) && !("str" in bad.attributes) && !bad.skills.athletics
+      && /Choose a skill/.test(en.stepIssues(withMutations, { species, role, background, mutationChoices: bad.missing }).mutations));
+  const chosenData = en.operativeData({ ...full, mutationPicks: { ma: { attribute: "per", skill: "stealth" } } }, { species, role, background, mutations: [aberrant] });
+  check("enlistment: the operative's copy carries the choice, and the skill rank goes on the sheet",
+    eq(chosenData.items.find(i => i.name === "Aberrant Potential").system.chosen, { attribute: "per", skill: "stealth" }) && (chosenData.system.skills.stealth.rank === 1));
+  const lucky = en.trainingPlan({ attributes: { lck: 2, str: 1 } }, recruit);
+  check("enlistment: Luck cannot be trained (RULED 2026-10-17)",
+    (lucky.attributes.find(a => a.key === "lck").pips === 0) && lucky.attributes.find(a => a.key === "lck").locked && (lucky.nextAttribute("lck") === null) && (lucky.spent === 10));
   const capped = en.trainingPlan({ skills: { athletics: 5 }, attributes: { str: 9 } }, { ...recruit, budget: 1000 });
   check("enlistment: training never goes past a top rank; cleaned, the plan keeps only what it allows",
     (capped.skills.find(s => s.key === "athletics").rank === 4) && (capped.attributes.find(a => a.key === "str").pips === 6)

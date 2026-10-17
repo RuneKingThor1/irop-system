@@ -434,8 +434,22 @@ export class MutationData extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       description: description(),
-      polarity: choice(() => IROP.mutationPolarity, "positive")
+      polarity: choice(() => IROP.mutationPolarity, "positive"),
+      // A mutation that asks for a choice when taken (Johnald, 2026-10-17): Aberrant Potential is +5 to
+      // an attribute and a rank in a skill; Genetic Degradation is -5 to an attribute, Luck excluded.
+      choice: new fields.SchemaField({
+        attribute: int(0, { min: -20, max: 20 }),
+        skill: int(0, { min: 0, max: 2 }),
+        noLuck: new fields.BooleanField({ initial: false })
+      }),
+      // What its carrier chose: an attribute key and a skill key.
+      chosen: new fields.SchemaField({ attribute: text(""), skill: text("") })
     };
+  }
+
+  /** Whether it asks for an attribute or a skill that has not been chosen yet. */
+  get awaitsChoice() {
+    return (!!this.choice.attribute && !this.chosen.attribute) || (!!this.choice.skill && !this.chosen.skill);
   }
 }
 

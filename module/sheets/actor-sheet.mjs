@@ -1,4 +1,4 @@
-import { IROP } from "../config.mjs";
+import { IROP, rankLocked } from "../config.mjs";
 import { DICE, DICE_ORDER } from "../rules/dynosrs.mjs";
 import * as rolls from "../rolls.mjs";
 import { rankCost, checkRankPurchase, xpLine } from "../rules/xp.mjs";
@@ -344,6 +344,7 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       refundXp: IropActorSheet.#onRefundXp,
       showTree: IropActorSheet.#onShowTree,
       perkNode: IropActorSheet.#onPerkNode,
+      chooseMutation: IropActorSheet.#onChooseMutation,
       toggleSummary: IropActorSheet.#onToggleSummary,
       toggleLedger: IropActorSheet.#onToggleLedger,
       resetTree: IropActorSheet.#onResetTree,
@@ -434,7 +435,10 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       base: systemSource.attributes[key].base,
       advances: a.advances,
       boons: a.boons,
-      advancePips: buyPips(a.advances, IROP.attributeAdvance.maxRanks, "attribute", canBuy)
+      advancePips: buyPips(a.advances, IROP.attributeAdvance.maxRanks, "attribute", canBuy && !rankLocked(key)),
+      // Luck cannot be raised (RULED 2026-10-17); only a GM's Edit mode may correct its ranks.
+      locked: rankLocked(key),
+      rankEditable: editMode && (!rankLocked(key) || !!game.user?.isGM)
     }));
 
     const skills = Object.entries(system.skills).map(([key, s]) => ({
@@ -487,8 +491,10 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       vitals: [bar("hp", "Health", "hp"), bar("energy", "Energy", "energy"), bar("armor", "Armor", "armor"),
         bar("barrier", "Barrier", "barrier")],
       luckPips: pips(v.luck.value, v.luck.max),
-      edgePips: system.banks ? pips(system.banks.edge, 3) : null,
-      victoryPips: system.banks ? pips(system.banks.victory, 1) : null,
+      // Each up to the operative's own cap, which a mutation can move (2026-10-17).
+      edgePips: system.banks ? pips(system.banks.edge, system.banks.edgeMax ?? 3) : null,
+      victoryPips: system.banks ? pips(system.banks.victory, system.banks.victoryMax ?? 1) : null,
+      edgeMax: system.banks?.edgeMax ?? 3, victoryMax: system.banks?.victoryMax ?? 1,
       dodgePips: pips(v.dodges.value, v.dodges.max),
       // None left this round: the Dodge buttons are greyed out (2026-10-10).
       canDodge: (Number(v.dodges.value) || 0) > 0,
@@ -915,7 +921,9 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             text: `${IROP.attributes[s.attribute]?.abbr} ${signed(s.amount)}` });
           break;
         case "mutation":
-          out.mutations.push({ item, id: item.id, name: item.name, img: item.img, polarity: s.polarity });
+          // A choice it asks for (2026-10-17): waiting, or what was chosen.
+          out.mutations.push({ item, id: item.id, name: item.name, img: item.img, polarity: s.polarity,
+            awaits: !!s.awaitsChoice, chosen: mutationChosenText(s) });
           break;
         case "species":
         case "role":
@@ -1555,6 +1563,7 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const key = target.dataset.attribute;
     const n = Number(target.dataset.rank);
     const current = this.actor.system.attributes[key].advances;
+    if ( rankLocked(key) && !(this.isEditMode && game.user?.isGM) ) return ui.notifications.warn(`${IROP.attributes[key]?.label ?? key} cannot be raised.`);
     if ( !this.isEditMode ) return this.#buyRank("attribute", key, IROP.attributes[key]?.label ?? key, current, n);
     return this.actor.update({ [`system.attributes.${key}.advances`]: n === current ? n - 1 : n });
   }
@@ -1565,7 +1574,7 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   async #buyRank(kind, key, label, current, n) {
     if ( this.actor.type !== "operative" ) return null;
-    const check = checkRankPurchase({ kind, label, current, n, unspent: this.actor.system.xp.unspent });
+    const check = checkRankPurchase({ kind, key, label, current, n, unspent: this.actor.system.xp.unspent });
     if ( !check.ok ) {
       if ( n === current + 1 ) ui.notifications.warn(check.reason);
       return null;
@@ -1578,6 +1587,45 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const path = (kind === "attribute") ? `system.attributes.${key}.advances` : `system.skills.${key}.rank`;
     const log = [...this.actor.system._source.xp.log, xpEntry(kind, `${label} rank ${n}`, check.cost, key, n)];
     return this.actor.update({ [path]: n, "system.xp.log": log });
+  }
+
+  /**
+   * A mutation's choice (Johnald, 2026-10-17), for one taken outside the enlistment terminal: which
+   * attribute it raises or lowers, and which skill gains its ranks (up to the skill's top rank here;
+   * the terminal holds new recruits to rank 2). The skill rank is written to the sheet.
+   */
+  static async #onChooseMutation(event, target) {
+    const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    const s = item?.system;
+    if ( (item?.type !== "mutation") || !s?.awaitsChoice || !this.actor.isOwner ) return null;
+    const needAttr = !!s.choice.attribute && !s.chosen.attribute;
+    const needSkill = !!s.choice.skill && !s.chosen.skill;
+    const options = list => list.map(([k, label]) => `<option value="${k}">${escapeText(label)}</option>`).join("");
+    const attrs = Object.entries(IROP.attributes).filter(([k]) => !(s.choice.noLuck && (k === "lck"))).map(([k, a]) => [k, a.label]);
+    const skills = Object.entries(IROP.skills).filter(([k]) => ((this.actor.system.skills[k]?.rank ?? 0) + s.choice.skill) <= IROP.skillRanks.max)
+      .map(([k, sk]) => [k, `${sk.label} (rank ${this.actor.system.skills[k]?.rank ?? 0})`]);
+    const amount = (s.choice.attribute > 0) ? `+${s.choice.attribute}` : `${s.choice.attribute}`;
+    const data = await DialogV2.input({
+      window: { title: item.name },
+      classes: ["irop", "irop-roll-dialog"],
+      content: `<div class="irop-dialog">
+        ${needAttr ? `<label class="irop-choose"><span>${amount} to</span><select name="attribute">${options(attrs)}</select></label>` : ""}
+        ${needSkill ? `<label class="irop-choose"><span>+${s.choice.skill} rank in</span><select name="skill">${options(skills)}</select></label>` : ""}
+      </div>`,
+      ok: { label: "Choose", icon: "fa-solid fa-check" }
+    });
+    if ( !data ) return null;
+    const chosen = {};
+    if ( needAttr && IROP.attributes[data.attribute] && !(s.choice.noLuck && (data.attribute === "lck")) ) chosen["system.chosen.attribute"] = data.attribute;
+    if ( needSkill && IROP.skills[data.skill] ) chosen["system.chosen.skill"] = data.skill;
+    if ( !Object.keys(chosen).length ) return null;
+    await item.update(chosen);
+    if ( chosen["system.chosen.skill"] ) {
+      const key = chosen["system.chosen.skill"];
+      const rank = Math.min(IROP.skillRanks.max, (this.actor.system._source.skills[key]?.rank ?? 0) + s.choice.skill);
+      await this.actor.update({ [`system.skills.${key}.rank`]: rank });
+    }
+    return this.render();
   }
 
   /** GM: award XP, with a reason for the ledger. */
@@ -2394,4 +2442,15 @@ export class NpcSheet extends IropActorSheet {
       initial: "main"
     }
   };
+}
+
+/** A mutation's choice as its row says it: "Strength +5, Stealth +1 rank", or "" with none made. */
+export function mutationChosenText(s) {
+  if ( !s?.choice ) return "";
+  const parts = [];
+  if ( s.choice.attribute && s.chosen?.attribute ) {
+    parts.push(`${IROP.attributes[s.chosen.attribute]?.label ?? s.chosen.attribute} ${(s.choice.attribute > 0) ? "+" : ""}${s.choice.attribute}`);
+  }
+  if ( s.choice.skill && s.chosen?.skill ) parts.push(`${IROP.skills[s.chosen.skill]?.label ?? s.chosen.skill} +${s.choice.skill} rank`);
+  return parts.join(", ");
 }

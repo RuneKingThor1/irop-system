@@ -120,6 +120,21 @@ m = prepare(OperativeData, { attributes: { per: { base: 40, advances: 2 } }, ski
 ]);
 check("PER 40 + 2 ranks + boon = 60", m.attributes.per.value === 60 && m.attributes.per.mod === 6, m.attributes.per.value);
 check("species health 6 + TGH 4", m.vitals.hp.max === 10, m.vitals.hp.max);
+
+// Mutations that ask for a choice (2026-10-17): the attribute chosen moves, before it is chosen nothing does.
+{
+  const mut = prepare(OperativeData, {}, [
+    { type: "mutation", name: "Aberrant Potential", system: { choice: { attribute: 5, skill: 1 }, chosen: { attribute: "agi", skill: "stealth" } } },
+    { type: "mutation", name: "Genetic Degradation", system: { choice: { attribute: -5, noLuck: true }, chosen: { attribute: "agi" } } },
+    { type: "mutation", name: "Untaken", system: { choice: { attribute: -5 } } }
+  ]);
+  check("mutations: a chosen +5 and -5 meet on Agility; one not chosen yet changes nothing and waits on a choice",
+    (mut.attributes.agi.value === 40) && (mut.attributes.agi.mutation === 0) && (mut.attributes.str.value === 40)
+      && mut.parent.items[2].system.awaitsChoice && !mut.parent.items[0].system.awaitsChoice);
+  const cortex = prepare(OperativeData, { bonuses: { edgeCap: 1, victoryCap: -1 } }, []);
+  check("banks: Edge up to 3 and Victory up to 1, moved by effects (Overclocked Cortex 4, Squandered Insight none)",
+    (m.banks.edgeMax === 3) && (m.banks.victoryMax === 1) && (cortex.banks.edgeMax === 4) && (cortex.banks.victoryMax === 0));
+}
 check("worn armor points only", m.vitals.armor.max === 4, m.vitals.armor.max);
 // RULED 2026-10-07: Defense (the live Armor Bonus) is its own number, from worn armor only, separate from armor HP.
 check("worn armor Defense only, apart from armor HP", m.defense === 6 && m.vitals.armor.max === 4, m.defense);
@@ -229,6 +244,10 @@ check("feeds: fuel defaults to a full tank of 100, 10 a burn, 5 burns",
     buy({ current: 1, n: 2, unspent: 40 }).ok && buy({ current: 1, n: 2, unspent: 40 }).cost === 40
       && !buy({ current: 1, n: 3, unspent: 999 }).ok && !buy({ current: 4, n: 5, unspent: 999 }).ok
       && /costs 40 XP; 39 unspent/.test(buy({ current: 1, n: 2, unspent: 39 }).reason));
+  check("xp: Luck cannot be raised (RULED 2026-10-17); other attributes can",
+    !xp.checkRankPurchase({ kind: "attribute", key: "lck", label: "Luck", current: 0, n: 1, unspent: 999 }).ok
+      && /Luck cannot be raised/.test(xp.checkRankPurchase({ kind: "attribute", key: "lck", label: "Luck", current: 0, n: 1, unspent: 999 }).reason)
+      && xp.checkRankPurchase({ kind: "attribute", key: "str", label: "Strength", current: 0, n: 1, unspent: 10 }).ok);
   check("xp: spent is every entry but awards",
     xp.xpSpent([{ kind: "skill", xp: 40 }, { kind: "award", xp: 100 }, { kind: "attribute", xp: 10 }]) === 50);
   const ledger = prepare(OperativeData, { xp: { earned: 200, log: [{ kind: "skill", label: "Stealth rank 1", xp: 20 }] } });

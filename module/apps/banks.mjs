@@ -78,8 +78,9 @@ export class BanksApp extends HandlebarsApplicationMixin(ApplicationV2) {
       .map(a => ({
         id: a.id, name: a.name, img: a.img, canEdit: a.isOwner,
         edge: a.system.banks.edge, victory: a.system.banks.victory,
-        edgePips: Array.from({ length: BANK_CAP.EDGE }, (_, i) => i < a.system.banks.edge),
-        victoryPips: Array.from({ length: BANK_CAP.VICTORY }, (_, i) => i < a.system.banks.victory)
+        edgePips: Array.from({ length: a.system.banks.edgeMax ?? BANK_CAP.EDGE }, (_, i) => i < a.system.banks.edge),
+        victoryPips: Array.from({ length: a.system.banks.victoryMax ?? BANK_CAP.VICTORY }, (_, i) => i < a.system.banks.victory),
+        canVictory: (a.system.banks.victoryMax ?? BANK_CAP.VICTORY) > 0
       }));
     return {
       isGM: game.user.isGM,
@@ -136,7 +137,7 @@ export class BanksApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const actor = game.actors.get(target.closest("[data-actor-id]")?.dataset.actorId);
     if ( !actor?.isOwner ) return;
     const { bank, delta } = target.dataset;
-    const cap = bank === "edge" ? BANK_CAP.EDGE : BANK_CAP.VICTORY;
+    const cap = actor.system.banks[`${bank}Max`] ?? ((bank === "edge") ? BANK_CAP.EDGE : BANK_CAP.VICTORY);
     const next = Math.max(0, Math.min(cap, actor.system.banks[bank] + Number(delta)));
     return actor.update({ [`system.banks.${bank}`]: next });
   }

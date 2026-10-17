@@ -3124,3 +3124,19 @@
 #irop-hover-preview figcaption { display: none; margin: 0; font-style: normal; padding: 4px 2px 0; max-width: 22vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Signika", sans-serif; font-size: 16px; color: #dce1e9; text-align: center; }
 #irop-hover-preview.captioned figcaption { display: block; }
 @media (prefers-reduced-motion: reduce) { #irop-hover-preview { transition: none; transform: none; } }
+
+/* Luck cannot be raised (RULED 2026-10-17): its pips and its training row are dimmed. */
+.irop .advance-pips.locked { opacity: 0.45; }
+.irop .en-train-row.locked .en-tr-name, .irop .en-train-row.locked .en-tr-cost { color: var(--irop-muted); }
+.irop .en-train-row.locked .en-pips { opacity: 0.4; }
+
+/* A role's perk trees in their own window (2026-10-17), from a middle click in the enlistment terminal. */
+.irop-role-trees .window-content { padding: 12px 14px; }
+.irop-role-trees section.tab.trees { display: block; }
+
+/* A rolled mutation's choice (2026-10-17): the attribute and skill pickers on its card. */
+.irop .en-mut-pick { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 8px; }
+.irop .en-mut-pick label { display: flex; align-items: center; gap: 8px; }
+.irop .en-mut-pick .en-label { margin: 0; }
+.irop .en-mut-pick select { width: auto; min-width: 170px; height: 30px; font-size: 15px; }
+.irop .en-bar.lowered em { color: var(--irop-bad); }

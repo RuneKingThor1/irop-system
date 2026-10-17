@@ -111,9 +111,11 @@ async function bank(message, roll, symbol, amount) {
     if ( !actor || (actor.type !== "operative") ) return ui.notifications.warn("Only an operative can bank Edge or Victory.");
     const path = symbol === "EDGE" ? "edge" : "victory";
     const before = actor.system.banks[path];
-    const after = Math.min(BANK_CAP[symbol], before + amount);
+    // The actor's own cap, which a mutation can move (2026-10-17).
+    const cap = actor.system.banks[`${path}Max`] ?? BANK_CAP[symbol];
+    const after = Math.max(before, Math.min(cap, before + amount));
     await actor.update({ [`system.banks.${path}`]: after });
-    if ( after - before < amount ) ui.notifications.info(`${actor.name}'s ${path} bank is capped at ${BANK_CAP[symbol]}.`);
+    if ( after - before < amount ) ui.notifications.info(cap ? `${actor.name}'s ${path} bank is capped at ${cap}.` : `${actor.name} cannot bank ${path === "edge" ? "Edge" : "Victory"}.`);
   }
   else {
     await adjustGmBanks(symbol === "DANGER" ? { danger: amount } : { defeat: amount });

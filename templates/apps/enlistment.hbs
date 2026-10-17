@@ -102,10 +102,10 @@
 
       {{#if is.role}}
       <h3>Doctrine</h3>
-      <p class="en-sub">Your role sets your starting skills, the weapons you train with, and the perk trees you grow into.</p>
+      <p class="en-sub">Your role sets your starting skills, the weapons you train with, and the perk trees you grow into. Middle click a role to see its perk trees.</p>
       <div class="en-grid">
         {{#each roles as |r|}}
-        <button type="button" class="en-card {{#if r.on}}on{{/if}}" style="--c: {{r.color}}" data-action="pick" data-kind="role" data-id="{{r.id}}" aria-pressed="{{#if r.on}}true{{else}}false{{/if}}">
+        <button type="button" class="en-card {{#if r.on}}on{{/if}}" style="--c: {{r.color}}" data-action="pick" data-kind="role" data-id="{{r.id}}" aria-pressed="{{#if r.on}}true{{else}}false{{/if}}" data-tooltip="Middle click to see its perk trees">
           <span class="en-card-top"><span class="en-hex">{{r.abbr}}</span><span class="en-name">{{r.name}}</span></span>
           <span class="en-blurb">{{r.blurb}}</span>
           {{#if r.free}}<span class="en-row"><span class="k">Starting skills</span><span class="free">{{r.free}}</span>{{#if r.options}}, then {{r.options}}{{/if}}</span>{{/if}}
@@ -192,7 +192,16 @@
         {{#each chosen as |m|}}
         <div class="en-mut {{m.polarity}}"><img src="{{m.img}}" alt="">
           <span class="en-mut-body"><span class="en-mut-head"><span class="en-mut-roll">{{m.label}} {{m.n}}</span><span class="en-perk-name">{{m.name}}</span></span>
-            <div class="en-perk-text">{{{m.description}}}</div></span></div>
+            <div class="en-perk-text">{{{m.description}}}</div>
+            {{#if m.pick}}
+            {{!-- A choice it asks for (2026-10-17). --}}
+            <span class="en-mut-pick">
+              {{#if m.pick.attributes}}<label><span class="en-label">{{m.pick.attributeAmount}} to</span>
+                <select data-mutation-pick="{{m.id}}" data-part="attribute"><option value="">Choose an attribute</option>{{#each m.pick.attributes as |a|}}<option value="{{a.key}}" {{#if a.on}}selected{{/if}}>{{a.label}}</option>{{/each}}</select></label>{{/if}}
+              {{#if m.pick.skills}}<label><span class="en-label">+{{m.pick.skillRanks}} rank in</span>
+                <select data-mutation-pick="{{m.id}}" data-part="skill"><option value="">Choose a skill</option>{{#each m.pick.skills as |k|}}<option value="{{k.key}}" {{#if k.on}}selected{{/if}}>{{k.label}}{{#if k.rank}} (rank {{k.rank}}){{/if}}</option>{{/each}}</select></label>{{/if}}
+            </span>
+            {{/if}}</span></div>
         {{/each}}
       </div>
       <div class="en-block en-mut-log"><span class="en-label">Rolls</span>{{#each log as |l|}}<p>{{l}}</p>{{/each}}</div>
@@ -222,12 +231,12 @@
       <div class="en-train-cols">
         <div class="en-block"><span class="en-label">Attributes</span>
           {{#each attributes as |a|}}
-          <div class="en-train-row {{#if a.bought}}bought{{/if}}">
+          <div class="en-train-row {{#if a.bought}}bought{{/if}} {{#if a.locked}}locked{{/if}}" {{#if a.locked}}data-tooltip="{{a.label}} cannot be raised"{{/if}}>
             <span class="en-tr-name">{{a.label}}</span><b class="en-tr-value">{{a.value}}</b>
             <span class="en-pips">{{#each a.pips as |p|}}<i class="{{#if p.bought}}bought{{/if}}"></i>{{/each}}</span>
             <button type="button" class="en-tr-btn" data-action="trainAttribute" data-key="{{a.key}}" data-delta="-1" {{#unless a.canDrop}}disabled{{/unless}} aria-label="{{a.label}}, one rank less"><i class="fa-solid fa-minus"></i></button>
             <button type="button" class="en-tr-btn" data-action="trainAttribute" data-key="{{a.key}}" data-delta="1" {{#unless a.canAdd}}disabled{{/unless}} aria-label="{{a.label}}, one rank more"><i class="fa-solid fa-plus"></i></button>
-            <span class="en-tr-cost">{{#if a.next}}{{a.next}} XP{{else}}Top{{/if}}</span>
+            <span class="en-tr-cost">{{#if a.locked}}Locked{{else if a.next}}{{a.next}} XP{{else}}Top{{/if}}</span>
           </div>
           {{/each}}
         </div>
@@ -289,11 +298,7 @@
           <label><span class="en-label">For</span><select data-field="owner">{{#each identity.owners as |o|}}<option value="{{o.id}}" {{#if o.on}}selected{{/if}}>{{o.name}}</option>{{/each}}</select></label>
           {{/if}}
         </div>
-        <div class="en-portrait-pick">
-          <span class="en-label">Portrait</span>
-          <img src="{{identity.img}}" alt="">
-          <button type="button" class="ghost" data-action="browse"><i class="fa-solid fa-image"></i> Choose an image</button>
-        </div>
+        {{!-- No portrait picker here (Johnald, 2026-10-17): the picture is set on the sheet afterward. --}}
       </div>
       {{/if}}
 
@@ -350,7 +355,7 @@
     </dl>
     {{#if dossier.bars.length}}
     <div class="en-vitals"><div>Health<b>{{dossier.health}}</b></div><div>Energy<b>{{dossier.energy}}</b></div></div>
-    <div class="en-bars">{{#each dossier.bars as |a|}}<div class="en-bar {{#if a.boosted}}boosted{{/if}}">{{a.abbr}}<i><span style="width: {{a.pct}}%"></span></i><em>{{a.value}}</em></div>{{/each}}</div>
+    <div class="en-bars">{{#each dossier.bars as |a|}}<div class="en-bar {{#if a.boosted}}boosted{{/if}} {{#if a.lowered}}lowered{{/if}}">{{a.abbr}}<i><span style="width: {{a.pct}}%"></span></i><em>{{a.value}}</em></div>{{/each}}</div>
     {{else}}<p class="en-empty">Choose a species to see your attributes.</p>{{/if}}
   </aside>
 </div>

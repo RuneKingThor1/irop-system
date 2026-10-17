@@ -1,4 +1,4 @@
-import { IROP } from "../config.mjs";
+import { IROP, rankLocked } from "../config.mjs";
 import { startingSkillPlan, startingSkillRanks } from "./starting-skills.mjs";
 import { perkCopy } from "./backgrounds.mjs";
 import { treeNodes, nodeStates } from "./skill-trees.mjs";
@@ -169,7 +169,7 @@ export function operativeName(choices) {
  * @param {{species?: object, role?: object, background?: object}} items   The chosen items
  * @returns {Record<string, string>}   By step key
  */
-export function stepIssues(choices, { species = null, role = null, background = null, mutationsReady = true } = {}) {
+export function stepIssues(choices, { species = null, role = null, background = null, mutationsReady = true, mutationChoices = [] } = {}) {
   const rp = rolePlan(role);
   const bp = backgroundPlan(background);
   const picked = (choices.backgroundSkills ?? []).filter(k => bp.options.includes(k)).length;
@@ -188,7 +188,8 @@ export function stepIssues(choices, { species = null, role = null, background = 
     skills: skills.join(" "),
     boons: (species?.system?.boons && (boonPicks(choices).length < BOON_PICKS)) ? `Pick ${BOON_PICKS} attributes for your boons (${boonPicks(choices).length} picked).` : "",
     // A species that carries mutations rolls them, once the world has the tables to roll on.
-    mutations: (species?.system?.mutations && mutationsReady && !mutationsRolled(choices.mutations)) ? "Roll your mutations." : "",
+    mutations: (species?.system?.mutations && mutationsReady && !mutationsRolled(choices.mutations)) ? "Roll your mutations."
+      : (species?.system?.mutations ? mutationChoices.join(" ") : ""),
     identity: operativeName(choices) ? "" : "Give a callsign or a name.",
     review: ""
   };
@@ -214,7 +215,10 @@ export function operativeData(choices, { species, role, background, perkAbility 
   const name = operativeName(choices);
   const img = String(choices.img ?? "").trim() || DEFAULT_IMG;
   const taken = skillsTaken(choices, role, background);
-  const ranks = startingRanks(taken);
+  // A mutation's skill rank (2026-10-17) counts from the start, like the starting skills.
+  const needs = species.system?.mutations ? mutationNeeds(mutations) : [];
+  const picked = mutationAdjust(choices.mutationPicks, needs, startingRanks(taken));
+  const ranks = withMutationRanks(startingRanks(taken), picked);
   const attributes = Object.fromEntries(Object.keys(IROP.attributes).map(k => [k, { base: Number(species.system?.attributes?.[k] ?? IROP.attributeDefaults[k]) }]));
   const skills = Object.fromEntries(Object.entries(ranks).map(([k, rank]) => [k, { rank }]));
   // Training (2026-10-16): the pips bought, and their lines on the ledger, dated the day enlisted.
@@ -225,7 +229,12 @@ export function operativeData(choices, { species, role, background, perkAbility 
   const entry = (background.system?.perks ?? []).find(p => p.id === choices.perk);
   if ( entry && perkAbility ) items.push(perkCopy(strip(perkAbility), background.name, entry));
   // The mutations rolled, for a species that carries them.
-  if ( species.system?.mutations ) for ( const m of mutations ) items.push(strip(m));
+  if ( species.system?.mutations ) for ( const m of mutations ) {
+    const copy = strip(m);
+    const pick = picked.picks[m._id ?? m.id];
+    if ( pick ) copy.system = { ...copy.system, chosen: { attribute: pick.attribute ?? "", skill: pick.skill ?? "" } };
+    items.push(copy);
+  }
   // The species' boons, for a species that grants them.
   if ( species.system?.boons ) for ( const b of boons ) items.push(strip(b));
   // The perks trained, each marked with its tree and node as the Training tab marks a perk bought.
@@ -299,8 +308,9 @@ export function trainingPlan(training, { attributes, ranks, trees = [], nameOf =
   const t = training ?? emptyTraining();
   const perRank = IROP.attributeAdvance.perRank;
   const attr = Object.keys(IROP.attributes).map(key => {
-    const pips = Math.max(0, Math.min(IROP.attributeAdvance.maxRanks, Math.floor(Number(t.attributes?.[key]) || 0)));
-    return { key, base: Number(attributes?.[key]) || 0, pips, value: (Number(attributes?.[key]) || 0) + (pips * perRank), cost: pipsCost("attribute", 0, pips) };
+    // Luck is never trained (RULED 2026-10-17).
+    const pips = rankLocked(key) ? 0 : Math.max(0, Math.min(IROP.attributeAdvance.maxRanks, Math.floor(Number(t.attributes?.[key]) || 0)));
+    return { key, locked: rankLocked(key), base: Number(attributes?.[key]) || 0, pips, value: (Number(attributes?.[key]) || 0) + (pips * perRank), cost: pipsCost("attribute", 0, pips) };
   });
   const skills = Object.keys(IROP.skills).map(key => {
     const start = Number(ranks?.[key]) || 0;
@@ -360,7 +370,7 @@ export function trainingPlan(training, { attributes, ranks, trees = [], nameOf =
     // What the next pip of each costs, and whether the plan can pay for it.
     nextAttribute: key => {
       const a = attr.find(x => x.key === key);
-      if ( !a || (a.pips >= IROP.attributeAdvance.maxRanks) ) return null;
+      if ( !a || a.locked || (a.pips >= IROP.attributeAdvance.maxRanks) ) return null;
       const cost = IROP.attributeAdvance.xpCost[a.pips];
       return { cost, affordable: cost <= left };
     },
@@ -386,5 +396,66 @@ export function cleanTraining(training, plan) {
 export function recruitAttributes(species, boons = []) {
   const out = Object.fromEntries(speciesAttributes(species?.system ?? {}).map(a => [a.key, a.value]));
   for ( const b of boons ) if ( b?.system?.attribute in out ) out[b.system.attribute] += Number(b.system.amount) || 0;
+  return out;
+}
+
+/* -------------------------------------------- */
+
+/**
+ * Mutations that ask for a choice (Johnald, 2026-10-17): Aberrant Potential (+5 to an attribute and
+ * a rank in a skill, which at creation cannot pass rank 2) and Genetic Degradation (-5 to an
+ * attribute, Luck excluded). The picks are kept in choices.mutationPicks, by mutation item id:
+ * {attribute, skill}.
+ */
+
+/** No skill passes this rank at creation (Playable Mutants: "Skill Rank cannot exceed 2 upon character creation"). */
+export const CREATION_SKILL_CAP = 2;
+
+/** What the rolled mutations ask for: [{id, name, attribute (the amount), skill (ranks), noLuck}]. */
+export function mutationNeeds(docs = []) {
+  return docs.filter(m => m?.system?.choice && (m.system.choice.attribute || m.system.choice.skill)).map(m => ({
+    id: m.id ?? m._id, name: m.name, attribute: Number(m.system.choice.attribute) || 0,
+    skill: Number(m.system.choice.skill) || 0, noLuck: !!m.system.choice.noLuck
+  }));
+}
+
+/**
+ * The picks that stand, and what they add: a real attribute (not Luck where it is excluded), a real
+ * skill that the ranks would not lift past CREATION_SKILL_CAP.
+ * @param {object} picks          choices.mutationPicks
+ * @param {object[]} needs        From mutationNeeds
+ * @param {Record<string, number>} ranks   Each skill's starting rank
+ * @returns {{picks: object, attributes: Record<string, number>, skills: Record<string, number>, missing: string[]}}
+ */
+export function mutationAdjust(picks = {}, needs = [], ranks = {}) {
+  const out = { picks: {}, attributes: {}, skills: {}, missing: [] };
+  for ( const need of needs ) {
+    const pick = picks?.[need.id] ?? {};
+    const kept = {};
+    if ( need.attribute ) {
+      const ok = IROP.attributes[pick.attribute] && !(need.noLuck && (pick.attribute === "lck"));
+      if ( ok ) {
+        kept.attribute = pick.attribute;
+        out.attributes[pick.attribute] = (out.attributes[pick.attribute] ?? 0) + need.attribute;
+      }
+      else out.missing.push(`Choose an attribute for ${need.name}.`);
+    }
+    if ( need.skill ) {
+      const ok = IROP.skills[pick.skill] && (((Number(ranks[pick.skill]) || 0) + (out.skills[pick.skill] ?? 0) + need.skill) <= CREATION_SKILL_CAP);
+      if ( ok ) {
+        kept.skill = pick.skill;
+        out.skills[pick.skill] = (out.skills[pick.skill] ?? 0) + need.skill;
+      }
+      else out.missing.push(`Choose a skill for ${need.name}.`);
+    }
+    out.picks[need.id] = kept;
+  }
+  return out;
+}
+
+/** Starting ranks with what the mutations add. */
+export function withMutationRanks(ranks, adjust) {
+  const out = { ...ranks };
+  for ( const [k, n] of Object.entries(adjust?.skills ?? {}) ) out[k] = Math.min(IROP.skillRanks.max, (out[k] ?? 0) + n);
   return out;
 }

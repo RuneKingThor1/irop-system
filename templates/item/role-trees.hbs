@@ -1,0 +1,48 @@
+<section class="tab trees {{tab.cssClass}}" data-group="primary" data-tab="trees">
+  {{!-- A role's perk trees, to read (Johnald, 2026-10-17): its Primary and its specializations, as the
+        Training tab lays them out. A click opens a perk; a GM can open the tree to edit it. --}}
+  {{#*inline "rolePerk"}}
+  <button type="button" class="perk open {{#if missing}}locked{{/if}}" data-action="openTreePerk" data-uuid="{{uuid}}" data-tooltip="{{#if reason}}{{reason}}{{else}}Open the perk{{/if}}">
+    <span class="perk-icon"><img src="{{img}}" alt="">{{#if reason}}<i class="fa-solid fa-lock perk-lock" inert></i>{{/if}}</span>
+    <span class="perk-text"><span class="perk-name">{{name}}</span><span class="perk-sub">{{sub}}</span></span>
+  </button>
+  {{/inline}}
+  <div class="panel skill-trees role-trees">
+    {{#if roleTrees.length}}
+    <nav class="tree-tabs">
+      {{#each roleTrees as |t|}}
+      <a class="tree-tab {{#if t.active}}active{{/if}}" data-action="roleTree" data-tree-id="{{t.id}}">{{t.label}}</a>
+      {{/each}}
+    </nav>
+    {{#each roleTrees as |t|}}
+    <div class="tree-view {{#if t.active}}active{{/if}}" data-tree-id="{{t.id}}">
+      <div class="tree-banner">
+        <span class="tree-note">{{t.kind}}{{#if t.opens}}. {{t.opens}}{{/if}}</span>
+        {{#if @root.isGM}}<button type="button" class="ghost" data-action="openTree" data-tree-id="{{t.id}}"><i class="fa-solid fa-pen-to-square"></i> Edit this tree</button>{{/if}}
+      </div>
+      {{#if t.freeForm}}
+      {{#each t.lines as |line|}}
+      <div class="tree-line {{#if line.exclusive}}exclusive{{/if}}">
+        {{#each line.nodes as |n|}}{{#if n.or}}<span class="tier-or">or</span>{{/if}}{{#if n.chained}}<i class="fa-solid fa-chevron-right line-arrow" inert></i>{{/if}}{{> rolePerk n}}{{/each}}
+      </div>
+      {{/each}}
+      {{#if t.singles.length}}<div class="tree-singles">{{#each t.singles as |n|}}{{> rolePerk n}}{{/each}}</div>{{/if}}
+      {{else}}
+      {{#each t.tiers as |tier|}}
+      <div class="tree-tier {{#if tier.exclusive}}exclusive{{/if}}">
+        <span class="tier-label">Tier {{tier.number}}{{#if tier.exclusive}}<em>Pick one</em>{{/if}}</span>
+        <div class="tier-nodes">
+          {{#each tier.nodes as |n|}}{{#if n.or}}<span class="tier-or">or</span>{{/if}}{{> rolePerk n}}{{/each}}
+        </div>
+      </div>
+      {{else}}
+      <p class="empty-row">This tree has no perks yet.</p>
+      {{/each}}
+      {{/if}}
+    </div>
+    {{/each}}
+    {{else}}
+    <p class="empty-row">No perk trees for this doctrine yet.{{#if isGM}} A GM makes trees in the Items sidebar: create an item of type Perk Tree and set its role.{{/if}}</p>
+    {{/if}}
+  </div>
+</section>

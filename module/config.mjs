@@ -39,6 +39,17 @@ IROP.attributeDefaults = { str: 40, agi: 40, tgh: 40, cha: 40, lck: 30, int: 40,
  */
 IROP.attributeAdvance = { perRank: 5, maxRanks: 6, xpCost: [10, 20, 40, 60, 80, 100] };
 
+/**
+ * RULED 2026-10-17 (Johnald): Luck cannot be raised. No XP buys a Luck rank, on the sheet or at
+ * enlistment, and a player's Edit mode cannot set one; a GM in Edit mode still can, for corrections.
+ */
+IROP.attributeAdvance.locked = ["lck"];
+
+/** Whether an attribute's ranks are locked against raising. */
+export function rankLocked(key) {
+  return IROP.attributeAdvance.locked.includes(key);
+}
+
 /** HANDOFF Section 9: a boon raises one attribute by 10. */
 IROP.boonAmount = 10;
 

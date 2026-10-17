@@ -13,10 +13,10 @@
       <label class="attr-base">base <input type="number" name="system.attributes.{{a.key}}.base" value="{{a.base}}"></label>
       {{/if}}
       {{!-- Ranks show in both modes, like skill ranks; only edit mode can change them. --}}
-      <span class="pips advance-pips" data-tooltip="Attribute ranks, +5 each: {{a.advances}} of {{a.advancePips.length}}">
+      <span class="pips advance-pips {{#if a.locked}}locked{{/if}}" data-tooltip="{{#if a.locked}}{{a.label}} cannot be raised{{else}}Attribute ranks, +5 each: {{a.advances}} of {{a.advancePips.length}}{{/if}}">
         {{#each a.advancePips as |p|}}<button type="button" class="pip {{#if p.filled}}filled{{/if}} {{#if p.buyable}}buyable{{/if}}" data-action="setAdvance"
           data-attribute="{{a.key}}" data-rank="{{p.n}}" {{#if p.buyable}}data-tooltip="Buy rank {{p.n}}: {{p.cost}} XP"{{/if}}
-          {{#unless (or @root.editMode p.buyable)}}disabled{{/unless}}></button>{{/each}}
+          {{#unless (or a.rankEditable p.buyable)}}disabled{{/unless}}></button>{{/each}}
       </span>
     </div>
     {{/each}}

@@ -288,6 +288,11 @@ for ( const editMode of [false, true] ) {
   check(`operative ${mode}: editMode flag`, context.editMode === editMode);
   check("operative accent is Outrider red", context.accent === "#d64f4f", context.accent);
   check("initiative text: AGI mod 4 + LCK mod 3", context.initiativeText === "1d20 + 7", context.initiativeText);
+  const luck = context.attributes.find(x => x.key === "lck");
+  check(`operative ${mode}: Luck's ranks are locked (RULED 2026-10-17): none for sale, dimmed, editable only by a GM in Edit mode`,
+    luck.locked && !luck.advancePips.some(p => p.buyable) && (luck.rankEditable === (editMode && !!game.user?.isGM))
+      && (editMode || context.attributes.find(x => x.key === "str").advancePips.some(p => p.buyable))
+      && /cannot be raised/.test(new JSDOM(out.main).window.document.querySelector(".advance-pips.locked")?.dataset.tooltip ?? ""));
   for ( const [id, html] of Object.entries(out) ) {
     const doc = inspect(`operative ${mode} ${id}`, html, { actions: ACTIONS, source: operative.system._source });
     // The record is a drawer beside the sheet, not a tab.
@@ -927,6 +932,29 @@ for ( const editMode of [false, true] ) {
   list.get = id => list.find(t => t.id === id);
   game.items = list;
   game.user = { isGM: false };
+
+  // A role's perk trees, on the role's own sheet (Johnald, 2026-10-17): read only, its Primary then its specializations.
+  {
+    const roleDoc = new FakeDoc({});
+    Object.assign(roleDoc, { id: "ro", name: "Outrider", type: "role", img: "role.svg", uuid: "Item.ro", isOwner: true, effects: [], actor: null });
+    roleDoc.getRollData = () => ({});
+    roleDoc.system = new itemModels.RoleData({ role: "outrider" }, { parent: roleDoc });
+    const roleSheet = new IropItemSheet(roleDoc);
+    const { out: roleOut } = await renderSheet(IropItemSheet, roleDoc);
+    const rt = new JSDOM(roleOut.trees ?? "").window.document;
+    check("role trees: a role's sheet has a Perk trees tab: its Primary first, then its specializations, no General or other roles' trees",
+      roleSheet._getTabsConfig("primary").tabs.some(t => t.id === "trees") && [...rt.querySelectorAll(".tree-tab")].map(e => e.textContent.trim()).join() === "Outrider,Ghost,Sharpshooter"
+        && rt.querySelector(".tree-tab.active")?.dataset.treeId === "t1", [...rt.querySelectorAll(".tree-tab")].map(e => e.textContent.trim()).join());
+    const primary = rt.querySelector('.tree-view[data-tree-id="t1"]');
+    check("role trees: each tier's perks with their XP and kind, Pick one marked, a missing ability said so; every perk opens",
+      [...primary.querySelectorAll(".perk-name")].map(e => e.textContent).join() === "Called Shot,Hunter's Mark,Ghost Step,Lost Perk"
+        && /10 XP, Active/.test(primary.querySelector(".perk-sub").textContent) && /Pick one/.test(primary.querySelector(".tree-tier.exclusive .tier-label").textContent)
+        && /Missing ability/.test(primary.querySelectorAll(".perk-sub")[3].textContent) && [...primary.querySelectorAll(".perk")].every(b => b.dataset.action === "openTreePerk"));
+    check("role trees: a specialization says when it opens; a player gets no Edit button",
+      /Opens at 300 XP earned, a second specialization at 900/.test(rt.querySelector('.tree-view[data-tree-id="t4"] .tree-note').textContent) && !rt.querySelector('[data-action="openTree"]'));
+    const gearLike = new IropItemSheet(Object.assign(new FakeDoc({}), { id: "gx", name: "Rope", type: "ability", img: "x.svg", uuid: "Item.gx", isOwner: true, effects: [], actor: null }));
+    check("role trees: only a role has the tab", !gearLike._getTabsConfig("primary").tabs.some(t => t.id === "trees"));
+  }
 
   // The editor, on the tree item: the GM's (players never edit an item, 2026-10-10).
   {
@@ -4359,6 +4387,15 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   const plainHuman = makeActor("operative", OperativeData, {}, [{ type: "species", name: "Human", system: { boons: true } }]);
   ({ context, out } = await renderSheet(OperativeSheet, plainHuman));
   check("human without mutations: no Mutations panel", !panel(out.abilities) && context.showMutations === false);
+  // A mutation that asks for a choice (2026-10-17): a Choose button until chosen, then the choice on its row.
+  const choiceActor = makeActor("operative", OperativeData, {}, [{ type: "species", name: "Mutant", system: { mutations: true } },
+    { type: "mutation", name: "Aberrant Potential", id: "ap", system: { polarity: "positive", choice: { attribute: 5, skill: 1 } } },
+    { type: "mutation", name: "Genetic Degradation", id: "gd", system: { polarity: "negative", choice: { attribute: -5, noLuck: true }, chosen: { attribute: "str" } } }]);
+  const baronOut = (await renderSheet(OperativeSheet, choiceActor)).out.abilities;
+  const bdoc = new JSDOM(baronOut).window.document;
+  check("mutations: one waiting on a choice has a Choose button; one chosen says what it changed",
+    !!bdoc.querySelector('[data-item-id="ap"] [data-action="chooseMutation"]') && !bdoc.querySelector('[data-item-id="gd"] [data-action="chooseMutation"]')
+      && /Strength -5/.test(bdoc.querySelector('[data-item-id="gd"] .item-sub').textContent));
   check("human: Boons panel shown", /<h3>Boons<\/h3>/.test(out.abilities) && context.canTakeBoons === true);
   // No Paraphysical tag: the panel is hidden in play, and shown in edit mode so a GM can still set ranks (2026-10-08).
   const plainSheet = new OperativeSheet(plainHuman);
@@ -6934,6 +6971,17 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
       && texts(d, ".en-tree-tab").join() === "Marauder Primary,Generalist" && d.querySelector(".en-tree-tab.on")?.dataset.tree === "tp"
       && /first 3 tiers/.test(d.querySelector(".en-train-tree .hint")?.textContent ?? "") && (d.querySelector('[data-action="trainSkill"][data-key="athletics"]')?.closest(".en-train-row").querySelectorAll("i.start").length === 2)
       && /Tier 1 first/.test(d.querySelector('[data-node="nth"] .en-tperk-why')?.textContent ?? "") && !d.querySelector('[data-node="nsp"]') && !d.querySelector(".en-issue"));
+  // A middle click on a role shows its perk trees (Johnald, 2026-10-17), in a window of their own.
+  {
+    const { RoleTreesViewer } = await import("../module/apps/role-trees.mjs");
+    const viewer = new RoleTreesViewer();
+    viewer.role = world.get("mr");
+    const vd = new JSDOM(tpl("templates/item/role-trees.hbs")(await viewer._prepareContext({}))).window.document;
+    check("enlistment: a role's perk trees in their own window: its Primary and specialization, each tier's perks, read only",
+      texts(vd, ".tree-tab").join() === "Marauder Primary,Breacher" && /Hard Charger/.test(vd.querySelector('.tree-view[data-tree-id="tp"]').textContent)
+        && /Opens at 300 XP earned/.test(vd.querySelector('.tree-view[data-tree-id="ts"]').textContent) && vd.querySelector("section.tab.trees.active")
+        && Object.keys(RoleTreesViewer.DEFAULT_OPTIONS.actions).join() === "roleTree,openTreePerk,openTree");
+  }
   await act(app, "perkTab", { tree: "tg" });
   d = await show(app, "training general");
   check("enlistment: the General tree on its own tab, without the role's tier note",
@@ -6941,6 +6989,10 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   await act(app, "perkTab", { tree: "tp" });
   await act(app, "trainPerk", { node: "nth" });
   check("enlistment: a perk not open yet is refused, saying why", /Tier 1 first/.test(said.at(-1) ?? ""));
+  await act(app, "trainAttribute", { key: "lck", delta: "1" });
+  check("enlistment: Luck is locked in Training, saying so", !app.choices.training.attributes?.lck && /Luck cannot be raised/.test(said.at(-1) ?? "")
+    && /Locked/.test(d.querySelector('[data-action="trainAttribute"][data-key="lck"]')?.closest(".en-train-row")?.textContent ?? "")
+    && !!d.querySelector('[data-action="trainAttribute"][data-key="lck"][data-delta="1"]')?.disabled);
   await act(app, "trainPerk", { node: "nt4" });
   check("enlistment: a perk below the first three tiers cannot be planned", !app.choices.training.perks.includes("nt4"));
   await act(app, "trainAttribute", { key: "tgh", delta: "1" });
@@ -6967,7 +7019,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   d = await show(app, "identity");
   check("enlistment: identity: names, callsign, a portrait, and for the GM, who it is for",
     ["firstName", "lastName", "callsign", "owner"].every(f => !!d.querySelector(`[data-field="${f}"]`)) && texts(d, '[data-field="owner"] option').join() === "GM (you),Johnald"
-      && !!d.querySelector('[data-action="browse"]'));
+      && !d.querySelector('[data-action="browse"]') && !d.querySelector(".en-portrait-pick"));
   Object.assign(app.choices, { firstName: "Kael", lastName: "Hart", callsign: "Ghost", owner: "p1" });
   await act(app, "next");
   d = await show(app, "review");
@@ -7075,6 +7127,32 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   human.choices.boons = ["agi"];
   d = await show(human, "boons short");
   check("enlistment: one boon short, the step says so", /Pick 2 attributes for your boons \(1 picked\)/.test(d.querySelector(".en-issue")?.textContent ?? ""));
+
+  // Mutations that ask for a choice (2026-10-17): the pickers on the Mutations step, and the choice filed.
+  {
+    const ap = mk("ap", "Aberrant Potential", "mutation", { polarity: "positive", choice: { attribute: 5, skill: 1 } });
+    world.push(ap);
+    game.user = gm;
+    const baron = new EnlistmentApp();
+    Object.assign(baron.choices, { species: "mu", role: "mr", background: "sd", roleSkill: "athletics", backgroundSkills: ["athletics", "insight", "coercion"], perk: "pk1", callsign: "Baron",
+      mutations: { positive: [{ n: 1, id: "ap", name: "Aberrant Potential" }, { n: 2, id: "m3", name: "Iron Gut" }], negative: { n: 1, id: "n1", name: "Frayed Focus" }, rerolled: false, log: [] } });
+    baron.step = 4;
+    let bd = await show(baron, "mutation choice");
+    const attrPick = bd.querySelector('[data-mutation-pick="ap"][data-part="attribute"]');
+    const skillPick = bd.querySelector('[data-mutation-pick="ap"][data-part="skill"]');
+    check("enlistment: a rolled mutation that asks for a choice gets its pickers; no skill already at rank 2; the step waits on it",
+      (attrPick?.querySelectorAll("option").length === 8) && !!skillPick && !skillPick.querySelector('option[value="athletics"]') && !!skillPick.querySelector('option[value="stealth"]')
+        && /Choose an attribute for Aberrant Potential/.test(bd.querySelector(".en-issue")?.textContent ?? "") && !bd.querySelector('[data-mutation-pick="m3"]'));
+    baron.choices.mutationPicks = { ap: { attribute: "per", skill: "stealth" } };
+    bd = await show(baron, "mutation chosen");
+    check("enlistment: chosen, the step is complete and the record's Perception bar rises by 5",
+      !bd.querySelector(".en-issue") && texts(bd, ".en-bar.boosted").some(t => /PER.*40/.test(t)));
+    await createOperative(baron.choices, gm);
+    const filed = made.at(-1);
+    check("enlistment: the operative's Aberrant Potential carries the choice, and Stealth is rank 1",
+      eq(filed.items.find(i => i.name === "Aberrant Potential")?.system.chosen, { attribute: "per", skill: "stealth" }) && (filed.system.skills.stealth.rank === 1));
+    world.splice(world.indexOf(ap), 1);
+  }
 
   // The sidebar button.
   const sideWindow = new JSDOM('<section><div class="header-actions"><button>Create Actor</button></div></section>').window;

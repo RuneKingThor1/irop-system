@@ -93,7 +93,8 @@
         <li class="item-row draggable mutation-{{m.polarity}}" data-item-id="{{m.id}}">
           <div class="row-main">
             <img class="item-img" src="{{m.img}}" alt="">
-            <div class="item-name"><a data-action="editItem">{{m.name}}</a><span class="item-sub">{{m.polarity}}</span></div>
+            <div class="item-name"><a data-action="editItem">{{m.name}}</a><span class="item-sub">{{m.polarity}}{{#if m.chosen}}, {{m.chosen}}{{/if}}</span></div>
+            {{#if m.awaits}}{{#if @root.editable}}<button type="button" class="ghost mutation-choose" data-action="chooseMutation" data-tooltip="This mutation asks for a choice"><i class="fa-solid fa-hand-pointer"></i> Choose</button>{{/if}}{{/if}}
             {{#if @root.editable}}<div class="row-controls"><button type="button" class="icon" data-action="deleteItem"><i class="fa-solid fa-trash"></i></button></div>{{/if}}
           </div>
         </li>

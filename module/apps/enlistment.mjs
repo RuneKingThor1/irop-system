@@ -2,13 +2,14 @@ import { IROP } from "../config.mjs";
 import {
   STEPS, DEFAULT_IMG, blurb, speciesAttributes, rolePlan, backgroundPlan, skillsTaken, startingRanks, operativeName, stepIssues, operativeData,
   stepsFor, rollMutations, rerollNegative, mutationsRolled, mutationIds, BOON_PICKS, boonPicks,
-  emptyTraining, trainingPlan, cleanTraining, recruitAttributes
+  emptyTraining, trainingPlan, cleanTraining, recruitAttributes, mutationNeeds, mutationAdjust, withMutationRanks, CREATION_SKILL_CAP
 } from "../rules/enlistment.mjs";
 import { perkMeta, liveBackground } from "../rules/backgrounds.mjs";
 import { treesFor } from "../rules/skill-trees.mjs";
 import { parseRequirements, unmetRequirements } from "../rules/requirements.mjs";
 import { isPhysical, walletOf } from "../rules/store.mjs";
 import { asGM, registerAction } from "../socket.mjs";
+import { RoleTreesViewer } from "./role-trees.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -115,15 +116,24 @@ export function enlistmentTrees(roleKey, items = game.items) {
  */
 export function planFor(choices, { species, role, background }, items = game.items) {
   const boons = species?.system?.boons ? boonPicks(choices).map(k => boonFor(k, items)) : [];
+  const adjust = mutationsPicked(choices, { species, role, background }, items);
+  const attributes = recruitAttributes(species, boons);
+  for ( const [k, n] of Object.entries(adjust.attributes) ) attributes[k] += n;
   return trainingPlan(choices.training, {
-    attributes: recruitAttributes(species, boons),
-    ranks: startingRanks(skillsTaken(choices, role, background)),
+    attributes,
+    ranks: withMutationRanks(startingRanks(skillsTaken(choices, role, background)), adjust),
     trees: role ? enlistmentTrees(role.system.role, items) : [],
     nameOf: nodeName,
     requirementsOf: node => parseRequirements(fromUuidQuiet(node.uuid)?.system?.prerequisites),
     unmet: unmetRequirements,
     budget: IROP.startingXP
   });
+}
+
+/** The rolled mutations' choices, worked out (2026-10-17): see rules/enlistment.mjs mutationAdjust. */
+export function mutationsPicked(choices, { species, role, background }, items = game.items) {
+  const docs = species?.system?.mutations ? mutationIds(choices.mutations).map(id => items?.get?.(id)).filter(Boolean) : [];
+  return { ...mutationAdjust(choices.mutationPicks, mutationNeeds(docs), startingRanks(skillsTaken(choices, role, background))), needs: mutationNeeds(docs) };
 }
 
 /**
@@ -170,7 +180,8 @@ export async function createOperative(choices = {}, user = game.user, request = 
   const role = game.items.get(choices.role);
   const background = game.items.get(choices.background);
   const tables = mutationTables();
-  const issues = Object.values(stepIssues(choices, { species, role, background, mutationsReady: tables.ready })).filter(Boolean);
+  const mutationChoices = mutationsPicked(choices, { species, role, background }).missing;
+  const issues = Object.values(stepIssues(choices, { species, role, background, mutationsReady: tables.ready, mutationChoices })).filter(Boolean);
   if ( issues.length ) return { error: issues[0] };
   if ( (species.type !== "species") || (role.type !== "role") || (background.type !== "background") ) return { error: "Those choices are not a species, role and background." };
   // The mutations rolled: two Positive and one Negative, all this world's Mutation items.
@@ -242,7 +253,6 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       record: EnlistmentApp.#onRecord,
       openStore: EnlistmentApp.#onOpenStore,
       rerollNegative: EnlistmentApp.#onRerollNegative,
-      browse: EnlistmentApp.#onBrowse,
       enlist: EnlistmentApp.#onEnlist,
       openSheet: EnlistmentApp.#onOpenSheet,
       restamp: EnlistmentApp.#onRestamp,
@@ -270,7 +280,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** A recruit with nothing chosen yet. */
   static freshChoices() {
-    return { species: "", role: "", background: "", roleSkill: "", backgroundSkills: [], perk: "", firstName: "", lastName: "", callsign: "", img: DEFAULT_IMG, owner: "", mutations: null, boons: [], training: emptyTraining() };
+    return { species: "", role: "", background: "", roleSkill: "", backgroundSkills: [], perk: "", firstName: "", lastName: "", callsign: "", img: DEFAULT_IMG, owner: "", mutations: null, mutationPicks: {}, boons: [], training: emptyTraining() };
   }
 
   /** The operative made, the request waiting on the GM's client, and the steps visited, by key. */
@@ -306,7 +316,8 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const { species, role, background } = this.picked;
     const list = enlistmentItems();
     const tables = mutationTables();
-    const issues = stepIssues(c, { species, role, background, mutationsReady: tables.ready });
+    const picked = mutationsPicked(c, { species, role, background });
+    const issues = stepIssues(c, { species, role, background, mutationsReady: tables.ready, mutationChoices: picked.missing });
     const steps = this.steps;
     if ( this.step >= steps.length ) this.step = steps.length - 1;
     const roleColor = role ? (IROP.roles[role.system.role]?.color ?? "#42abf2") : "";
@@ -385,6 +396,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       ready: tables.ready, fromTables: tables.fromTables, rolled: mutationsRolled(c.mutations), canReroll: mutationsRolled(c.mutations) && !c.mutations.rerolled,
       rerolled: !!c.mutations?.rerolled,
       chosen: await Promise.all(mutationItems.map(async (m, i) => ({
+        id: m.id, pick: mutationPickers(m, picked, startingRanks(taken)),
         name: m.name, img: m.img, polarity: m.system.polarity, label: (m.system.polarity === "negative") ? "Negative" : "Positive",
         n: pad(i < 2 ? c.mutations.positive[i].n : c.mutations.negative.n),
         description: await foundry.applications.ux.TextEditor.implementation.enrichHTML(m.system.description ?? "", { relativeTo: m })
@@ -430,8 +442,9 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
         // The bars show the boons on top of the species' attributes.
         bars: s ? speciesAttributes(s).map(a => {
           const pips = plan.attributes.find(x => x.key === a.key)?.pips ?? 0;
-          const value = a.value + (boonAdd[a.key] ?? 0) + (pips * IROP.attributeAdvance.perRank);
-          return { ...a, value, boosted: !!boonAdd[a.key] || !!pips, pct: Math.min(100, Math.round((value / 70) * 100)) };
+          const mutated = picked.attributes[a.key] ?? 0;
+          const value = a.value + (boonAdd[a.key] ?? 0) + (pips * IROP.attributeAdvance.perRank) + mutated;
+          return { ...a, value, boosted: !!boonAdd[a.key] || !!pips || (mutated > 0), lowered: mutated < 0, pct: Math.min(100, Math.round((value / 70) * 100)) };
         }) : []
       },
       waiting: !!this.waiting,
@@ -470,6 +483,15 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }
       this.#typed = this.step;
     }
+    // A mutation's choice (2026-10-17): its attribute and its skill.
+    for ( const select of this.element.querySelectorAll("[data-mutation-pick]") ) {
+      select.addEventListener("change", () => {
+        const picks = this.choices.mutationPicks ??= {};
+        const id = select.dataset.mutationPick;
+        picks[id] = { ...(picks[id] ?? {}), [select.dataset.part]: select.value };
+        this.render();
+      });
+    }
     for ( const input of this.element.querySelectorAll("[data-field]") ) {
       input.addEventListener("input", () => {
         this.choices[input.dataset.field] = input.value;
@@ -480,6 +502,16 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     if ( this.result && (this.phase === "record") && !reducedMotion() ) this.element.querySelector(".en-stamp")?.classList.add("hit");
     if ( this.result && !this.#hooks.length ) this.#watch(this.result.id);
+    // A middle click on a role shows its perk trees (Johnald, 2026-10-17); no autoscroll in the way.
+    for ( const card of this.element.querySelectorAll('[data-kind="role"]') ) {
+      card.addEventListener("mousedown", e => { if ( e.button === 1 ) e.preventDefault(); });
+      card.addEventListener("auxclick", e => {
+        if ( e.button !== 1 ) return;
+        e.preventDefault();
+        const role = game.items?.get(card.dataset.id);
+        if ( role ) RoleTreesViewer.show(role);
+      });
+    }
     // The perks are role="button" blocks (their descriptions hold paragraphs): Enter and Space press them.
     for ( const el of this.element.querySelectorAll('[role="button"]') ) {
       el.addEventListener("keydown", e => {
@@ -598,7 +630,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( up ) {
       const next = (group === "attributes") ? plan.nextAttribute(key) : plan.nextSkill(key);
       const label = (group === "attributes") ? IROP.attributes[key]?.label : IROP.skills[key]?.label;
-      if ( !next ) return ui.notifications.info(`${label} is at its top rank.`);
+      if ( !next ) return ui.notifications.info((group === "attributes") && plan.attributes.find(a => a.key === key)?.locked ? `${label} cannot be raised.` : `${label} is at its top rank.`);
       if ( !next.affordable ) return ui.notifications.info(`The next ${label} rank costs ${next.cost} XP; ${plan.left} left.`);
       t[group][key] = have + 1;
     }
@@ -708,11 +740,6 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Pick a portrait. */
-  static #onBrowse() {
-    const Picker = foundry.applications.apps.FilePicker.implementation;
-    return new Picker({ type: "image", current: this.choices.img, callback: path => { this.choices.img = path; this.render(); } }).render({ force: true });
-  }
-
   /** Enlist: made here by a GM, or by the active GM's client for a player. */
   static async #onEnlist() {
     const issues = Object.values(stepIssues(this.choices, { ...this.picked, mutationsReady: mutationTables().ready })).filter(Boolean);
@@ -825,7 +852,7 @@ async function trainingContext(plan, tab = "") {
   const attributes = plan.attributes.map(a => {
     const next = plan.nextAttribute(a.key);
     return { key: a.key, abbr: IROP.attributes[a.key].abbr, label: IROP.attributes[a.key].label, base: a.base, value: a.value, pips: pips(IROP.attributeAdvance.maxRanks, 0, a.pips),
-      next: next?.cost ?? null, canAdd: !!next?.affordable, canDrop: a.pips > 0, bought: a.pips > 0 };
+      next: next?.cost ?? null, canAdd: !!next?.affordable, canDrop: a.pips > 0, bought: a.pips > 0, locked: a.locked };
   });
   const skills = plan.skills.map(s => {
     const next = plan.nextSkill(s.key);
@@ -880,5 +907,24 @@ function requisitionContext(result, phase) {
     // A store the GM opened that players cannot see yet.
     closed: game.user?.isGM ? stores.filter(s => !(game.users?.some?.(u => !u.isGM && s.store.testUserPermission?.(u, "LIMITED")))).map(s => s.store.name) : [],
     kit, name: actor.name
+  };
+}
+
+/**
+ * A rolled mutation's pickers, when it asks for a choice (2026-10-17): the attributes it may go to
+ * and the skills it may raise (none that would pass rank 2 at creation), with the picks lit.
+ */
+function mutationPickers(m, picked, ranks) {
+  const need = picked.needs.find(n => n.id === m.id);
+  if ( !need ) return null;
+  const pick = picked.picks[m.id] ?? {};
+  const sign = need.attribute > 0 ? `+${need.attribute}` : `${need.attribute}`;
+  return {
+    attributeAmount: need.attribute ? sign : "",
+    attributes: need.attribute ? Object.entries(IROP.attributes).filter(([k]) => !(need.noLuck && (k === "lck")))
+      .map(([k, a]) => ({ key: k, label: a.label, on: pick.attribute === k })) : null,
+    skillRanks: need.skill,
+    skills: need.skill ? Object.entries(IROP.skills).filter(([k]) => ((Number(ranks[k]) || 0) + need.skill) <= CREATION_SKILL_CAP)
+      .map(([k, sk]) => ({ key: k, label: sk.label, on: pick.skill === k, rank: Number(ranks[k]) || 0 })) : null
   };
 }

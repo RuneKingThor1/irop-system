@@ -1,4 +1,5 @@
 import { xpSpent } from "../rules/xp.mjs";
+import { BANK_CAP } from "../rules/dynosrs.mjs";
 import { IROP } from "../config.mjs";
 import { attributeModifier, buildPool } from "../rules/dynosrs.mjs";
 import { houseRules } from "../settings.mjs";
@@ -98,6 +99,10 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
         carry: int(0),
         // Defense outside worn armor, from effects or perks: the live sheet's Defense Mod.
         defense: int(0),
+        // More or less Edge and Victory an operative may bank (2026-10-17): Overclocked Cortex +1 Edge,
+        // Frayed Focus -1 Edge, Squandered Insight -1 Victory (none at all).
+        edgeCap: int(0),
+        victoryCap: int(0),
         // Percent points more of carry capacity that may show at a checkpoint (2026-10-10).
         concealment: int(0),
         // The same, at one place only (Model Citizen's Megacity, Johnald, 2026-10-11).
@@ -175,14 +180,22 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
   prepareBaseData() {
     super.prepareBaseData();
     const boons = {};
+    // A mutation's chosen attribute (2026-10-17): Aberrant Potential +5, Genetic Degradation -5.
+    const mutated = {};
     for ( const item of this.parent.items ) {
-      if ( item.type !== "boon" ) continue;
-      const key = item.system.attribute;
-      boons[key] = (boons[key] ?? 0) + item.system.amount;
+      if ( item.type === "boon" ) {
+        const key = item.system.attribute;
+        boons[key] = (boons[key] ?? 0) + item.system.amount;
+      }
+      else if ( (item.type === "mutation") && item.system.choice?.attribute && item.system.chosen?.attribute ) {
+        const key = item.system.chosen.attribute;
+        mutated[key] = (mutated[key] ?? 0) + item.system.choice.attribute;
+      }
     }
     for ( const [key, attr] of Object.entries(this.attributes) ) {
       attr.boons = boons[key] ?? 0;
-      attr.value = attr.base + (attr.advances * IROP.attributeAdvance.perRank) + attr.boons;
+      attr.mutation = mutated[key] ?? 0;
+      attr.value = attr.base + (attr.advances * IROP.attributeAdvance.perRank) + attr.boons + attr.mutation;
     }
   }
 
@@ -301,8 +314,9 @@ export class OperativeData extends CombatantData {
     return {
       ...super.defineSchema(),
       banks: new fields.SchemaField({
-        edge: int(0, { min: 0, max: 3 }),
-        victory: int(0, { min: 0, max: 1 })
+        // Capped by banks.edgeMax and banks.victoryMax, which effects can move (2026-10-17).
+        edge: int(0, { min: 0, max: 10 }),
+        victory: int(0, { min: 0, max: 5 })
       }),
       // RULED 2026-10-08: Earned is set by the GM; Spent is the sum of the ledger, so
       // it cannot drift. Each entry is an award or a purchase (attribute or skill rank,
@@ -355,6 +369,9 @@ export class OperativeData extends CombatantData {
   /** @override */
   prepareDerivedData() {
     super.prepareDerivedData();
+    // What may be banked: the dice rules' caps, moved by effects (2026-10-17).
+    this.banks.edgeMax = Math.max(0, BANK_CAP.EDGE + (Number(this.bonuses.edgeCap) || 0));
+    this.banks.victoryMax = Math.max(0, BANK_CAP.VICTORY + (Number(this.bonuses.victoryCap) || 0));
     this.xp.spent = xpSpent(this.xp.log);
     this.xp.unspent = this.xp.earned - this.xp.spent;
     const role = this.role?.system.role;

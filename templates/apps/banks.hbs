@@ -35,7 +35,7 @@
       <button type="button" class="icon" data-action="operative" data-bank="edge" data-delta="1" data-tooltip="Bank Edge"><i class="fa-solid fa-plus"></i></button>
       {{/if}}
       <span class="bank-pips">{{#each o.victoryPips as |on|}}<span class="bank-pip victory {{#if on}}filled{{/if}}"></span>{{/each}}</span>
-      {{#if o.canEdit}}
+      {{#if (and o.canEdit o.canVictory)}}
       <button type="button" class="icon" data-action="operative" data-bank="victory" data-delta="{{#if o.victory}}-1{{else}}1{{/if}}"
               data-tooltip="{{#if o.victory}}Spend Victory{{else}}Bank Victory{{/if}}"><i class="fa-solid fa-star"></i></button>
       {{/if}}

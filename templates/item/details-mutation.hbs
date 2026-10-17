@@ -2,5 +2,13 @@
   <div class="form-grid">
     <label><span>Polarity</span><select name="system.polarity">{{selectOptions config.mutationPolarity selected=system.polarity}}</select></label>
   </div>
-  <p class="hint">Mechanical changes go on the Effects tab, so they apply to whoever carries the mutation.</p>
+  {{!-- A choice when taken (Johnald, 2026-10-17): an attribute raised or lowered, and skill ranks. --}}
+  <h3 class="section-title">Choice when taken</h3>
+  <div class="form-grid">
+    <label data-tooltip="Added to an attribute its carrier chooses: +5 for Aberrant Potential, -5 for Genetic Degradation. 0 for none"><span>Attribute</span><input type="number" name="system.choice.attribute" value="{{system.choice.attribute}}" step="5"></label>
+    <label data-tooltip="Ranks in a skill its carrier chooses. 0 for none"><span>Skill ranks</span><input type="number" name="system.choice.skill" value="{{system.choice.skill}}" min="0" max="2"></label>
+    <label class="check"><input type="checkbox" name="system.choice.noLuck" {{checked system.choice.noLuck}}><span>Luck excluded</span></label>
+  </div>
+  {{#if (or system.chosen.attribute system.chosen.skill)}}<p class="hint">Chosen: {{system.chosen.attribute}} {{system.chosen.skill}}</p>{{/if}}
+  <p class="hint">Other mechanical changes go on the Effects tab, so they apply to whoever carries the mutation.</p>
 </section>

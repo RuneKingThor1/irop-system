@@ -1,4 +1,4 @@
-import { IROP } from "../config.mjs";
+import { IROP, rankLocked } from "../config.mjs";
 
 /**
  * XP, RULED 2026-10-08 (Johnald). One ledger: attribute ranks, skill ranks and
@@ -19,7 +19,9 @@ export function rankCost(kind, n) {
  * the XP to pay for it.
  * @returns {{ok: boolean, cost?: number, reason?: string}}
  */
-export function checkRankPurchase({ kind, label, current, n, unspent }) {
+export function checkRankPurchase({ kind, key = "", label, current, n, unspent }) {
+  // Luck is never raised (RULED 2026-10-17).
+  if ( (kind === "attribute") && rankLocked(key) ) return { ok: false, reason: `${label} cannot be raised.` };
   const max = (kind === "attribute") ? IROP.attributeAdvance.maxRanks : IROP.skillRanks.max;
   if ( n !== current + 1 ) return { ok: false, reason: "Ranks are bought one at a time, the next one up." };
   if ( n > max ) return { ok: false, reason: `${label} is already at its top rank.` };

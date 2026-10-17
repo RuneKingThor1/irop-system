@@ -1,8 +1,8 @@
 import { IROP } from "../config.mjs";
 import { effectChanges, describeChange } from "../rules/effects.mjs";
-import { defaultNodeCost, moveNode, moveTier, removeNode, removeTier } from "../rules/skill-trees.mjs";
+import { defaultNodeCost, moveNode, moveTier, removeNode, removeTier, treesFor } from "../rules/skill-trees.mjs";
 import { linkNeighbors } from "../rules/strategy.mjs";
-import { getStrategyRules, temperatureUnit } from "../settings.mjs";
+import { getStrategyRules, temperatureUnit, specializationRules } from "../settings.mjs";
 import { salvageProgress, skillLabel } from "../rules/projects.mjs";
 import { journalLink, openJournal } from "../strategy/intel.mjs";
 import { quickFacilities } from "../rules/war-room-map.mjs";
@@ -62,6 +62,9 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       customizeWeather: IropItemSheet.#onCustomizeWeather,
       resetWeather: IropItemSheet.#onResetWeather,
       openPerk: IropItemSheet.#onOpenPerk,
+      roleTree: IropItemSheet.#onRoleTree,
+      openTreePerk: IropItemSheet.#onOpenTreePerk,
+      openTree: IropItemSheet.#onOpenTree,
       deletePerk: IropItemSheet.#onDeletePerk,
       newPerk: IropItemSheet.#onNewPerk
     }
@@ -80,6 +83,8 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     tabs: { template: "systems/irop/templates/actor/tabs.hbs" },
     description: { template: `${T}/description.hbs`, scrollable: [""] },
     details: { template: `${T}/details-weapon.hbs`, scrollable: [""] },
+    // A role's perk trees, to read (Johnald, 2026-10-17).
+    trees: { template: `${T}/role-trees.hbs`, scrollable: [""] },
     effects: { template: `${T}/effects.hbs`, scrollable: [""] }
   };
 
@@ -89,6 +94,7 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       tabs: [
         { id: "description", label: "Description", icon: "fa-solid fa-align-left" },
         { id: "details", label: "Details", icon: "fa-solid fa-sliders" },
+        { id: "trees", label: "Perk trees", icon: "fa-solid fa-sitemap" },
         { id: "effects", label: "Effects", icon: "fa-solid fa-wand-sparkles" }
       ],
       initial: "details"
@@ -147,8 +153,11 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   /** Without its Details tab, the sheet opens on its Description. @inheritDoc */
   _getTabsConfig(group) {
-    const config = super._getTabsConfig(group);
-    if ( (group !== "primary") || !config || this.showsDetails ) return config;
+    let config = super._getTabsConfig(group);
+    if ( (group !== "primary") || !config ) return config;
+    // Perk trees only on a role (2026-10-17).
+    if ( this.item.type !== "role" ) config = { ...config, tabs: config.tabs.filter(t => t.id !== "trees") };
+    if ( this.showsDetails ) return config;
     return { ...config, tabs: config.tabs.filter(t => t.id !== "details"), initial: "description" };
   }
 
@@ -173,6 +182,7 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     parts.details.template = `${T}/details-${this.item.type}.hbs`;
     if ( !this.showsDetails ) delete parts.details;
     if ( !this.showsEffects ) delete parts.effects;
+    if ( this.item.type !== "role" ) delete parts.trees;
     return parts;
   }
 
@@ -226,6 +236,8 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         : null,
       // The perk tree editor (2026-10-08).
       treeTiers: item.type === "skillTree" ? treeEditorTiers(system) : null,
+      // A role's perk trees, to read (2026-10-17).
+      roleTrees: item.type === "role" ? roleTreesContext(item, this.#roleTree) : null,
       // Background perks (2026-10-10): the list, which only a GM changes.
       backgroundPerks: item.type === "background" ? backgroundPerkRows(system) : null,
       // The same perks as banners under the description, for everyone, below the starting skills.
@@ -473,6 +485,29 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const perks = withPerk(foundry.utils.deepClone(this.item.system._source.perks ?? []), ability, foundry.utils.randomID());
     if ( !perks ) return ui.notifications.warn(`${ability.name} is already one of ${this.item.name}'s perks.`);
     return this.item.update({ "system.perks": perks });
+  }
+
+  /** The role's tree on show in its Perk trees tab. */
+  #roleTree = "";
+
+  /** Perk trees tab: show another tree, without a re-render. */
+  static #onRoleTree(event, target) {
+    this.#roleTree = target.dataset.treeId;
+    const panel = target.closest(".role-trees");
+    for ( const el of panel?.querySelectorAll("[data-tree-id]") ?? [] ) el.classList.toggle("active", el.dataset.treeId === this.#roleTree);
+  }
+
+  /** Perk trees tab: a perk's ability, to read. */
+  static async #onOpenTreePerk(event, target) {
+    const ability = target.dataset.uuid ? await foundry.utils.fromUuid(target.dataset.uuid) : null;
+    if ( !ability ) return ui.notifications.warn("That perk's ability is missing from the world. The GM can fix the tree.");
+    return ability.sheet.render({ force: true });
+  }
+
+  /** Perk trees tab, GM: open the tree itself, to edit. */
+  static #onOpenTree(event, target) {
+    if ( !game.user.isGM ) return null;
+    return game.items?.get(target.dataset.treeId)?.sheet.render({ force: true });
   }
 
   static async #onOpenPerk(event, target) {
@@ -940,4 +975,49 @@ export function projectContext(item) {
     pct: s.percent,
     assigned: s.assigned.map(a => ({ name: game.actors?.get(a.actor)?.name ?? "A soldier no longer here", skill: skillLabel(a.skill) }))
   };
+}
+
+/* -------------------------------------------- */
+
+/**
+ * A role's perk trees, to read on the role's own sheet (Johnald, 2026-10-17): its Primary, then its
+ * specializations, in the order the Training tab shows them, each tier's perks with their XP, what
+ * they need, and a Pick one tier's choice. A click opens a perk's ability; a GM can open the tree.
+ * The General trees belong to every role, so they are left out.
+ */
+export function roleTreesContext(item, active = "", items = game.items) {
+  const role = item.system.role;
+  const all = items?.filter?.(i => (i.type === "skillTree") && role && (i.system.role === role)) ?? [];
+  const trees = treesFor(all, { role });
+  const unlock = specializationRules().unlockXP;
+  const name = node => nodeSource(node.uuid)?.name ?? node.name;
+  const shown = trees.find(t => t.id === active) ?? trees[0] ?? null;
+  return trees.map(tree => {
+    const s = tree.system;
+    const spec = s.kind === "specialization";
+    const opens = spec ? (unlock.length ? `Opens at ${unlock[0]} XP earned${unlock[1] ? `, a second specialization at ${unlock[1]}` : ""}` : "This table plays without specializations") : "";
+    const byId = new Map(s.tiers.flatMap(t => t.nodes).map(n => [n.id, n]));
+    const node = (n, i, tier) => {
+      const source = nodeSource(n.uuid);
+      const needs = [n.requires && byId.get(n.requires) ? `Needs ${name(byId.get(n.requires))} first` : "", source?.system?.prerequisites ? `Needs ${source.system.prerequisites}` : ""].filter(Boolean);
+      return {
+        id: n.id, uuid: n.uuid, name: name(n), img: source?.img || n.img || "icons/svg/item-bag.svg",
+        sub: [`${Math.max(0, Number(n.xp) || 0)} XP`, source ? perkMeta(source.system) : "Missing ability"].filter(Boolean).join(", "),
+        reason: needs.join(". "), missing: !source,
+        or: tier.exclusive && (i > 0),
+        chained: !tier.exclusive && (i > 0) && (n.requires === tier.nodes[i - 1].id)
+      };
+    };
+    const tiers = s.tiers.map((tier, index) => ({
+      number: index + 1, exclusive: tier.exclusive && (tier.nodes.length > 1),
+      nodes: tier.nodes.map((n, i) => node(n, i, tier))
+    })).filter(t => t.nodes.length);
+    return {
+      id: tree.id, label: s.tabLabel, kind: IROP.treeKinds[s.kind] ?? "", active: tree === shown, opens,
+      freeForm: !s.gated,
+      lines: !s.gated ? tiers.filter(t => t.nodes.length > 1) : [],
+      singles: !s.gated ? tiers.filter(t => t.nodes.length === 1).flatMap(t => t.nodes) : [],
+      tiers
+    };
+  });
 }

@@ -106,12 +106,12 @@
           data-action="setPip" data-path="system.vitals.luck.value" data-value="{{p.n}}"></button>{{else}}<em class="none">0</em>{{/each}}</span>
       </div>
       {{#if edgePips}}
-      <div class="track" data-tooltip="Banked Edge, up to 3. Resets at the end of the session.">
+      <div class="track" data-tooltip="Banked Edge, up to {{edgeMax}}. Resets at the end of the session.">
         <span class="mono-label">Edge</span>
         <span class="pips">{{#each edgePips as |p|}}<button type="button" class="pip edge {{#if p.filled}}filled{{/if}}"
           data-action="setPip" data-path="system.banks.edge" data-value="{{p.n}}"><i class="fa-solid fa-caret-up"></i></button>{{/each}}</span>
       </div>
-      <div class="track" data-tooltip="Banked Victory, up to 1. Needed in the squad for a Nigh Impossible check.">
+      <div class="track" data-tooltip="{{#if victoryMax}}Banked Victory, up to {{victoryMax}}. Needed in the squad for a Nigh Impossible check.{{else}}Cannot bank Victory: a rolled Victory is spent on that check or lost.{{/if}}">
         <span class="mono-label">Victory</span>
         <span class="pips">{{#each victoryPips as |p|}}<button type="button" class="pip victory {{#if p.filled}}filled{{/if}}"
           data-action="setPip" data-path="system.banks.victory" data-value="{{p.n}}"><i class="fa-solid fa-star"></i></button>{{/each}}</span>
