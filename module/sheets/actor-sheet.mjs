@@ -301,7 +301,8 @@ export function concealmentLine(load) {
   const lines = checks.map(c => `${c.label} allow ${c.allowed} (${c.limit}%${why(c.place) ? `: ${c.base}% ${why(c.place)}` : ""}): ${c.pass ? "passes" : `caught, ${c.over} over`}.`);
   const tip = [`Showing ${load.visible} of what is carried${load.hidden ? `, ${load.hidden} more hidden` : ""}, against a capacity of ${load.capacity}.`,
     ...lines, "Concealable items, and those with a mod that conceals them, do not count."].join(" ");
-  return { visible: load.visible, hidden: load.hidden, checks, tip };
+  // Each place's line on its own chip (Johnald, 2026-10-16); the whole on the Concealment label.
+  return { visible: load.visible, hidden: load.hidden, checks: checks.map((c, i) => ({ ...c, tip: lines[i] })), tip };
 }
 
 const signedText = n => ((n > 0) ? `+${n}` : `${n}`);

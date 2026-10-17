@@ -57,10 +57,11 @@
     </div>
     {{!-- What shows of it at a checkpoint, and whether that passes in the Slums and a Megacity (2026-10-10). --}}
     {{#if concealment}}
-    <div class="conceal-line" data-tooltip="{{concealment.tip}}">
-      <span class="mono-label">Concealment</span>
-      <span class="carry-value"><b>{{concealment.visible}}</b>{{#if concealment.hidden}} <small>+{{concealment.hidden}} hidden</small>{{/if}}</span>
-      <span class="conceal-checks">{{#each concealment.checks as |c|}}<span class="conceal-chip {{#if c.pass}}pass{{else}}caught{{/if}}"><i class="fa-solid {{#if c.pass}}fa-eye-slash{{else}}fa-eye{{/if}}"></i> {{c.label}}</span>{{/each}}</span>
+    <div class="conceal-line">
+      {{!-- No lone number (Johnald, 2026-10-16: "it is kind of just there"): the eyes alone, each place's numbers
+            on hover over its chip, and the whole on hover over Concealment. --}}
+      <span class="mono-label conceal-label" data-tooltip="{{concealment.tip}}">Concealment</span>
+      <span class="conceal-checks">{{#each concealment.checks as |c|}}<span class="conceal-chip {{#if c.pass}}pass{{else}}caught{{/if}}" data-tooltip="{{c.tip}}"><i class="fa-solid {{#if c.pass}}fa-eye-slash{{else}}fa-eye{{/if}}"></i> {{c.label}}</span>{{/each}}</span>
     </div>
     {{/if}}
     {{else}}

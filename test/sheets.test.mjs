@@ -4337,7 +4337,7 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
     /justify-content:\s*flex-start/.test(skillRule) && /text-align:\s*left/.test(skillRule) && /margin-left:\s*auto/.test(attrBox) && /width:\s*100%/.test(skillRule)
       && /border:\s*1px solid/.test(attrBox) && /background:/.test(attrBox), `${skillRule} || ${attrBox}`);
   check("carried bar css: as thick as its label's line, lined up with Background's label",
-    /height:\s*calc\(var\(--irop-label-size\) \* 1\.2\)/.test(ruleOf(".irop .carry-line .carry-meter")) && /92px/.test(ruleOf(".irop .carry-line")));
+    /height:\s*calc\(var\(--irop-label-size\) \* 1\.2\)/.test(ruleOf(".irop .carry-line .carry-meter")) && /116px/.test(ruleOf(".irop .carry-line")) && /116px/.test(ruleOf(".irop .identity-row")));
   check("the vital bars keep white text (Johnald, 2026-10-07)",
     /--irop-white:\s*#f4f7fb/.test(css)
       && /var\(--irop-white\)/.test(ruleOf(".irop .vital-values input"))
@@ -6310,8 +6310,10 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   const line = new JSDOM(headOut.header).window.document.querySelector(".conceal-line");
   check("concealment: the header shows what shows, with a chip for each place, passed or caught, the numbers on hover",
     !!line && (line.querySelector(".mono-label")?.textContent === "Concealment") && (line.querySelectorAll(".conceal-chip").length === 2) && line.querySelector(".conceal-chip").textContent.includes("Slums")
-      && /Slums allow [\d.]+ \(60%: 50% \+10% as a Human\)/.test(line.dataset.tooltip) && /Megacity allow [\d.]+ \(35%: 25% \+10% as a Human\)/.test(line.dataset.tooltip)
-      && /Concealable items/.test(line.dataset.tooltip), line?.outerHTML);
+      && !line.querySelector(":scope > .carry-value") && !/\d/.test(line.querySelector(".conceal-checks").textContent)
+      && /^Slums allow [\d.]+ \(60%: 50% \+10% as a Human\)/.test(line.querySelector(".conceal-chip").dataset.tooltip)
+      && /^Megacity allow [\d.]+ \(35%: 25% \+10% as a Human\)/.test(line.querySelectorAll(".conceal-chip")[1].dataset.tooltip)
+      && /Slums allow/.test(line.querySelector(".conceal-label").dataset.tooltip) && /Concealable items/.test(line.querySelector(".conceal-label").dataset.tooltip), line?.outerHTML);
   game.user = { id: "gm", isGM: true, name: "GM" };
   const weaponDetails = new JSDOM((await renderSheet(IropItemSheet, (() => {
     const w = new FakeDoc({});

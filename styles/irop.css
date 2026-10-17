@@ -216,11 +216,11 @@
 .irop .field-inline.grow input { flex: 1; }
 /* Role, Species and Background as a labelled list, one to a line (Johnald, 2026-10-08), the
    labels lined up with Callsign's. The role wears the role colour. */
-.irop .identity .subline:not(.npc-line) .mono-label { min-width: 92px; }
+.irop .identity .subline:not(.npc-line) .mono-label { min-width: 116px; }
 .irop .identity-list { margin: 0; display: flex; flex-direction: column; }
 .irop .identity-row {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 116px minmax(0, 1fr);
   align-items: center;
   min-height: 34px;
   border-bottom: 1px solid color-mix(in srgb, var(--irop-line) 70%, transparent);
@@ -798,7 +798,7 @@
    lines up with Role, Species and Background; the bar turns red over capacity. */
 .irop .carry-line {
   display: grid;
-  grid-template-columns: 92px auto minmax(60px, 1fr);
+  grid-template-columns: 116px auto minmax(60px, 1fr);
   align-items: center;
   gap: 10px;
   min-height: 30px;
@@ -810,7 +810,9 @@
 .irop .carry-line .carry-meter .fill { display: block; height: 100%; background: var(--irop-accent); }
 .irop .carry-line.over .carry-value, .irop .carry-line.over .carry-value b { color: var(--irop-bad); }
 /* Under it, what shows at a checkpoint and where that passes (2026-10-10). */
-.irop .conceal-line { display: grid; grid-template-columns: 92px auto minmax(60px, 1fr); align-items: center; gap: 10px; min-height: 28px; }
+/* 116px so CONCEALMENT clears its tags (Johnald, 2026-10-16 screenshot); every header label column matches. */
+.irop .conceal-line { display: grid; grid-template-columns: 116px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 28px; }
+.irop .conceal-label, .irop .conceal-chip { cursor: help; }
 .irop .conceal-line .carry-value small { font-size: 15px; color: var(--irop-muted); }
 .irop .conceal-checks { display: flex; gap: 6px; flex-wrap: wrap; }
 .irop .conceal-chip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid; border-radius: 3px; font-size: 15px; font-weight: 600; white-space: nowrap; }
