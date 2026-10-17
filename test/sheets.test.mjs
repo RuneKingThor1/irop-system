@@ -4298,9 +4298,11 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   };
   const sheet = new OperativeSheet(operative);
   sheet.element = root;
-  const size = () => header.style.getPropertyValue("--irop-portrait");
+  // On the window, which outlives a re-render of the header (bug, Johnald, 2026-10-17: the portrait jiggled).
+  const size = () => root.style.getPropertyValue("--irop-portrait");
   await IropActorSheet.prototype._onRender.call(sheet, context, {});
-  check("portrait: as tall as the vitals column", size() === "203px", size());
+  check("portrait: as tall as the vitals column, set on the window rather than the header",
+    (size() === "203px") && !header.style.getPropertyValue("--irop-portrait"), size());
   height = 240.4; watchers.at(-1).cb([]);
   check("portrait: follows the column as it changes", size() === "240px", size());
   let idHeight = 0;
@@ -4866,7 +4868,7 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   check("record css: the gutter is 37px and the bar follows it",
     /--irop-record-gutter:\s*37px/.test(rule(".application.irop.operative"))
       && /width:\s*calc\(var\(--irop-record-gutter, 37px\) - 6px\)/.test(barRule), barRule);
-  check("record: the sheet is 15px wider to keep the tabs' room", OperativeSheet.DEFAULT_OPTIONS.position.width === 935);
+  check("sheets open at 1100 x 850 (Johnald, 2026-10-17), the operative too, gutter and all", (OperativeSheet.DEFAULT_OPTIONS.position.width === 1100) && (IropActorSheet.DEFAULT_OPTIONS.position.width === 1100) && (IropActorSheet.DEFAULT_OPTIONS.position.height === 850));
   check("record css: the drawer sits flush against the sheet's left edge", /right:\s*100%;/.test(rule(".irop .irop-record")));
   // Detached (Foundry 14, 2026-10-10): the window ends at the sheet, so the drawer opens inside it, from the gutter.
   const detRule = rule(".application.irop.operative.record-inside:not(.record-only) .irop-record");

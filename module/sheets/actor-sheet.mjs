@@ -312,7 +312,8 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** @override */
   static DEFAULT_OPTIONS = {
     classes: ["irop", "actor-sheet"],
-    position: { width: 900, height: 820 },
+    // 1100 x 850 (Johnald, 2026-10-17), never taller than the screen it opens on.
+    position: { width: 1100, height: 850 },
     window: { resizable: true },
     form: { submitOnChange: true },
     actions: {
@@ -1024,9 +1025,13 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const vitals = header?.querySelector(".vitals");
     if ( !vitals ) return;
     const identity = header.querySelector(".identity");
+    // Kept on the window, not the header (bug, Johnald, 2026-10-17): a re-render replaces the header,
+    // which then showed the 112px default for a frame before this caught up, so the portrait jiggled.
+    const root = this.element;
     this.#portraitObserver = new ResizeObserver(() => {
       const tallest = Math.max(vitals.offsetHeight, identity?.offsetHeight ?? 0);
-      header.style.setProperty("--irop-portrait", `${portraitSize(tallest)}px`);
+      const size = `${portraitSize(tallest)}px`;
+      if ( root.style.getPropertyValue("--irop-portrait") !== size ) root.style.setProperty("--irop-portrait", size);
     });
     this.#portraitObserver.observe(vitals);
     if ( identity ) this.#portraitObserver.observe(identity);
@@ -1748,8 +1753,8 @@ export class OperativeSheet extends IropActorSheet {
   /** @override */
   static DEFAULT_OPTIONS = {
     classes: ["operative"],
-    // 35px wider than the base sheet: the record gutter runs down the left edge.
-    position: { width: 935 },
+    // Operatives open at 1100 x 850 too (Johnald, 2026-10-17); the record gutter fits inside.
+    position: { width: 1100 },
     actions: {
       toggleRecord: OperativeSheet.#onToggleRecord,
       toggleNotes: OperativeSheet.#onToggleNotes,
@@ -2142,6 +2147,9 @@ export class OperativeSheet extends IropActorSheet {
   _initializeApplicationOptions(options) {
     options = super._initializeApplicationOptions(options);
     if ( options.document && !options.document.isOwner ) options.position.width = OperativeSheet.RECORD_WIDTH + 20;
+    // Never taller than the screen (2026-10-17).
+    const room = globalThis.window?.innerHeight;
+    if ( room && (options.position?.height > room - 40) ) options.position = { ...options.position, height: Math.max(500, room - 40) };
     return options;
   }
 
