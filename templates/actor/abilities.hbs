@@ -105,8 +105,9 @@
   {{/if}}
   {{/if}}
 
-  {{!-- Only for characters with the Paraphysical tag, or in edit mode (Johnald, 2026-10-08). --}}
-  {{#if showParaphysics}}
+  {{!-- Only for characters with the Paraphysical tag, or in edit mode (Johnald, 2026-10-08). The operative
+        sheet has a Paraphysics tab instead (2026-10-16). --}}
+  {{#if showParaphysics}}{{#unless paraphysicsTab}}
   <div class="panel paraphysics">
     <header class="panel-head"><h3>Paraphysics</h3></header>
     <div class="discipline-row">
@@ -119,5 +120,5 @@
       {{/each}}
     </div>
   </div>
-  {{/if}}
+  {{/unless}}{{/if}}
 </section>

@@ -429,8 +429,10 @@ for ( const editMode of [false, true] ) {
   check(`operative ${mode}: the Medkit's heal reads 1d4 + the INT mod`,
     new RegExp(`· 1d4 \\+ ${intMod}`).test(gearDoc.querySelector(".gear-row .item-sub")?.textContent ?? ""));
   // The fixture knows a telekinesis attack, so it is paraphysical: the panel shows, with no subtext (2026-10-08).
-  const paraHead = [...new JSDOM(out.abilities).window.document.querySelectorAll(".panel-head")].find(h => h.querySelector("h3")?.textContent === "Paraphysics");
-  check(`operative ${mode}: a paraphysical character sees the Paraphysics panel, no subtext`, !!paraHead && !paraHead.querySelector(".hint"));
+  const paraHead = [...new JSDOM(out.paraphysics ?? "").window.document.querySelectorAll(".panel-head")].find(h => h.querySelector("h3")?.textContent === "Paraphysics");
+  check(`operative ${mode}: a paraphysical character has the Paraphysics tab (2026-10-16), its panel there and not on Abilities`,
+    !!paraHead && !paraHead.querySelector(".hint") && !/<h3>Paraphysics<\/h3>/.test(out.abilities)
+      && new OperativeSheet(operative)._getTabsConfig("primary").tabs.map(t => t.id).slice(0, 3).join() === "main,abilities,paraphysics");
   check(`operative ${mode}: no subtext beside the Active abilities title`,
     ![...new JSDOM(out.abilities).window.document.querySelectorAll(".panel-head")]
       .find(h => h.querySelector("h3")?.textContent === "Active abilities")?.querySelector(".hint"));
@@ -1266,7 +1268,7 @@ for ( const editMode of [false, true] ) {
 check("tabs: Dossier is now Training", OperativeSheet.TABS.primary.tabs.find(t => t.id === "bio")?.label === "Training"
   && !OperativeSheet.TABS.primary.tabs.some(t => t.label === "Dossier"));
 // Abilities before Combat on the operative sheet (Johnald, 2026-10-11).
-check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet.TABS.primary.tabs.map(t => t.id).slice(0, 4).join() === "main,abilities,combat,gear");
+check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat, Gear, in that order", OperativeSheet.TABS.primary.tabs.map(t => t.id).slice(0, 5).join() === "main,abilities,paraphysics,combat,gear");
 
 // The ledger folds away on a click of its header, and stays as each user left it (Johnald, 2026-10-08).
 {
@@ -4359,9 +4361,16 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   check("human without mutations: no Mutations panel", !panel(out.abilities) && context.showMutations === false);
   check("human: Boons panel shown", /<h3>Boons<\/h3>/.test(out.abilities) && context.canTakeBoons === true);
   // No Paraphysical tag: the panel is hidden in play, and shown in edit mode so a GM can still set ranks (2026-10-08).
-  check("not paraphysical: no Paraphysics panel in play", !/<h3>Paraphysics<\/h3>/.test(out.abilities) && context.showParaphysics === false);
+  const plainSheet = new OperativeSheet(plainHuman);
+  plainSheet.tabGroups = { primary: "paraphysics" };
+  check("not paraphysical: no Paraphysics tab or panel in play, and a tab left open there falls back to Attributes",
+    !("paraphysics" in out) && !/<h3>Paraphysics<\/h3>/.test(out.abilities) && !plainSheet._getTabsConfig("primary").tabs.some(t => t.id === "paraphysics")
+      && !("paraphysics" in plainSheet._configureRenderParts({})) && plainSheet.tabGroups.primary === "main");
+  const userBefore = game.user;
+  game.user = { ...(userBefore ?? {}), isGM: true };
   const plainEdit = await renderSheet(OperativeSheet, plainHuman, { editMode: true });
-  check("not paraphysical: edit mode still shows the panel to set ranks", /<h3>Paraphysics<\/h3>/.test(plainEdit.out.abilities));
+  game.user = userBefore;
+  check("not paraphysical: a GM in edit mode still gets the tab, to set the first ranks", /<h3>Paraphysics<\/h3>/.test(plainEdit.out.paraphysics ?? "") && !/<h3>Paraphysics<\/h3>/.test(plainEdit.out.abilities));
   check("human: Boons take the full width", !/class="two-col"[\s\S]*?<h3>Boons/.test(out.abilities.split("<h3>Paraphysics")[0]));
 
   const baron = makeActor("operative", OperativeData, {}, [
@@ -4907,7 +4916,7 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   // The owner (or GM) first: the full sheet, record closed.
   const ownerSheet = new OperativeSheet(watched);
   // A player owner in Play mode gets every part but Effects (Johnald, 2026-10-10: Effects only in Edit mode for players).
-  const noEffects = Object.keys(OperativeSheet.PARTS).filter(k => k !== "effects").join();
+  const noEffects = Object.keys(OperativeSheet.PARTS).filter(k => !["effects", "paraphysics"].includes(k)).join();
   check("owner: full sheet parts (but Effects, in Play mode)", Object.keys(ownerSheet._configureRenderParts({})).join() === noEffects);
   check("owner: record not forced open", (await ownerSheet._prepareContext({})).record.open === false);
 

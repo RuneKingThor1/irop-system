@@ -1,0 +1,15 @@
+<section class="tab paraphysics {{tab.cssClass}}" data-group="primary" data-tab="paraphysics">
+  {{!-- Its own tab (Johnald, 2026-10-16), only for a paraphysical character (and a GM in Edit mode, to set the first ranks). --}}
+  <div class="panel paraphysics">
+    <header class="panel-head"><h3>Paraphysics</h3></header>
+    <div class="discipline-row">
+      {{#each disciplines as |d|}}
+      <label class="discipline">
+        <span class="mono-label">{{d.label}}</span>
+        {{#if @root.editMode}}<input type="number" name="system.paraphysics.{{d.key}}" value="{{d.rank}}">
+        {{else}}<span class="stat-value">{{d.rank}}</span>{{/if}}
+      </label>
+      {{/each}}
+    </div>
+  </div>
+</section>

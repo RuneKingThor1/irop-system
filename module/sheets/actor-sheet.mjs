@@ -385,17 +385,30 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     return !!game.user?.isGM || this.isEditMode;
   }
 
-  /** Leave the Effects tab out where it is hidden. @inheritDoc */
-  _getTabsConfig(group) {
-    const config = super._getTabsConfig(group);
-    if ( !config || this.showsEffects ) return config;
-    return { ...config, tabs: config.tabs.filter(t => t.id !== "effects") };
+  /**
+   * The Paraphysics tab (Johnald, 2026-10-16): only for a paraphysical character, and for a GM in
+   * Edit mode, so the first ranks can be set.
+   */
+  get showsParaphysics() {
+    return !!this.actor.system.isParaphysical || (this.isEditMode && !!game.user?.isGM);
   }
 
-  /** And its page. @inheritDoc */
+  /** Leave the Effects and Paraphysics tabs out where they are hidden. @inheritDoc */
+  _getTabsConfig(group) {
+    const config = super._getTabsConfig(group);
+    if ( !config ) return config;
+    const hide = new Set([this.showsEffects ? "" : "effects", this.showsParaphysics ? "" : "paraphysics"]);
+    return { ...config, tabs: config.tabs.filter(t => !hide.has(t.id)) };
+  }
+
+  /** And their pages; a hidden tab left open falls back to the first. @inheritDoc */
   _configureRenderParts(options) {
     const parts = super._configureRenderParts(options);
     if ( !this.showsEffects ) delete parts.effects;
+    if ( !this.showsParaphysics ) {
+      delete parts.paraphysics;
+      if ( this.tabGroups?.primary === "paraphysics" ) this.tabGroups.primary = "main";
+    }
     return parts;
   }
 
@@ -511,6 +524,8 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       })),
       // Only for the Paraphysical, or in edit mode so a GM can still set ranks (2026-10-08).
       showParaphysics: system.isParaphysical || this.isEditMode,
+      // The operative sheet gives Paraphysics a tab of its own (2026-10-16); the NPC sheet keeps the panel.
+      paraphysicsTab: "paraphysics" in this.constructor.PARTS,
       // The XP ledger, newest first; only a GM can award or undo (2026-10-08).
       xpLog: (system.xp?.log ?? []).map((e, index) => ({ ...xpLine(e), index, undoTip: undoTip(e) })).reverse(),
       // The ledger folds away, each user's choice (2026-10-08).
@@ -1756,6 +1771,7 @@ export class OperativeSheet extends IropActorSheet {
     tabs: { template: `${T}/tabs.hbs` },
     main: PART("main"),
     abilities: PART("abilities"),
+    paraphysics: PART("paraphysics"),
     combat: PART("combat"),
     gear: PART("gear"),
     bio: PART("bio"),
@@ -2328,6 +2344,8 @@ export class OperativeSheet extends IropActorSheet {
         { id: "main", label: "Attributes", icon: "fa-solid fa-user" },
         // Abilities before Combat (Johnald, 2026-10-11).
         { id: "abilities", label: "Abilities", icon: "fa-solid fa-bolt" },
+        // Its own tab, only for the paraphysical (Johnald, 2026-10-16).
+        { id: "paraphysics", label: "Paraphysics", icon: "fa-solid fa-atom" },
         { id: "combat", label: "Combat", icon: "fa-solid fa-crosshairs" },
         { id: "gear", label: "Gear", icon: "fa-solid fa-box-open" },
         // Renamed from Dossier (Johnald, 2026-10-08): identity, XP, perk trees and the ledger.
