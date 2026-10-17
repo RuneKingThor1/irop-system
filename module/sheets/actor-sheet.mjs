@@ -2,6 +2,7 @@ import { IROP, rankLocked } from "../config.mjs";
 import { DICE, DICE_ORDER } from "../rules/dynosrs.mjs";
 import * as rolls from "../rolls.mjs";
 import { rankCost, checkRankPurchase, xpLine } from "../rules/xp.mjs";
+import { rankList, serviceRank } from "../rules/ranks.mjs";
 import { startingSkillPlan, startingSkillRanks } from "../rules/starting-skills.mjs";
 import { ownedPerks, nodeStates, treesFor, specializationLock, canCrossTrain, ordinal } from "../rules/skill-trees.mjs";
 import { specializationRules, isLedgerOpen, setLedgerOpen } from "../settings.mjs";
@@ -426,6 +427,9 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const system = actor.system;
     const systemSource = system._source;
     const editMode = this.isEditMode;
+    // An NPC's caste, only for a Mutant (Johnald, 2026-10-17); one set before shows, flagged, so it can be cleared.
+    const mutantSpecies = !!system.species?.system?.mutations;
+    context.caste = { shown: mutantSpecies || !!system.details?.caste, stray: !mutantSpecies && !!system.details?.caste };
     // In Play mode an operative's owner buys the next pip with XP (2026-10-08).
     const canBuy = (actor.type === "operative") && !editMode && this.isEditable;
 
@@ -1762,6 +1766,9 @@ export class OperativeSheet extends IropActorSheet {
       resetPortrait: OperativeSheet.#onResetPortrait,
       recordPhoto: OperativeSheet.#onRecordPhoto,
       addRecordEntry: OperativeSheet.#onAddRecordEntry,
+      awardMedal: OperativeSheet.#onAwardMedal,
+      editMedal: OperativeSheet.#onEditMedal,
+      removeMedal: OperativeSheet.#onRemoveMedal,
       deleteRecordEntry: OperativeSheet.#onDeleteRecordEntry,
       resetCharacter: OperativeSheet.#onResetCharacter,
       artemisLink: OperativeSheet.#onArtemisLink,
@@ -2197,8 +2204,11 @@ export class OperativeSheet extends IropActorSheet {
       identity: IROP.record.identity.map(field),
       service: IROP.record.service.map(field),
       marks: r.marks,
-      // The rank, with its insignia (2026-10-08).
-      rank: { key: r.rank, ...(IROP.ranks[r.rank] ?? IROP.ranks.squaddie) },
+      // The ODR rank, with its insignia (2026-10-17): by XP earned, or set by the GM.
+      rank: rankContext(this.actor.system, !!game.user?.isGM && this.isEditable && !this.recordOnly),
+      // Medals (2026-10-17): the GM awards them; everyone who sees the record reads them.
+      medals: (r.medals ?? []).map(m => ({ ...m, ribbon: medalRibbon(m.name) })),
+      canAward: !!game.user?.isGM && !this.recordOnly,
       nextOfKin: r.nextOfKin,
       timeline: r.timeline.map((e, index) => ({ ...e, index })),
       roleColor: context.accent,
@@ -2387,6 +2397,44 @@ export class OperativeSheet extends IropActorSheet {
     return this.actor.update({ "system.details.record.timeline": timeline });
   }
 
+  /** GM: award a medal, with why and on what mission (Johnald, 2026-10-17), and say so in chat. */
+  static async #onAwardMedal() {
+    if ( !game.user.isGM ) return null;
+    const data = await medalDialog(`Award a medal: ${this.actor.name}`, { date: await campaignDate() }, "Award");
+    if ( !data ) return null;
+    const medal = { id: foundry.utils.randomID(), ...data, by: game.user.name };
+    await this.actor.update({ "system.details.record.medals": [...this.actor.system._source.details.record.medals, medal] });
+    return ChatMessage.implementation.create({
+      speaker: { alias: "ODR Command" },
+      content: medalCardHTML(this.actor.name, medal)
+    });
+  }
+
+  /** GM: change a medal's details. */
+  static async #onEditMedal(event, target) {
+    if ( !game.user.isGM ) return null;
+    const id = target.closest("[data-medal-id]")?.dataset.medalId;
+    const medals = foundry.utils.deepClone(this.actor.system._source.details.record.medals);
+    const medal = medals.find(m => m.id === id);
+    if ( !medal ) return null;
+    const data = await medalDialog(`${medal.name}: ${this.actor.name}`, medal, "Save");
+    if ( !data ) return null;
+    Object.assign(medal, data);
+    return this.actor.update({ "system.details.record.medals": medals });
+  }
+
+  /** GM: take a medal off the record, after a word to be sure. */
+  static async #onRemoveMedal(event, target) {
+    if ( !game.user.isGM ) return null;
+    const id = target.closest("[data-medal-id]")?.dataset.medalId;
+    const medals = this.actor.system._source.details.record.medals;
+    const medal = medals.find(m => m.id === id);
+    if ( !medal ) return null;
+    const ok = await DialogV2.confirm({ window: { title: "Remove medal" }, content: `<p>Take the ${escapeText(medal.name)} off ${escapeText(this.actor.name)}'s record?</p>` });
+    if ( !ok ) return null;
+    return this.actor.update({ "system.details.record.medals": medals.filter(m => m.id !== id) });
+  }
+
   static async #onDeleteRecordEntry(event, target) {
     const index = Number(target.closest("[data-record-index]")?.dataset.recordIndex);
     const timeline = foundry.utils.deepClone(this.actor.system._source.details.record.timeline);
@@ -2423,8 +2471,22 @@ export class NpcSheet extends IropActorSheet {
   /** @override */
   static DEFAULT_OPTIONS = {
     classes: ["npc"],
-    position: { width: 760, height: 760 }
+    // The same 1100 x 850 as an operative's (Johnald, 2026-10-17).
+    position: { width: 1100, height: 850 },
+    actions: { openCodex: NpcSheet.#onOpenCodex }
   };
+
+  /** The GM's Threat codex button in the title bar (2026-10-17): this enemy's file, made if new. @inheritDoc */
+  _getHeaderControls() {
+    const controls = super._getHeaderControls();
+    if ( game.user?.isGM ) controls.push({ icon: "fa-solid fa-skull", label: "Threat codex", action: "openCodex" });
+    return controls;
+  }
+
+  static async #onOpenCodex() {
+    const { openCodexFor } = await import("../codex.mjs");
+    return openCodexFor(this.actor);
+  }
 
   /** @override */
   static PARTS = {
@@ -2461,4 +2523,81 @@ export function mutationChosenText(s) {
   }
   if ( s.choice.skill && s.chosen?.skill ) parts.push(`${IROP.skills[s.chosen.skill]?.label ?? s.chosen.skill} +${s.choice.skill} rank`);
   return parts.join(", ");
+}
+
+/* -------------------------------------------- */
+
+/**
+ * The rank on the Personnel Record (2026-10-17): its insignia and band, what comes next, and for a
+ * GM the ranks to set one by hand.
+ */
+export function rankContext(system, canSet = false) {
+  const r = system.serviceRank ?? serviceRank(system.xp?.earned, system.details?.record?.rank);
+  const band = (r.to === null) ? `${r.from}+ XP earned` : (r.from > 0 ? `${r.from} to ${r.to} XP earned` : `Up to ${r.to} XP earned`);
+  return {
+    ...r, band,
+    nextLine: r.next ? `${r.next.label} at ${r.next.from} XP earned` : "The top ODR rank",
+    choices: canSet ? [{ key: "", label: "By XP earned", on: !r.set },
+      ...rankList().map(x => ({ key: x.key, label: x.label, on: r.set && (x.key === r.key) }))] : null
+  };
+}
+
+/** A medal's ribbon, in the ODR colors, its stripes picked by its name so the same medal always matches. */
+export function medalRibbon(name) {
+  const colors = ["#0d1522", "#b9c4c8", "#42abf2", "#d9b234", "#c4121c", "#3fb8b0", "#f2f7f9"];
+  let h = 2166136261;
+  for ( const ch of String(name ?? "") ) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  const pick = n => colors[(h >>> (n * 3)) % colors.length];
+  const [a, b, c] = [pick(0), pick(1), pick(2)];
+  return `background: linear-gradient(90deg, ${a} 0 20%, ${b} 20% 36%, ${c} 36% 64%, ${b} 64% 80%, ${a} 80% 100%)`;
+}
+
+/** Today on the campaign calendar, or blank. */
+async function campaignDate() {
+  try {
+    const { dateInfo } = await import("../calendar.mjs");
+    return dateInfo().date ?? "";
+  }
+  catch {
+    return "";
+  }
+}
+
+/** The medal dialog: its name, the mission, the date and why; suggestions from the world. */
+async function medalDialog(title, medal = {}, okLabel = "Award") {
+  const esc = v => escapeText(v ?? "");
+  const awarded = [...new Set((game.actors?.filter?.(a => a.type === "operative") ?? [])
+    .flatMap(a => (a.system.details?.record?.medals ?? []).map(m => m.name)).filter(Boolean))].sort();
+  let missions = [];
+  try {
+    const { getList } = await import("../settings.mjs");
+    missions = getList("missionLog").slice().reverse().map(m => `Week ${m.week}: ${m.label}${m.territory ? ` (${m.territory})` : ""}`);
+  }
+  catch { missions = []; }
+  const options = list => list.map(v => `<option value="${esc(v)}"></option>`).join("");
+  const data = await DialogV2.input({
+    window: { title },
+    classes: ["irop", "irop-roll-dialog", "irop-medal-dialog"],
+    content: `<div class="irop-dialog medal-form">
+      <label class="irop-choose"><span>Medal</span><input type="text" name="name" value="${esc(medal.name)}" list="irop-medal-names" placeholder="Orbital Cross" required></label>
+      <datalist id="irop-medal-names">${options(awarded)}</datalist>
+      <label class="irop-choose"><span>Mission</span><input type="text" name="mission" value="${esc(medal.mission)}" list="irop-medal-missions" placeholder="Week 3: Scavenge (Neo Seattle)"></label>
+      <datalist id="irop-medal-missions">${options(missions)}</datalist>
+      <label class="irop-choose"><span>Date</span><input type="text" name="date" value="${esc(medal.date)}"></label>
+      <label class="irop-choose medal-why"><span>Why</span><textarea name="description" rows="4" placeholder="Held the dam road alone for three rounds while the squad pulled the wounded out.">${esc(medal.description)}</textarea></label>
+    </div>`,
+    ok: { label: okLabel, icon: "fa-solid fa-medal" }
+  });
+  const name = String(data?.name ?? "").trim();
+  if ( !name ) return null;
+  return { name, mission: String(data.mission ?? "").trim(), date: String(data.date ?? "").trim(), description: String(data.description ?? "").trim() };
+}
+
+/** The chat card for a medal awarded. */
+export function medalCardHTML(who, medal) {
+  return `<div class="irop-card medal-card">
+    <header class="card-head"><h3><i class="fa-solid fa-medal"></i> Commendation</h3><span class="card-sub">ODR personnel</span></header>
+    <p class="medal-award"><span class="medal-ribbon" style="${medalRibbon(medal.name)}"></span><span><strong>${escapeText(who)}</strong> is awarded the <strong>${escapeText(medal.name)}</strong>${medal.mission ? `, ${escapeText(medal.mission)}` : ""}.</span></p>
+    ${medal.description ? `<p class="medal-why">${escapeText(medal.description)}</p>` : ""}
+  </div>`;
 }

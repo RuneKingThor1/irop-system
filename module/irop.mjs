@@ -38,12 +38,15 @@ import { currentPlan } from "./strategy/turn.mjs";
 import { initSocket } from "./socket.mjs";
 import { StoreData } from "./data/store.mjs";
 import { registerHoverPreview } from "./hover-preview.mjs";
+import { registerRankWatch } from "./ranks.mjs";
 import { StoreSheet } from "./sheets/store-sheet.mjs";
 import { registerStoreActions } from "./store.mjs";
 import { addCheckpointButton, openCheckpoint, postCheckpoint, checkFor, registerConcealmentActions } from "./concealment.mjs";
 import { registerArtemis } from "./artemis/link.mjs";
 import { EventCardData } from "./data/card.mjs";
 import { EventCardSheet } from "./apps/card-sheet.mjs";
+import { CodexPageData } from "./data/codex.mjs";
+import { CodexPageSheet, registerCodexSync } from "./codex.mjs";
 import { EventsApp } from "./apps/events.mjs";
 import { setupDecks, importEventCards, newCard, reshuffle } from "./strategy/events.mjs";
 import { confirmLiberation, liberate, incursions, breakIncursion } from "./strategy/losing-ground.mjs";
@@ -86,6 +89,8 @@ Hooks.once("init", () => {
   registerEnlistment();
   // And at a store: buy what is in limited stock (2026-10-10).
   registerStoreActions();
+  // Promotions in chat as XP earned crosses into a new ODR rank (2026-10-17).
+  registerRankWatch();
   registerConcealmentActions();
   // ARTEMIS on Discord rolls from these sheets: linked characters send theirs when they change (2026-10-10).
   registerArtemis();
@@ -113,6 +118,9 @@ Hooks.once("init", () => {
 
   // Event and Dark Event cards (Strategy Layer step 6).
   CONFIG.Card.dataModels = { ...(CONFIG.Card.dataModels ?? {}), event: EventCardData };
+
+  // The Threat Codex (2026-10-17): a journal page per enemy, its intel revealed by the GM.
+  if ( CONFIG.JournalEntryPage ) CONFIG.JournalEntryPage.dataModels = { ...(CONFIG.JournalEntryPage.dataModels ?? {}), codex: CodexPageData };
 
   // Squad sight (2026-10-08): players also see through every friendly token. The health
   // bar with its armor razor and barrier field (Johnald, 2026-10-10).
@@ -159,6 +167,10 @@ Hooks.once("init", () => {
   DocumentSheetConfig.registerSheet(CONFIG.Card.documentClass, "irop", EventCardSheet, {
     types: ["event"], makeDefault: true, label: "Insurrection Event card"
   });
+  if ( globalThis.JournalEntryPage ) DocumentSheetConfig.registerSheet(JournalEntryPage, "irop", CodexPageSheet, {
+    types: ["codex"], makeDefault: true, label: "Insurrection Threat codex"
+  });
+  registerCodexSync();
 
   // Fonts used by the sheets, registered so Foundry text (drawings, notes) can use them too.
   CONFIG.fontDefinitions["Rajdhani"] ??= { editor: true, fonts: [] };

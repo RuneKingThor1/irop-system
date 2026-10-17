@@ -112,7 +112,7 @@ export function buildSnapshot(actor, { origin = "", world = null, systemVersion 
       role: { key: role?.system.role ?? "", label: role?.name ?? "" },
       species: first("species")?.name ?? "",
       background: first("background")?.name ?? "",
-      rank: IROP.ranks[s.details?.record?.rank]?.label ?? ""
+      rank: s.serviceRank?.label ?? ""
     },
     attributes: Object.fromEntries(Object.entries(s.attributes).map(([key, a]) => [key, { value: a.value, mod: a.mod }])),
     skills: Object.entries(s.skills).map(([key, k]) => ({

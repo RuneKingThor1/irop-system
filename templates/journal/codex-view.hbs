@@ -1,0 +1,90 @@
+<div>
+{{!-- Foundry puts a root part's children into the page and drops this outer tag (bug, Johnald, 2026-10-17:
+      the codex showed unstyled), so the file sits one level in. --}}
+<article class="irop-codex {{#if gm}}gm{{/if}}">
+  {{!-- The Threat Codex (Johnald, 2026-10-17): an enemy's file. Players see its name and art, and only what
+        the GM has revealed; the GM sees all of it, each part with an eye to show or hide it. --}}
+  <header class="codex-head">
+    <span class="codex-kicker">ODR threat codex</span>
+    <h2 class="codex-name">{{name}}</h2>
+    <span class="codex-number">{{number}}</span>
+    <div class="codex-intel" data-tooltip="How much of this file is known">
+      <span class="codex-intel-label">Intel on file</span>
+      <span class="codex-meter"><span style="width: {{progress}}%"></span></span>
+      <b>{{progress}}%</b>
+    </div>
+  </header>
+
+  {{#if gm}}
+  {{#if unlinked}}<p class="codex-gm-note"><i class="fa-solid fa-link-slash"></i> No enemy linked. Edit the page and pick an NPC, or drop one on it.</p>{{/if}}
+  {{#if missing}}<p class="codex-gm-note"><i class="fa-solid fa-triangle-exclamation"></i> The linked NPC is gone from this world.</p>{{/if}}
+  {{#if actorName}}<p class="codex-gm-note"><i class="fa-solid fa-eye"></i> GM view of {{actorName}}. Dimmed parts are hidden from players; press an eye to reveal. <a data-codex-open-actor>Open the NPC</a></p>{{/if}}
+  {{/if}}
+
+  <div class="codex-body">
+    <figure class="codex-art"><img src="{{art}}" alt="{{name}}" data-irop-preview></figure>
+
+    <div class="codex-sections">
+      {{#each sections as |sec|}}
+      <section class="codex-sec {{#unless sec.revealed}}hidden-part{{/unless}} {{#unless sec.shown}}redacted{{/unless}}" data-codex-section="{{sec.key}}">
+        <h3><span>{{sec.label}}</span>
+          {{#if @root.gm}}<button type="button" class="codex-eye {{#if sec.revealed}}on{{/if}}" data-codex-reveal="{{sec.key}}" data-tooltip="{{#if sec.revealed}}Shown to players. Hide it{{else}}Hidden from players. Reveal it{{/if}}"><i class="fa-solid {{#if sec.revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>{{/if}}
+        </h3>
+        {{#if sec.shown}}
+        {{#if sec.is_classification}}<dl class="codex-kv">{{#each sec.data as |r|}}<dt>{{r.label}}</dt><dd>{{r.value}}</dd>{{/each}}</dl>{{/if}}
+        {{#if sec.is_attributes}}<div class="codex-attrs">{{#each sec.data as |a|}}<span data-tooltip="{{a.label}}"><em>{{a.abbr}}</em><b>{{a.value}}</b></span>{{/each}}</div>{{/if}}
+        {{#if sec.is_vitals}}<div class="codex-attrs">{{#each sec.data as |p|}}<span><em>{{p.label}}</em><b>{{p.value}}</b></span>{{/each}}</div>{{/if}}
+        {{#if sec.is_defenses}}
+        <dl class="codex-kv">
+          <dt>Defense</dt><dd>{{sec.data.defense}}</dd>
+          <dt>Damage reduction</dt><dd>{{#each sec.data.dr as |d|}}{{d.label}} {{d.value}}{{#unless @last}}, {{/unless}}{{else}}None{{/each}}</dd>
+          <dt>Movement</dt><dd>{{#each sec.data.movement as |m|}}{{m.label}} {{m.value}}{{#unless @last}}, {{/unless}}{{/each}}</dd>
+        </dl>
+        {{/if}}
+        {{#if sec.is_paraphysics}}
+        {{#if sec.data.has}}<div class="codex-attrs">{{#each sec.data.disciplines as |d|}}<span><em>{{d.label}}</em><b>{{d.value}}</b></span>{{/each}}</div>
+        {{else}}<p class="codex-none">No paraphysical ability observed.</p>{{/if}}
+        {{/if}}
+        {{else}}
+        <div class="codex-redaction" aria-label="Unknown"><span></span><span></span><span></span><em>Unknown. No intel on file.</em></div>
+        {{/if}}
+      </section>
+      {{/each}}
+    </div>
+  </div>
+
+  {{#each lists as |list|}}
+  <section class="codex-sec codex-list {{#unless list.shown}}redacted{{/unless}}" data-codex-list="{{list.key}}">
+    <h3><span>{{list.label}}</span>
+      {{#if @root.gm}}{{#if list.shown}}<button type="button" class="codex-eye wide {{#if list.allRevealed}}on{{/if}}" data-codex-all="{{list.key}}">{{#if list.allRevealed}}Hide all{{else}}Reveal all{{/if}}</button>{{/if}}{{/if}}
+    </h3>
+    {{#if list.shown}}
+    <ol class="codex-entries">
+      {{#each list.entries as |e|}}
+      <li class="codex-entry {{#unless e.revealed}}hidden-part{{/unless}}">
+        {{#if e.img}}<img src="{{e.img}}" alt="">{{/if}}
+        <div class="codex-entry-body">
+          <span class="codex-entry-name">{{e.name}}{{#if e.meta}} <small>{{e.meta}}</small>{{/if}}</span>
+          {{#if e.stats.length}}<span class="codex-entry-stats">{{#each e.stats as |st|}}<span><em>{{st.label}}</em> {{st.value}}</span>{{/each}}</span>{{/if}}
+          {{#if e.text}}<p>{{e.text}}</p>{{/if}}
+        </div>
+        {{#if @root.gm}}<button type="button" class="codex-eye {{#if e.revealed}}on{{/if}}" data-codex-item="{{e.id}}" data-tooltip="{{#if e.revealed}}Shown to players. Hide it{{else}}Hidden from players. Reveal it{{/if}}"><i class="fa-solid {{#if e.revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>{{/if}}
+      </li>
+      {{/each}}
+    </ol>
+    {{#unless @root.gm}}<p class="codex-none">More may remain unknown.</p>{{/unless}}
+    {{else}}
+    <div class="codex-redaction" aria-label="Unknown"><span></span><span></span><em>{{#if @root.gm}}None carried.{{else}}Unknown. No intel on file.{{/if}}</em></div>
+    {{/if}}
+  </section>
+  {{/each}}
+
+  <section class="codex-sec codex-lore {{#unless loreRevealed}}hidden-part{{/unless}} {{#unless loreShown}}redacted{{/unless}}">
+    <h3><span>Field notes</span>
+      {{#if gm}}<button type="button" class="codex-eye {{#if loreRevealed}}on{{/if}}" data-codex-reveal="lore" data-tooltip="{{#if loreRevealed}}Shown to players. Hide them{{else}}Hidden from players. Reveal them{{/if}}"><i class="fa-solid {{#if loreRevealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>{{/if}}
+    </h3>
+    {{#if loreShown}}<div class="codex-lore-text">{{{loreHTML}}}</div>
+    {{else}}<div class="codex-redaction" aria-label="Unknown"><span></span><span></span><span></span><em>{{#if gm}}No field notes yet. Write them in Edit mode.{{else}}Unknown. No intel on file.{{/if}}</em></div>{{/if}}
+  </section>
+</article>
+</div>

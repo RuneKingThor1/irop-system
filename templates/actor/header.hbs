@@ -68,8 +68,11 @@
     <div class="subline npc-line">
       <label class="field-inline"><span class="mono-label">Threat</span>
         <select name="system.details.threat">{{selectOptions config.npcThreats selected=system.details.threat}}</select></label>
-      <label class="field-inline"><span class="mono-label">Caste</span>
+      {{!-- Caste only for a Mutant (Johnald, 2026-10-17): a species that carries mutations. One set before stays, flagged. --}}
+      {{#if caste.shown}}
+      <label class="field-inline {{#if caste.stray}}stray{{/if}}" {{#if caste.stray}}data-tooltip="Only Mutants have a caste; this NPC's species does not. Set it to None, or give it the Mutant species"{{/if}}><span class="mono-label">Caste</span>
         <select name="system.details.caste">{{selectOptions config.castes selected=system.details.caste}}</select></label>
+      {{/if}}
       <label class="field-inline grow"><span class="mono-label">Faction</span>
         <input type="text" name="system.details.faction" value="{{system.details.faction}}" placeholder="none"></label>
     </div>

@@ -280,12 +280,26 @@ IROP.record = {
 };
 
 /**
- * Ranks, shown on the Personnel Record (Johnald, 2026-10-08). For now every operative is
- * a Squaddie, the first rank; the ranks above and how they are earned come later. Each
- * has a Space Force inspired insignia: a delta over chevrons, one chevron for Squaddie.
+ * ODR RANKS, Johnald 2026-10-17: ten, by XP earned, loosely after real military ranks, shown on the
+ * Personnel Record. Squaddie, the first (2026-10-08), is renamed Initiate. Each has a Space Force
+ * inspired sleeve patch (dev/build-rank-insignia.mjs): chevrons for the enlisted, rockers under them
+ * for the senior enlisted, a gold star for the sergeants, bars for the warrant and the officers.
+ * `from` is the XP earned the band starts at. RULED: his example, 100 to 250 (everyone starts at
+ * 100) and 251 to 400. ASSUMPTION: the names, and the bands above those two, widening as they climb;
+ * Ranger lines up with the first specialization (300 earned), Fireteam Corporal with the second (900).
+ * `like` is the real rank each is loosely after.
  */
 IROP.ranks = {
-  squaddie: { label: "Squaddie", insignia: "systems/irop/assets/icons/ranks/squaddie.svg" }
+  initiate: { label: "Initiate", from: 0, like: "Private", insignia: "systems/irop/assets/icons/ranks/initiate.svg" },
+  ranger: { label: "Ranger", from: 251, like: "Private Second Class", insignia: "systems/irop/assets/icons/ranks/ranger.svg" },
+  rangerFirst: { label: "Ranger First Class", from: 401, like: "Private First Class", insignia: "systems/irop/assets/icons/ranks/rangerFirst.svg" },
+  lanceRanger: { label: "Lance Ranger", from: 601, like: "Lance Corporal", insignia: "systems/irop/assets/icons/ranks/lanceRanger.svg" },
+  fireteamCorporal: { label: "Fireteam Corporal", from: 851, like: "Corporal", insignia: "systems/irop/assets/icons/ranks/fireteamCorporal.svg" },
+  strikeSergeant: { label: "Strike Sergeant", from: 1151, like: "Sergeant", insignia: "systems/irop/assets/icons/ranks/strikeSergeant.svg" },
+  deltaSergeant: { label: "Delta Sergeant", from: 1501, like: "Master Sergeant", insignia: "systems/irop/assets/icons/ranks/deltaSergeant.svg" },
+  orbitalWarrant: { label: "Orbital Warrant", from: 1901, like: "Warrant Officer", insignia: "systems/irop/assets/icons/ranks/orbitalWarrant.svg" },
+  deltaLieutenant: { label: "Delta Lieutenant", from: 2401, like: "Lieutenant", insignia: "systems/irop/assets/icons/ranks/deltaLieutenant.svg" },
+  deltaCaptain: { label: "Delta Captain", from: 3001, like: "Captain", insignia: "systems/irop/assets/icons/ranks/deltaCaptain.svg" }
 };
 
 /** HANDOFF Section 9 and LIVE species items: the default when no species is set (Human). */

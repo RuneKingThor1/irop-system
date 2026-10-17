@@ -3953,7 +3953,7 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   check("artemis sheet: format 1, the character, the world, a picture Discord can fetch",
     (sheet.v === 1) && (sheet.actor.id === "actorTest") && (sheet.world.id === "world1")
       && (sheet.actor.img === "https://foundry.example.com/icons/svg/mystery-man.svg") && (sheet.details.callsign === "Wraith")
-      && (sheet.details.role.key === "outrider") && (sheet.details.species === "Human") && (sheet.details.rank === "Squaddie")
+      && (sheet.details.role.key === "outrider") && (sheet.details.species === "Human") && (sheet.details.rank === "Initiate")
       && (sheet.rules.tiebreak === true));
   check("artemis sheet: attributes and every skill's pool are the sheet's own",
     Object.entries(sys.attributes).every(([k, a]) => (sheet.attributes[k].value === a.value) && (sheet.attributes[k].mod === a.mod))
@@ -4426,6 +4426,170 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   const trooper = makeActor("npc", NpcData, {}, []);
   ({ out } = await renderSheet(NpcSheet, trooper));
   check("npc without caste or mutant species: no panel", !panel(out.bio));
+  // Caste only for a Mutant (Johnald, 2026-10-17); one set before shows, flagged.
+  const casteSelect = html => new JSDOM(html).window.document.querySelector('select[name="system.details.caste"]');
+  const mutantNpc = makeActor("npc", NpcData, {}, [{ type: "species", name: "Mutant", system: { mutations: true } }]);
+  const strayNpc = makeActor("npc", NpcData, { details: { caste: "baron" } }, [{ type: "species", name: "Xargryr", system: {} }]);
+  const plainHead = (await renderSheet(NpcSheet, trooper)).out.header;
+  const mutantHead = (await renderSheet(NpcSheet, mutantNpc)).out.header;
+  const strayHead = (await renderSheet(NpcSheet, strayNpc)).out.header;
+  check("npc caste: no dropdown without the Mutant species; a Mutant has it; one set on another species shows, flagged",
+    !casteSelect(plainHead) && !!casteSelect(mutantHead) && !casteSelect(mutantHead).closest(".stray")
+      && !!casteSelect(strayHead)?.closest(".field-inline.stray") && /Only Mutants have a caste/.test(casteSelect(strayHead).closest(".field-inline").dataset.tooltip));
+}
+
+// The Threat Codex (Johnald, 2026-10-17): the enemy's file as players and the GM see it, and the GM's reveals.
+{
+  const cx = await import("../module/codex.mjs");
+  const eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const oldUser = game.user, oldUtils = foundry.utils;
+  const wraith = makeActor("npc", NpcData, { details: { threat: "elite", faction: "GENESIS" }, paraphysics: { telekinesis: 2 } }, [
+    { type: "species", name: "Xargryr", system: {} },
+    { type: "weapon", name: "Plasma Lance", id: "w1", system: { category: "ranged", damage: { formula: "2d6", type: "plasma" } } },
+    { type: "weapon", name: "Shock Baton", id: "w2", system: { category: "melee", damage: { formula: "1d6", type: "electric" } } },
+    { type: "ability", name: "Phase Step", id: "a1", system: { kind: "active", description: "<p>Steps through a wall.</p>" } },
+    { type: "mutation", name: "Armored Hide", id: "m1", system: { polarity: "positive" } }
+  ]);
+  wraith.name = "Wraith Stalker";
+  wraith.img = "wraith.webp";
+  wraith.uuid = "Actor.wraith";
+  foundry.utils = { ...oldUtils, fromUuidSync: u => (u === "Actor.wraith" ? wraith : null) };
+  const facts = cx.actorFacts(wraith);
+  check("codex: an enemy's file holds its classification, attributes, vitals, defenses, paraphysics and what it carries",
+    eq(facts.classification.map(r => `${r.label}: ${r.value}`), ["Threat: Elite", "Species: Xargryr", "Faction: GENESIS"]) && (facts.attributes.length === 7)
+      && facts.vitals.some(v => v.label === "Barrier") && facts.paraphysics.has && (facts.paraphysics.disciplines[0].value === 2)
+      && eq(facts.weapons.map(w => w.name), ["Plasma Lance", "Shock Baton"]) && /2d6 Plasma/.test(facts.weapons[0].stats.find(st => st.label === "Damage")?.value ?? "")
+      && (facts.abilities[0].text === "Steps through a wall.") && (facts.mutations[0].meta === "Positive"));
+  // A page, with its updates caught.
+  const page = { id: "pg1", name: "Wraith Stalker", type: "codex", updates: [], system: null };
+  const sys = { actor: "Actor.wraith", img: "", reveal: { classification: false, attributes: false, vitals: false, defenses: false, paraphysics: false, lore: false },
+    items: [], lore: "<p>Hunts alone at night.</p>", art: "", known: {} };
+  page.system = { ...sys, toObject: () => structuredClone({ ...page.system, toObject: undefined }) };
+  page.update = async changes => {
+    page.updates.push(changes);
+    for ( const [k, v] of Object.entries(changes) ) if ( k.startsWith("system.") ) foundry.utils.setProperty(page.system, k.slice(7), v);
+    return page;
+  };
+  game.user = { id: "gm", isGM: true, name: "GM" };
+  await cx.refreshCodexPage(page);
+  check("codex: a fresh file shows players the art and nothing else", eq(Object.keys(page.system.known), ["progress"]) && (page.system.known.progress === 0) && (page.system.art === "wraith.webp"));
+  const view = ctx => new JSDOM(tpl("templates/journal/codex-view.hbs")({ name: page.name, ...ctx, loreHTML: ctx.lore })).window.document;
+  game.user = { id: "p1", isGM: false, name: "Player" };
+  let d = view(cx.codexContext(page, { gm: false }));
+  // Foundry drops a root part's outer tag (bug, 2026-10-17), so the styled file must sit inside a plain wrapper.
+  const wrapper = new JSDOM(tpl("templates/journal/codex-view.hbs")({ name: page.name, ...cx.codexContext(page, { gm: false }) })).window.document.body.firstElementChild;
+  check("codex: the page's root is a plain wrapper, the styled file inside it", (wrapper?.tagName === "DIV") && !wrapper.className && (wrapper.children.length === 1) && wrapper.firstElementChild.matches("article.irop-codex"));
+  check("codex: a player starts with the name and art; every section and list redacted, no eyes",
+    (d.querySelector(".codex-name").textContent === "Wraith Stalker") && (d.querySelector(".codex-art img").getAttribute("src") === "wraith.webp")
+      && (d.querySelectorAll(".codex-sec.redacted").length === 9) && !d.querySelector(".codex-eye") && !/Plasma Lance|Hunts alone|Xargryr/.test(d.body.textContent));
+  // The GM reveals a section, a weapon, and the field notes.
+  game.user = { id: "gm", isGM: true, name: "GM" };
+  await cx.revealSection(page, "attributes");
+  await cx.revealItem(page, "w2");
+  await cx.revealSection(page, "lore");
+  d = view(cx.codexContext(page, { gm: true }));
+  check("codex: the GM sees the whole file live, hidden parts dimmed, an eye on each",
+    (d.querySelectorAll(".codex-sec.redacted").length === 0) && /Plasma Lance/.test(d.body.textContent) && (d.querySelectorAll("[data-codex-reveal]").length === 6)
+      && (d.querySelectorAll("[data-codex-item]").length === 4) && d.querySelector('[data-codex-item="w2"]').classList.contains("on")
+      && d.querySelector('[data-codex-section="vitals"]').classList.contains("hidden-part") && !d.querySelector('[data-codex-section="attributes"]').classList.contains("hidden-part"));
+  game.user = { id: "p1", isGM: false, name: "Player" };
+  d = view(cx.codexContext(page, { gm: false }));
+  check("codex: the player now sees the attributes, the Shock Baton and the notes; the rest stays redacted",
+    !d.querySelector('[data-codex-section="attributes"]').classList.contains("redacted") && d.querySelector('[data-codex-section="vitals"]').classList.contains("redacted")
+      && /Shock Baton/.test(d.body.textContent) && !/Plasma Lance/.test(d.body.textContent) && /Hunts alone/.test(d.body.textContent)
+      && /More may remain unknown/.test(d.querySelector('[data-codex-list="weapons"]').textContent) && d.querySelector('[data-codex-list="abilities"]').classList.contains("redacted")
+      && /^\d+%$/.test(d.querySelector(".codex-intel b").textContent) && (page.system.known.progress > 0));
+  check("codex: the players' copy holds only what was revealed",
+    eq(Object.keys(page.system.known).sort(), ["attributes", "lore", "progress", "weapons"]) && (page.system.known.weapons.length === 1));
+  game.user = { id: "gm", isGM: true, name: "GM" };
+  await cx.revealList(page, "weapons");
+  check("codex: Reveal all shows every weapon; again hides them all", eq(page.system.items.filter(i => i.startsWith("w")).sort(), ["w1", "w2"]));
+  await cx.revealList(page, "weapons");
+  check("codex: ...and hides them", !page.system.items.some(i => i.startsWith("w")));
+  game.user = { id: "p1", isGM: false, name: "Player" };
+  const before = page.updates.length;
+  await cx.revealSection(page, "vitals");
+  check("codex: a player cannot reveal anything", page.updates.length === before);
+  game.user = oldUser;
+  foundry.utils = oldUtils;
+}
+
+// ODR ranks and medals (Johnald, 2026-10-17).
+{
+  const eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const api = foundry.applications.api;
+  const realInput = api.DialogV2.input, realConfirm = api.DialogV2.confirm, oldUser = game.user, oldChat = globalThis.ChatMessage;
+  const posted = [];
+  globalThis.ChatMessage = { implementation: { create: async m => { posted.push(m); return m; }, getSpeaker: () => ({}) } };
+  const vet = makeActor("operative", OperativeData, { xp: { earned: 1600 }, details: { record: { medals: [
+    { id: "md1", name: "Orbital Cross", mission: "Week 3: Scavenge (Neo Seattle)", date: "17 May 2040", description: "Held the dam road.", by: "GM" }] } } }, []);
+  vet.id = "vet000000001";
+  vet.updates = [];
+  vet.update = async d => { vet.updates.push(d); return vet; };
+  game.user = { id: "gm", isGM: true, name: "GM" };
+  const vs = new OperativeSheet(vet);
+  const vctx = await vs._prepareContext({});
+  const vhtml = tpl("templates/actor/record.hbs")(await vs._preparePartContext("record", { ...vctx }, {}));
+  const vd = inspect("record ranks and medals", vhtml, { actions: ACTIONS, source: vet.system._source });
+  check("ranks: 1600 XP earned is a Delta Sergeant, its band 1501 to 1900, Orbital Warrant next",
+    (vet.system.serviceRank.key === "deltaSergeant") && /1501 to 1900 XP earned/.test(vd.querySelector(".record-rank-band").textContent)
+      && /Orbital Warrant at 1901/.test(vd.querySelector(".record-rank").dataset.tooltip) && /deltaSergeant\.svg$/.test(vd.querySelector(".record-rank-img").getAttribute("src")));
+  const pick = vd.querySelector('select[name="system.details.record.rank"]');
+  check("ranks: a GM may set one by hand, By XP earned first and picked",
+    (pick?.querySelectorAll("option").length === 11) && (pick.querySelector("option:checked")?.value === "") && (pick.querySelector("option").textContent === "By XP earned"));
+  const medal = vd.querySelector('.record-medal[data-medal-id="md1"]');
+  check("medals: each with a ribbon, its name, mission and date, and why; the GM can edit or remove it",
+    /linear-gradient/.test(medal?.querySelector(".medal-ribbon")?.getAttribute("style") ?? "") && (medal.querySelector(".medal-name").textContent === "Orbital Cross")
+      && /Week 3: Scavenge \(Neo Seattle\), 17 May 2040/.test(medal.querySelector(".medal-meta").textContent) && /Held the dam road/.test(medal.querySelector(".medal-why").textContent)
+      && !!medal.querySelector('[data-action="editMedal"]') && !!medal.querySelector('[data-action="removeMedal"]') && !!vd.querySelector('[data-action="awardMedal"]'));
+  const { medalRibbon } = await import("../module/sheets/actor-sheet.mjs");
+  check("medals: the same medal always gets the same ribbon", (medalRibbon("Orbital Cross") === medalRibbon("Orbital Cross")) && (medalRibbon("Orbital Cross") !== medalRibbon("Purple Delta")));
+  // Award one.
+  api.DialogV2.input = async () => ({ name: "  Iron Star ", mission: "Week 4: Ambush Patrols", date: "20 May 2040", description: "Pulled Vex out of the fire." });
+  await OperativeSheet.DEFAULT_OPTIONS.actions.awardMedal.call(vs, {}, {});
+  const awarded = vet.updates.at(-1)?.["system.details.record.medals"];
+  check("medals: the GM awards one, trimmed, with who awarded it, and chat hears it",
+    (awarded?.length === 2) && (awarded[1].name === "Iron Star") && (awarded[1].by === "GM") && !!awarded[1].id
+      && /awarded the <strong>Iron Star<\/strong>, Week 4: Ambush Patrols/.test(posted.at(-1)?.content ?? "") && /Pulled Vex out of the fire/.test(posted.at(-1).content));
+  api.DialogV2.confirm = async () => true;
+  await OperativeSheet.DEFAULT_OPTIONS.actions.removeMedal.call(vs, {}, { closest: () => ({ dataset: { medalId: "md1" } }) });
+  check("medals: removing one takes it off", eq(vet.updates.at(-1)?.["system.details.record.medals"], []));
+  // A player sees them, and cannot award, edit, remove or set a rank.
+  game.user = { id: "p1", isGM: false, name: "Player" };
+  const pctx = await vs._prepareContext({});
+  const pd = new JSDOM(tpl("templates/actor/record.hbs")(await vs._preparePartContext("record", { ...pctx }, {}))).window.document;
+  check("medals and ranks: a player reads them, with no GM controls",
+    !!pd.querySelector(".record-medal") && !pd.querySelector('[data-action="awardMedal"], [data-action="editMedal"], [data-action="removeMedal"]') && !pd.querySelector(".record-rank-set"));
+  // The promotion card.
+  const { promotionHTML } = await import("../module/ranks.mjs");
+  const { serviceRank } = await import("../module/rules/ranks.mjs");
+  const card = promotionHTML("Kael", serviceRank(240), serviceRank(260));
+  check("ranks: crossing 250 XP earned is a promotion to Ranger, said in chat with the insignia",
+    /Promotion/.test(card) && /is promoted to <strong>Ranger<\/strong>, from Initiate/.test(card) && /ranger\.svg/.test(card)
+      && /now holds the rank of/.test(promotionHTML("Kael", serviceRank(900), serviceRank(900, "ranger"))));
+  // The hooks: XP earned past a band edge posts the promotion once, from the client that made the change.
+  const { registerRankWatch } = await import("../module/ranks.mjs");
+  const oldHooks = globalThis.Hooks;
+  const hooks = {};
+  globalThis.Hooks = { on: (name, fn) => { hooks[name] = fn; } };
+  registerRankWatch();
+  globalThis.Hooks = oldHooks;
+  game.user = { id: "gm", isGM: true, name: "GM" };
+  const rookie = { type: "operative", name: "Kael", system: { xp: { earned: 240 }, details: { record: { rank: "" } }, serviceRank: serviceRank(240) } };
+  const before = posted.length;
+  const opts = {};
+  hooks.preUpdateActor(rookie, { system: { xp: { earned: 260 } } }, opts);
+  hooks.updateActor(rookie, {}, opts, "someone-else");
+  const quiet = posted.length === before;
+  hooks.updateActor(rookie, {}, opts, "gm");
+  const same = {};
+  hooks.preUpdateActor(rookie, { system: { xp: { earned: 245 } } }, same);
+  check("ranks: crossing into Ranger posts the promotion once, from the client that made the change; staying in the band posts nothing",
+    quiet && (posted.length === before + 1) && /promoted to <strong>Ranger/.test(posted.at(-1).content) && !same.iropRank);
+  api.DialogV2.input = realInput;
+  api.DialogV2.confirm = realConfirm;
+  game.user = oldUser;
+  globalThis.ChatMessage = oldChat;
 }
 
 // Personnel Record drawer (2026-10-06).
@@ -4484,7 +4648,7 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   const body = doc.querySelector(".record-body");
   const sections = [...body.children].map(el => el.className);
   check("record: order is header, portrait, info beside emblem and rank, service, bio",
-    sections.join(" | ") === "record-head | record-identity | record-pair | record-panel record-service | record-panel record-bio", sections.join(" | "));
+    sections.join(" | ") === "record-head | record-identity | record-pair | record-panel record-service | record-panel record-medals | record-panel record-bio", sections.join(" | "));
   const top = body.querySelector(".record-identity");
   check("record: the top section holds only the portrait, in its frame", top.children.length === 1 && top.firstElementChild.matches("[data-portrait-frame]")
     && !!top.querySelector("img.record-portrait"));
@@ -4502,10 +4666,13 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   check("record: the top half is the doctrine's emblem, the role's own image, named",
     insignia.querySelector(".record-emblem img.record-emblem-img")?.getAttribute("src") === roleItem?.img
       && insignia.querySelector(".record-emblem .record-insignia-name").textContent === roleItem?.name);
-  check("record: the bottom half is the rank, Squaddie by default, with its insignia",
-    agent.system.details.record.rank === "squaddie"
-      && insignia.querySelector(".record-rank img.record-rank-img")?.getAttribute("src") === "systems/irop/assets/icons/ranks/squaddie.svg"
-      && insignia.querySelector(".record-rank .record-insignia-name").textContent === "Squaddie");
+  check("record: the bottom half is the ODR rank by XP earned (2026-10-17), Initiate at the start, with its insignia and band",
+    (agent.system.details.record.rank === "") && (agent.system.serviceRank.key === "initiate")
+      && insignia.querySelector(".record-rank img.record-rank-img")?.getAttribute("src") === "systems/irop/assets/icons/ranks/initiate.svg"
+      && insignia.querySelector(".record-rank .record-insignia-name").textContent === "Initiate"
+      && /Up to 250 XP earned/.test(insignia.querySelector(".record-rank-band").textContent)
+      && /Next: Ranger at 251 XP earned/.test(insignia.querySelector(".record-rank").dataset.tooltip));
+  check("record: Commendations, empty at first", /No commendations on file/.test(body.querySelector(".record-medals").textContent));
   check("record: Biometrics is gone; distinguishing marks moved under Basic info",
     !/Biometrics|fingerprint|Print on file/.test(html) && !!body.querySelector('.record-fields textarea[name="system.details.record.marks"]'));
   check("record: background links to its item", !!doc.querySelector('.record-service a[data-action="editItem"]'));
@@ -5594,7 +5761,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   const reachesHeader = selectors.filter(sel => /^\.(application\.)?irop(\.[\w-]+)*\s+(button|\.icon|\.header-control|\.window-header\s+button)/.test(sel));
   check("no stylesheet rule reaches title bar buttons", reachesHeader.length === 0, reachesHeader.join(" | "));
   check("button rules are scoped to the window body",
-    selectors.filter(sel => /\bbutton\b/.test(sel) && /^\.(application\.)?irop\b/.test(sel) && !/window-content|irop-card|irop-banks|irop-support-button|irop-project-strip|irop-roll-dialog|irop-record|irop-war-room-bar|irop-calendar|irop-date-bar|irop-turn-ribbon/.test(sel)).length === 0);
+    selectors.filter(sel => /\bbutton\b/.test(sel) && /^\.(application\.)?irop\b/.test(sel) && !/window-content|irop-card|irop-banks|irop-support-button|irop-project-strip|irop-roll-dialog|irop-record|irop-war-room-bar|irop-calendar|irop-date-bar|irop-turn-ribbon|irop-codex/.test(sel)).length === 0);
 }
 
 // Status effects (Johnald, 2026-10-10): the field guide's rules on all twelve, with his rulings, and

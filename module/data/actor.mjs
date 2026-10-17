@@ -1,4 +1,5 @@
 import { xpSpent } from "../rules/xp.mjs";
+import { serviceRank, migrateRankKey } from "../rules/ranks.mjs";
 import { BANK_CAP } from "../rules/dynosrs.mjs";
 import { IROP } from "../config.mjs";
 import { attributeModifier, buildPool } from "../rules/dynosrs.mjs";
@@ -28,8 +29,12 @@ function personnelRecord() {
   return new fields.SchemaField({
     ...simple,
     marks: text(),
-    // The operative's rank (2026-10-08): Squaddie until the ranks above exist.
-    rank: new fields.StringField({ required: true, blank: false, initial: "squaddie", choices: () => IROP.ranks }),
+    // A rank the GM set by hand (2026-10-17); blank is by XP earned, the ODR bands (rules/ranks.mjs).
+    rank: new fields.StringField({ required: true, blank: true, initial: "" }),
+    // Medals (Johnald, 2026-10-17): awarded by the GM, each with why and on what mission.
+    medals: new fields.ArrayField(new fields.SchemaField({
+      id: text(""), name: text(""), mission: text(""), date: text(""), description: text(""), by: text("")
+    })),
     nextOfKin: new fields.SchemaField({ name: text(), relation: text() }),
     // The record's own photo (Johnald, 2026-10-16), apart from the sheet's portrait; blank shows the portrait.
     photo: new fields.FilePathField({ required: false, blank: true, initial: "", categories: ["IMAGE"] }),
@@ -363,6 +368,9 @@ export class OperativeData extends CombatantData {
       const spent = Number(xp.spent) || 0;
       xp.log = spent > 0 ? [{ kind: "adjust", label: "Spent before the ledger", xp: spent, ref: "", rank: 0, date: "" }] : [];
     }
+    // Squaddie, the only rank before the ladder (2026-10-17), is Initiate by XP now.
+    const record = source.details?.record;
+    if ( record && ("rank" in record) ) record.rank = migrateRankKey(record.rank);
     return super.migrateData(source);
   }
 
@@ -374,6 +382,8 @@ export class OperativeData extends CombatantData {
     this.banks.victoryMax = Math.max(0, BANK_CAP.VICTORY + (Number(this.bonuses.victoryCap) || 0));
     this.xp.spent = xpSpent(this.xp.log);
     this.xp.unspent = this.xp.earned - this.xp.spent;
+    // The ODR rank: by XP earned, unless the GM set one (2026-10-17).
+    this.serviceRank = serviceRank(this.xp.earned, this.details?.record?.rank);
     const role = this.role?.system.role;
     this.roleKey = role ?? null;
     this.accent = IROP.roles[role]?.color ?? null;

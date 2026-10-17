@@ -1,0 +1,28 @@
+<section class="irop-codex-edit">
+  {{!-- The Threat Codex page in Edit mode (Johnald, 2026-10-17): the enemy it is about, its art, and the
+        GM's field notes. Reveals are made in View mode, with the eyes. --}}
+  <div class="form-group">
+    <label>Enemy</label>
+    <div class="form-fields">
+      <select name="system.actor">
+        <option value="">Pick an NPC, or drop one on the page</option>
+        {{#each npcs as |n|}}<option value="{{n.uuid}}" {{#if n.on}}selected{{/if}}>{{n.name}}</option>{{/each}}
+      </select>
+    </div>
+    <p class="hint">The file reads the NPC's own sheet. Players start with its name and art; reveal the rest in View mode.</p>
+  </div>
+  <div class="form-group">
+    <label>Art</label>
+    <div class="form-fields codex-art-pick">
+      <img src="{{art}}" alt="">
+      <button type="button" data-codex-art><i class="fa-solid fa-image"></i> Choose art</button>
+      {{#if system.img}}<button type="button" data-codex-art-clear><i class="fa-solid fa-rotate-left"></i> Use the NPC's portrait</button>{{/if}}
+    </div>
+    <p class="hint">Blank uses the NPC's portrait. Pick another if the portrait would give something away.</p>
+  </div>
+  <div class="form-group stacked">
+    <label>Field notes</label>
+    <prose-mirror name="system.lore" value="{{system.lore}}" toggled>{{{loreHTML}}}</prose-mirror>
+    <p class="hint">What the cell has learned in the field. Hidden until revealed.</p>
+  </div>
+</section>

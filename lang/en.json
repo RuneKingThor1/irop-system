@@ -22,6 +22,9 @@
     },
     "Card": {
       "event": "Event card"
+    },
+    "JournalEntryPage": {
+      "codex": "Threat codex"
     }
   }
 }

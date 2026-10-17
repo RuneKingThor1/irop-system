@@ -1284,6 +1284,24 @@ check("disorientated both ways",
   check("factions: ticked lines become faction ops; unticked, the task stays open", (all.factionOps.length === 2) && (all.factionOps[0].task === "f") && (none.factionOps.length === 0));
 }
 
+// The Threat Codex (Johnald, 2026-10-17): players see only what was revealed.
+{
+  const cx = await import("../module/rules/codex.mjs");
+  const facts = {
+    classification: [{ label: "Threat", value: "Elite" }], attributes: [{ key: "str", value: 55 }], vitals: [{ label: "Health", value: 30 }],
+    defenses: { defense: 10, dr: [], movement: [] }, paraphysics: { has: false, disciplines: [] },
+    weapons: [{ id: "w1", name: "Plasma Lance" }, { id: "w2", name: "Shock Baton" }], abilities: [{ id: "a1", name: "Phase Step" }], mutations: []
+  };
+  const snap = cx.codexSnapshot(facts, { attributes: true, lore: true }, ["w2"]);
+  check("codex: the snapshot holds the revealed sections and only the revealed entries",
+    eq(Object.keys(snap).sort(), ["attributes", "weapons"]) && (snap.weapons.length === 1) && (snap.weapons[0].name === "Shock Baton") && !("vitals" in snap) && !("abilities" in snap));
+  check("codex: nothing revealed, nothing to see", eq(cx.codexSnapshot(facts, {}, []), {}));
+  check("codex: intel on file counts sections and entries revealed",
+    (cx.codexProgress(facts, {}, []) === 0) && (cx.codexProgress(facts, { attributes: true }, ["w2"]) === 25)
+      && (cx.codexProgress(facts, { classification: true, attributes: true, vitals: true, defenses: true, paraphysics: true }, ["w1", "w2", "a1"]) === 100));
+  check("codex: a steady file number per page", /^TC-[0-9A-F]{4}$/.test(cx.codexNumber("abc")) && (cx.codexNumber("abc") === cx.codexNumber("abc")) && (cx.codexNumber("abc") !== cx.codexNumber("abd")));
+}
+
 // Enlistment (Johnald, 2026-10-12, mockup A): the guided creator's rules.
 {
   const en = await import("../module/rules/enlistment.mjs");

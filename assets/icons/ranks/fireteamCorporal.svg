@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Fireteam Corporal, an ODR rank (Johnald, 2026-10-17). Made by dev/build-rank-insignia.mjs. -->
+  <defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef3f5"/>
+      <stop offset="1" stop-color="#8e9fb5"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe9a3"/>
+      <stop offset="1" stop-color="#b8862b"/>
+    </linearGradient>
+  </defs>
+  <path d="M64 6 L112 32 L112 96 L64 122 L16 96 L16 32 Z" fill="#0d1522" stroke="#b9c4c8" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M64 15 L104 37 L104 91 L64 113 L24 91 L24 37 Z" fill="none" stroke="#42abf2" stroke-opacity="0.55" stroke-width="1.5" stroke-linejoin="round"/>
+  <g transform="translate(64 14) scale(0.76) translate(-64 -19)">
+    <path d="M64 19 L85 66 L64 55 L43 66 Z" fill="url(#metal)"/>
+    <path d="M64 32 L66.5 39 L73.5 41.5 L66.5 44 L64 51 L61.5 44 L54.5 41.5 L61.5 39 Z" fill="#0d1522"/>
+  </g>
+  <g transform="translate(64 58) scale(0.69)">
+    <path d="M-24 13 L0 0 L24 13 L24 19 L0 6 L-24 19 Z" fill="url(#metal)"/>
+    <path d="M-24 23 L0 10 L24 23 L24 29 L0 16 L-24 29 Z" fill="url(#metal)"/>
+    <path d="M-24 33 L0 20 L24 33 L24 39 L0 26 L-24 39 Z" fill="url(#metal)"/>
+    <path d="M-24 42 Q0 54 24 42 L24 47 Q0 59 -24 47 Z" fill="url(#metal)"/>
+    <path d="M-24 50 Q0 62 24 50 L24 55 Q0 67 -24 55 Z" fill="url(#metal)"/>
+  </g>
+</svg>

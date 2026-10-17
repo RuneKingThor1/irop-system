@@ -3140,3 +3140,89 @@
 .irop .en-mut-pick .en-label { margin: 0; }
 .irop .en-mut-pick select { width: auto; min-width: 170px; height: 30px; font-size: 15px; }
 .irop .en-bar.lowered em { color: var(--irop-bad); }
+
+/* ODR ranks on the record (2026-10-17): the band under the name, and the GM's pick. */
+.irop .record-rank-band { font-size: 14px; color: var(--rec-value); opacity: 0.8; }
+.irop .irop-record select.record-rank-set { margin-top: 4px; width: 100%; max-width: 190px; height: 26px; font-size: 14px; }
+/* Medals (2026-10-17): a ribbon, the name, the mission and date, and why. */
+.irop .record-medals .record-bio-head { margin-top: 0; }
+.irop .record-medals .record-bio-head h4 { margin: 0; }
+.irop .record-medal-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.irop .record-medal { display: grid; grid-template-columns: 46px 1fr auto; gap: 10px; align-items: start; padding: 6px 0;
+  border-top: 1px solid var(--rec-line-dim); }
+.irop .record-medal:first-child { border-top: none; }
+.irop .medal-ribbon, .irop-card .medal-ribbon { display: block; width: 46px; height: 16px; margin-top: 3px; border-radius: 1px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 0 rgba(0, 0, 0, 0.25); }
+.irop .medal-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.irop .medal-name { font-family: "Jura", var(--irop-display); font-weight: 700; font-size: 16px; letter-spacing: 0.04em; color: var(--rec-label); }
+.irop .medal-meta { font-size: 14px; color: var(--rec-value); }
+.irop .medal-why { margin: 2px 0 0; font-size: 15px; color: var(--rec-label); opacity: 0.9; white-space: pre-wrap; }
+.irop .medal-controls { display: flex; gap: 2px; }
+.irop-card.medal-card .medal-award { display: flex; gap: 10px; align-items: center; }
+.irop-card.medal-card .medal-ribbon { flex: none; margin: 0; }
+.irop-card.medal-card .medal-why { font-style: italic; }
+.irop .medal-form .medal-why { align-items: start; }
+.irop .medal-form textarea { min-height: 84px; }
+.irop-card.rank-card .rank-line { display: flex; gap: 10px; align-items: center; }
+.irop-card.rank-card .rank-line img { width: 56px; height: 56px; border: none; flex: none; }
+
+/* The Threat Codex (Johnald, 2026-10-17): an enemy's file in GENESIS black and red, the unknown redacted. */
+.irop-codex { --cx-bg: #0b0d11; --cx-panel: #13161c; --cx-line: #3a2226; --cx-red: #c4121c; --cx-gold: #d9b234; --cx-ink: #dfe3ea; --cx-bright: #f4f6f9; --cx-dim: #8b919c;
+  display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 18px; background: var(--cx-bg); color: var(--cx-ink);
+  border: 1px solid var(--cx-line); border-top: 3px solid var(--cx-red); font-family: "Signika", sans-serif; font-size: 16px; line-height: 1.4; }
+.irop-codex .codex-head { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "kicker number" "name name" "intel intel"; gap: 2px 12px; padding-bottom: 10px; border-bottom: 1px solid var(--cx-line); }
+.irop-codex .codex-kicker { grid-area: kicker; font-family: "Share Tech Mono", monospace; font-size: 14px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--cx-red); }
+.irop-codex .codex-number { grid-area: number; font-family: "Share Tech Mono", monospace; font-size: 14px; letter-spacing: 0.12em; color: var(--cx-dim); }
+.irop-codex .codex-name { grid-area: name; margin: 0; border: none; font-family: "Rajdhani", sans-serif; font-size: 34px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cx-bright); }
+.irop-codex .codex-intel { grid-area: intel; display: flex; align-items: center; gap: 10px; margin-top: 4px; font-family: "Share Tech Mono", monospace; font-size: 14px; color: var(--cx-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+.irop-codex .codex-meter { flex: 1; height: 6px; background: #1d1114; border: 1px solid var(--cx-line); }
+.irop-codex .codex-meter > span { display: block; height: 100%; background: var(--cx-red); box-shadow: 0 0 8px var(--cx-red); }
+.irop-codex .codex-intel b { color: var(--cx-ink); }
+.irop-codex .codex-gm-note { margin: 0; padding: 6px 10px; font-size: 14px; color: var(--cx-gold); background: rgba(217, 178, 52, 0.08); border-left: 3px solid var(--cx-gold); }
+.irop-codex .codex-gm-note a { color: var(--cx-gold); text-decoration: underline; cursor: pointer; }
+.irop-codex .codex-body { display: grid; grid-template-columns: minmax(180px, 38%) 1fr; gap: 14px; align-items: start; }
+.irop-codex .codex-art { margin: 0; position: relative; border: 1px solid var(--cx-line); background: #050608; }
+.irop-codex .codex-art img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: cover; object-position: center top; border: none; }
+.irop-codex .codex-art::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 4px); }
+.irop-codex .codex-sections { display: flex; flex-direction: column; gap: 10px; }
+.irop-codex .codex-sec { background: var(--cx-panel); border: 1px solid var(--cx-line); padding: 8px 12px 10px; }
+.irop-codex .codex-sec h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; padding: 0; border: none;
+  font-family: "Share Tech Mono", monospace; font-size: 15px; font-weight: 400; letter-spacing: 0.16em; text-transform: uppercase; color: var(--cx-red); }
+.irop-codex.gm .codex-sec.hidden-part > :not(h3), .irop-codex.gm .codex-entry.hidden-part > :not(.codex-eye) { opacity: 0.45; }
+.irop-codex .codex-kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 0; }
+.irop-codex .codex-kv dt { font-family: "Share Tech Mono", monospace; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cx-dim); }
+.irop-codex .codex-kv dd { margin: 0; }
+.irop-codex .codex-attrs { display: flex; flex-wrap: wrap; gap: 6px; }
+.irop-codex .codex-attrs > span { display: flex; flex-direction: column; align-items: center; min-width: 58px; padding: 4px 8px; border: 1px solid var(--cx-line); background: #0e1015; }
+.irop-codex .codex-attrs em { font-style: normal; font-family: "Share Tech Mono", monospace; font-size: 14px; letter-spacing: 0.08em; color: var(--cx-dim); text-transform: uppercase; }
+.irop-codex .codex-attrs b { font-family: "Rajdhani", sans-serif; font-size: 22px; color: var(--cx-bright); }
+.irop-codex .codex-none { margin: 4px 0 0; font-size: 14px; font-style: italic; color: var(--cx-dim); }
+/* The unknown: blacked out bars, as a censored file. */
+.irop-codex .codex-redaction { display: flex; flex-direction: column; gap: 5px; }
+.irop-codex .codex-redaction > span { display: block; height: 12px; background: #000; border: 1px solid #1f1416; }
+.irop-codex .codex-redaction > span:nth-child(1) { width: 92%; }
+.irop-codex .codex-redaction > span:nth-child(2) { width: 74%; }
+.irop-codex .codex-redaction > span:nth-child(3) { width: 58%; }
+.irop-codex .codex-redaction em { margin-top: 2px; font-family: "Share Tech Mono", monospace; font-style: normal; font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cx-red); opacity: 0.85; }
+.irop-codex .codex-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.irop-codex .codex-entry { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding-top: 8px; border-top: 1px solid var(--cx-line); }
+.irop-codex .codex-entry:first-child { border-top: none; padding-top: 0; }
+.irop-codex .codex-entry img { width: 40px; height: 40px; border: 1px solid var(--cx-line); object-fit: cover; }
+.irop-codex .codex-entry-name { font-weight: 700; color: var(--cx-bright); }
+.irop-codex .codex-entry-name small { font-weight: 400; font-size: 14px; color: var(--cx-dim); margin-left: 4px; }
+.irop-codex .codex-entry-stats { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 14px; }
+.irop-codex .codex-entry-stats em { font-style: normal; color: var(--cx-dim); }
+.irop-codex .codex-entry p { margin: 3px 0 0; font-size: 15px; color: var(--cx-ink); opacity: 0.9; }
+.irop-codex .codex-lore-text { font-size: 16px; }
+.irop-codex button.codex-eye { flex: none; width: 30px; height: 26px; padding: 0; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+  background: #0e1015; border: 1px solid var(--cx-line); color: var(--cx-dim); border-radius: 3px; cursor: pointer; font-size: 14px; }
+.irop-codex button.codex-eye.wide { width: auto; padding: 0 10px; font-family: "Share Tech Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.irop-codex button.codex-eye.on { color: var(--cx-gold); border-color: var(--cx-gold); }
+.irop-codex button.codex-eye:hover { color: var(--cx-bright); border-color: var(--cx-red); }
+.irop-codex-edit .codex-art-pick { display: flex; align-items: center; gap: 10px; }
+.irop-codex-edit .codex-art-pick img { width: 72px; height: 72px; object-fit: cover; border: 1px solid #3a2226; }
+@media (max-width: 560px) { .irop-codex .codex-body { grid-template-columns: 1fr; } }
+
+/* An NPC's caste without the Mutant species (2026-10-17): flagged until cleared. */
+.irop .npc-line .field-inline.stray .mono-label { color: var(--irop-warn); }
+.irop .npc-line .field-inline.stray select { border-color: var(--irop-warn); }

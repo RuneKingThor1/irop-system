@@ -80,6 +80,21 @@ check("untrained mod 4 skill pool: 2 Aptitude (d10)", m.skills.stealth.pool.apti
 check("no morale on the sheet (scrapped)", !("morale" in m.vitals) && !("morale" in m._source.vitals));
 
 // Out of range numbers are clamped by Foundry's cleaning: a rank of 5 becomes 4.
+// ODR ranks (2026-10-17): by XP earned; an old Squaddie is Initiate by XP; a GM's pick holds.
+{
+  const rk = await import("../module/rules/ranks.mjs");
+  check("ranks: ten, Initiate to Delta Captain, by XP earned at the band edges",
+    (rk.rankList().length === 10) && (rk.rankFor(100).key === "initiate") && (rk.rankFor(250).key === "initiate") && (rk.rankFor(251).key === "ranger")
+      && (rk.rankFor(400).key === "ranger") && (rk.rankFor(401).key === "rangerFirst") && (rk.rankFor(3001).key === "deltaCaptain") && (rk.rankFor(99999).key === "deltaCaptain")
+      && (rk.nextRank("deltaCaptain") === null) && (rk.serviceRank(3500).to === null));
+  check("ranks: a GM's pick holds whatever the XP; an unknown pick falls back to XP",
+    (rk.serviceRank(100, "deltaLieutenant").key === "deltaLieutenant") && rk.serviceRank(100, "deltaLieutenant").set
+      && (rk.serviceRank(300, "nope").key === "ranger") && !rk.serviceRank(300, "nope").set);
+  const old = OperativeData.migrateData({ xp: { earned: 420 }, details: { record: { rank: "squaddie" } } });
+  check("ranks: an old Squaddie migrates to by XP", old.details.record.rank === "");
+  check("ranks: an operative's rank is worked out from XP earned",
+    prepare(OperativeData, { xp: { earned: 420 } }, []).serviceRank.key === "rangerFirst");
+}
 check("skill rank 5 clamps to 4", new OperativeData({ skills: { stealth: { rank: 5 } } }).skills.stealth.rank === 4);
 // A full reset (Johnald, 2026-10-08): the data it writes is a valid operative, as new, or keeping what was asked.
 {

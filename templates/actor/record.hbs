@@ -87,10 +87,17 @@
           <span class="record-insignia-name"><em>unassigned</em></span>
           {{/if}}
         </div>
-        <div class="record-rank">
+        {{!-- The ODR rank (2026-10-17): by XP earned, or set by the GM. --}}
+        <div class="record-rank" data-tooltip="{{record.rank.band}}. Next: {{record.rank.nextLine}}">
           <h4>Rank</h4>
-          <img class="record-rank-img" src="{{record.rank.insignia}}" alt="{{record.rank.label}} insignia">
+          <img class="record-rank-img" src="{{record.rank.insignia}}" alt="{{record.rank.label}} insignia" data-irop-preview>
           <span class="record-insignia-name">{{record.rank.label}}</span>
+          <span class="record-rank-band">{{#if record.rank.set}}Set by the GM{{else}}{{record.rank.band}}{{/if}}</span>
+          {{#if record.rank.choices}}
+          <select class="record-rank-set" name="system.details.record.rank" data-tooltip="By XP earned follows the bands; a rank picked here holds until set back">
+            {{#each record.rank.choices as |c|}}<option value="{{c.key}}" {{#if c.on}}selected{{/if}}>{{c.label}}</option>{{/each}}
+          </select>
+          {{/if}}
         </div>
       </div>
     </section>
@@ -115,6 +122,34 @@
                    {{#unless editable}}disabled{{/unless}}>
           </dd></div>
       </dl>
+    </section>
+
+    {{!-- Medals (Johnald, 2026-10-17): no art, a ribbon in the ODR colors, why and on what mission. --}}
+    <section class="record-panel record-medals">
+      <header class="record-bio-head">
+        <h4>Commendations</h4>
+        {{#if record.canAward}}<button type="button" class="record-btn small" data-action="awardMedal"><i class="fa-solid fa-medal" inert></i> Award medal</button>{{/if}}
+      </header>
+      <ol class="record-medal-list">
+        {{#each record.medals as |m|}}
+        <li class="record-medal" data-medal-id="{{m.id}}">
+          <span class="medal-ribbon" style="{{m.ribbon}}"></span>
+          <div class="medal-body">
+            <span class="medal-name">{{m.name}}</span>
+            {{#if (or m.mission m.date)}}<span class="medal-meta">{{m.mission}}{{#if (and m.mission m.date)}}, {{/if}}{{m.date}}</span>{{/if}}
+            {{#if m.description}}<p class="medal-why">{{m.description}}</p>{{/if}}
+          </div>
+          {{#if @root.record.canAward}}
+          <span class="medal-controls">
+            <button type="button" class="icon" data-action="editMedal" data-tooltip="Edit medal"><i class="fa-solid fa-pen" inert></i></button>
+            <button type="button" class="icon" data-action="removeMedal" data-tooltip="Remove medal"><i class="fa-solid fa-xmark" inert></i></button>
+          </span>
+          {{/if}}
+        </li>
+        {{else}}
+        <li class="record-empty">No commendations on file.</li>
+        {{/each}}
+      </ol>
     </section>
 
     <section class="record-panel record-bio">
