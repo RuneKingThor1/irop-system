@@ -30,6 +30,15 @@ function personnelRecord() {
     // The operative's rank (2026-10-08): Squaddie until the ranks above exist.
     rank: new fields.StringField({ required: true, blank: false, initial: "squaddie", choices: () => IROP.ranks }),
     nextOfKin: new fields.SchemaField({ name: text(), relation: text() }),
+    // The record's own photo (Johnald, 2026-10-16), apart from the sheet's portrait; blank shows the portrait.
+    photo: new fields.FilePathField({ required: false, blank: true, initial: "", categories: ["IMAGE"] }),
+    // How that photo sits in its frame: the point it centers on, as a share across and down, and its zoom.
+    portrait: new fields.SchemaField({
+      set: new fields.BooleanField({ initial: false }),
+      x: new fields.NumberField({ required: true, nullable: false, min: 0, max: 100, initial: 50 }),
+      y: new fields.NumberField({ required: true, nullable: false, min: 0, max: 100, initial: 18 }),
+      zoom: new fields.NumberField({ required: true, nullable: false, min: 100, max: 300, initial: 100 })
+    }),
     timeline: new fields.ArrayField(new fields.SchemaField({ date: text(), entry: text() }))
   });
 }

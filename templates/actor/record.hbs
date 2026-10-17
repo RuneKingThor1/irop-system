@@ -36,7 +36,29 @@
     </header>
 
     <section class="record-identity">
-      <img class="record-portrait" src="{{actor.img}}" alt="{{actor.name}}">
+      {{!-- The photo, framed as its owner set it (2026-10-16): drag to move, zoom with the slider or wheel. --}}
+      <div class="record-portrait-frame {{#if record.adjusting}}adjusting{{/if}}" data-portrait-frame
+        style="--px: {{record.frame.x}}%; --py: {{record.frame.y}}%; --pz: {{record.frame.scale}};">
+        <img class="record-portrait" src="{{record.photo}}" alt="{{actor.name}}" draggable="false">
+        {{#if record.canFrame}}
+        {{#if record.adjusting}}
+        {{!-- Zoom down the right side, tall, plus at the top (Johnald, 2026-10-16). --}}
+        <div class="portrait-zoom">
+          <i class="fa-solid fa-magnifying-glass-plus"></i>
+          <input type="range" min="100" max="300" step="5" value="{{record.frame.zoom}}" data-portrait-zoom aria-label="Zoom">
+          <i class="fa-solid fa-magnifying-glass-minus"></i>
+        </div>
+        <div class="portrait-adjust-bar">
+          <span>Drag to move</span>
+          <button type="button" data-action="recordPhoto" data-tooltip="A photo for the record only; the sheet's portrait stays as it is">Change photo</button>
+          <button type="button" data-action="resetPortrait">Reset</button>
+          <button type="button" class="done" data-action="framePortrait">Done</button>
+        </div>
+        {{else}}
+        <button type="button" class="portrait-adjust-btn" data-action="framePortrait" data-tooltip="Move and zoom the photo" aria-label="Move and zoom the photo"><i class="fa-solid fa-crop-simple"></i></button>
+        {{/if}}
+        {{/if}}
+      </div>
     </section>
 
     <section class="record-pair">

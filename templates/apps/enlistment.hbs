@@ -7,10 +7,44 @@
       <span class="n">{{s.n}}</span><span class="t">{{s.label}}</span><span class="v">{{s.value}}</span>
     </button>
     {{/each}}
+    {{#if hasStores}}
+    {{!-- Requisition (2026-10-16): the stores the GM opened, once the record is filed. --}}
+    <button type="button" class="en-step en-step-req {{#if requisition.on}}on{{/if}}" data-action="requisition" {{#unless result}}disabled{{/unless}}>
+      <span class="n">{{reqNo}}</span><span class="t">Requisition</span><span class="v">{{#if result}}Starting kit{{else}}After filing{{/if}}</span>
+    </button>
+    {{/if}}
   </nav>
 
   <div class="en-main">
-    {{#if result}}
+    {{#if requisition.on}}
+    {{!-- Requisition (2026-10-16): each store opens in its own window, buying for the recruit. --}}
+    {{#with requisition}}
+    <div class="en-prompt"><span class="en-prompt-text">&gt; DRAW STARTING KIT</span><span class="en-caret"></span></div>
+    <div class="en-pane">
+      <h3>Requisition</h3>
+      <p class="en-sub">Buy {{name}}'s starting kit. Each store opens in its own window, buying for {{name}}. Anything bought by mistake can be refunded from its card in chat.</p>
+      <div class="en-block en-wallet"><span class="en-label">Purse</span>
+        {{#each wallet as |w|}}<span class="en-coin {{w.key}}"><span>{{w.label}}</span><b>{{w.value}}</b></span>{{/each}}</div>
+      {{#if closed.length}}<p class="hint warn">Players cannot open {{#each closed}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} yet. Give them at least Limited on the store.</p>{{/if}}
+      <div class="en-grid en-stores">
+        {{#each stores as |s|}}
+        <button type="button" class="en-card en-store" style="--c: var(--irop-gold, #d9b234)" data-action="openStore" data-id="{{s.id}}">
+          <span class="en-card-top"><img class="en-thumb" src="{{s.img}}" alt=""><span><span class="en-name">{{s.name}}</span><span class="en-blurb">{{s.count}} on the shelf</span></span></span>
+          {{#if s.blurb}}<span class="en-blurb">{{s.blurb}}</span>{{/if}}
+          <span class="en-row"><span class="k">Open</span><i class="fa-solid fa-store"></i> Shop here</span>
+        </button>
+        {{else}}<p class="en-empty">No store is open to you yet. Ask the GM.</p>{{/each}}
+      </div>
+      <div class="en-block en-kit"><span class="en-label">Kit carried</span>
+        {{#if kit.length}}<div class="en-kit-list">{{#each kit as |k|}}<span><img src="{{k.img}}" alt="">{{k.name}}{{#if (gt k.qty 1)}} <em>&times;{{k.qty}}</em>{{/if}}</span>{{/each}}</div>
+        {{else}}<p class="en-empty">Nothing yet.</p>{{/if}}</div>
+      <div class="en-foot">
+        <button type="button" class="ghost" data-action="record">Back to the record</button>
+        <button type="button" class="go" data-action="openSheet"><i class="fa-solid fa-id-badge"></i> Done, open {{name}}'s sheet</button>
+      </div>
+    </div>
+    {{/with}}
+    {{else if result}}
     {{!-- Enlisted: the record printed and stamped. --}}
     {{#with result}}
     <div class="en-pane en-finish">
@@ -28,6 +62,8 @@
             <dt>Background</dt><dd>{{background}}</dd>
             {{#if perk}}<dt>Perk</dt><dd>{{perk}}</dd>{{/if}}
             {{#if mutations}}<dt>Mutations</dt><dd>{{mutations}}</dd>{{/if}}
+            {{#if boons}}<dt>Boons</dt><dd>{{boons}}</dd>{{/if}}
+            {{#if training}}<dt>Training</dt><dd>{{training}}</dd>{{/if}}
             <dt>Assignment</dt><dd>Eclipse</dd>
           </dl>
         </div>
@@ -37,7 +73,12 @@
       <div class="en-foot">
         <button type="button" class="ghost" data-action="restamp">Stamp again</button>
         <button type="button" class="ghost" data-action="again">Enlist another</button>
+        {{#if @root.requisition.any}}
+        <button type="button" class="ghost" data-action="openSheet">Open {{name}}'s sheet</button>
+        <button type="button" class="go" data-action="requisition"><i class="fa-solid fa-store"></i> Requisition</button>
+        {{else}}
         <button type="button" class="go" data-action="openSheet"><i class="fa-solid fa-id-badge"></i> Open {{name}}'s sheet</button>
+        {{/if}}
       </div>
     </div>
     {{/with}}
@@ -125,6 +166,21 @@
       {{else}}<p class="en-empty">Choose a role and a background first.</p>{{/with}}
       {{/if}}
 
+      {{#if is.boons}}
+      {{!-- Boons (2026-10-16): a species that grants them picks two attributes, none twice. --}}
+      <h3>Boons</h3>
+      <p class="en-sub">Your species grants {{boons.picks}} Attribute boons, each +{{boons.amount}} to an attribute you choose. Not the same attribute twice. ({{boons.count}} of {{boons.picks}} picked)</p>
+      <div class="en-grid en-boons">
+        {{#each boons.options as |b|}}
+        <button type="button" class="en-card en-boon {{#if b.on}}on{{/if}}" style="--c: var(--irop-good)" data-action="boon" data-attribute="{{b.key}}" aria-pressed="{{#if b.on}}true{{else}}false{{/if}}">
+          <span class="en-card-top"><span class="en-hex">{{b.abbr}}</span><span class="en-name">{{b.label}}</span></span>
+          <span class="en-boon-value">{{b.value}} <i class="fa-solid fa-arrow-right"></i> <b>{{b.after}}</b></span>
+          {{#if b.item}}<span class="en-blurb">{{b.item}}</span>{{/if}}
+        </button>
+        {{/each}}
+      </div>
+      {{/if}}
+
       {{#if is.mutations}}
       {{!-- Mutations (2026-10-16): the Baron's rolls, for a species that carries them. --}}
       <h3>Mutations</h3>
@@ -148,6 +204,75 @@
       <p class="hint">{{#if fromTables}}Rolled on the world's Positive and Negative mutations (d20) tables.{{else}}This world has no mutation roll tables, so each mutation of the kind is equally likely.{{/if}}</p>
       {{else}}
       <p class="en-empty">This world has no player mutations yet. The GM runs the player mutations macro, then this step can roll.</p>
+      {{/if}}
+      {{/with}}
+      {{/if}}
+
+      {{#if is.training}}
+      {{!-- Training (2026-10-16): the first XP, planned here and spent at Enlist. --}}
+      <h3>Training</h3>
+      <p class="en-sub">You start with {{training.budget}} XP. Spend it on attribute ranks (+{{training.perRank}} each), skill ranks and perks, at the Training tab's prices. Nothing is spent until you enlist, and what you leave stays unspent for later.</p>
+      {{#with training}}
+      <div class="en-xp">
+        <span class="en-label">Training XP</span>
+        <span class="en-xp-meter"><span style="width: {{pct}}%"></span></span>
+        <span class="en-xp-left"><b>{{left}}</b> of {{budget}} left</span>
+        {{#if any}}<button type="button" class="ghost" data-action="resetTraining"><i class="fa-solid fa-rotate-left"></i> Reset</button>{{/if}}
+      </div>
+      <div class="en-train-cols">
+        <div class="en-block"><span class="en-label">Attributes</span>
+          {{#each attributes as |a|}}
+          <div class="en-train-row {{#if a.bought}}bought{{/if}}">
+            <span class="en-tr-name">{{a.label}}</span><b class="en-tr-value">{{a.value}}</b>
+            <span class="en-pips">{{#each a.pips as |p|}}<i class="{{#if p.bought}}bought{{/if}}"></i>{{/each}}</span>
+            <button type="button" class="en-tr-btn" data-action="trainAttribute" data-key="{{a.key}}" data-delta="-1" {{#unless a.canDrop}}disabled{{/unless}} aria-label="{{a.label}}, one rank less"><i class="fa-solid fa-minus"></i></button>
+            <button type="button" class="en-tr-btn" data-action="trainAttribute" data-key="{{a.key}}" data-delta="1" {{#unless a.canAdd}}disabled{{/unless}} aria-label="{{a.label}}, one rank more"><i class="fa-solid fa-plus"></i></button>
+            <span class="en-tr-cost">{{#if a.next}}{{a.next}} XP{{else}}Top{{/if}}</span>
+          </div>
+          {{/each}}
+        </div>
+        <div class="en-block"><span class="en-label">Skills</span>
+          <div class="en-train-skills">
+          {{#each skills as |s|}}
+          <div class="en-train-row {{#if s.bought}}bought{{/if}} {{#unless s.has}}untrained{{/unless}}">
+            <span class="en-tr-name" data-tooltip="{{s.label}}">{{s.label}}</span>
+            <span class="en-pips">{{#each s.pips as |p|}}<i class="{{#if p.start}}start{{/if}} {{#if p.bought}}bought{{/if}}"></i>{{/each}}</span>
+            <button type="button" class="en-tr-btn" data-action="trainSkill" data-key="{{s.key}}" data-delta="-1" {{#unless s.canDrop}}disabled{{/unless}} aria-label="{{s.label}}, one rank less"><i class="fa-solid fa-minus"></i></button>
+            <button type="button" class="en-tr-btn" data-action="trainSkill" data-key="{{s.key}}" data-delta="1" {{#unless s.canAdd}}disabled{{/unless}} aria-label="{{s.label}}, one rank more"><i class="fa-solid fa-plus"></i></button>
+            <span class="en-tr-cost">{{#if s.next}}{{s.next}} XP{{else}}Top{{/if}}</span>
+          </div>
+          {{/each}}
+          </div>
+        </div>
+      </div>
+      {{#if active}}
+      {{!-- Each tree on its own tab (2026-10-16); a role's own tree offers its first tiers here. --}}
+      <div class="en-block en-train-tree">
+        <nav class="en-tree-tabs" aria-label="Perk trees">
+          {{#each trees as |t|}}<button type="button" class="en-tree-tab {{#if t.on}}on{{/if}}" data-action="perkTab" data-tree="{{t.id}}" aria-pressed="{{#if t.on}}true{{else}}false{{/if}}">{{t.label}}{{#if t.taken}} <b>{{t.taken}}</b>{{/if}}</button>{{/each}}
+        </nav>
+        {{#with active as |t|}}
+        {{#if t.limited}}<p class="hint">At enlistment, the first {{@root.training.roleTiers}} tiers. The rest open on your sheet's Training tab.</p>{{/if}}
+        {{#each t.tiers as |tier|}}
+        <div class="en-tier">
+          {{#if tier.gated}}<span class="en-tier-head">Tier {{tier.number}}{{#if tier.exclusive}}, pick one{{/if}}</span>{{else if tier.exclusive}}<span class="en-tier-head">Pick one</span>{{/if}}
+          <div class="en-tperks">
+            {{#each tier.nodes as |p|}}
+            <div role="button" tabindex="0" class="en-tperk {{p.state}} {{#if p.on}}on{{/if}} {{#if p.canBuy}}can{{/if}}" data-action="trainPerk" data-node="{{p.id}}" aria-pressed="{{#if p.on}}true{{else}}false{{/if}}">
+              <img src="{{p.img}}" alt="">
+              <span class="en-perk-body"><span class="en-perk-name">{{p.name}}</span>
+                <span class="en-perk-meta">{{p.cost}} XP{{#if p.meta}}, {{p.meta}}{{/if}}</span>
+                {{#if p.blurb}}<span class="en-tperk-text">{{p.blurb}}</span>{{/if}}
+                {{#unless p.on}}{{#unless p.canBuy}}<span class="en-tperk-why">{{p.reason}}</span>{{/unless}}{{/unless}}</span>
+            </div>
+            {{/each}}
+          </div>
+        </div>
+        {{/each}}
+        {{/with}}
+      </div>
+      {{else}}
+      <p class="en-empty">No perk trees for this role in this world yet, so only attributes and skills can be trained here.</p>
       {{/if}}
       {{/with}}
       {{/if}}
@@ -186,6 +311,9 @@
           <dt>Background</dt><dd>{{dossier.background}}{{#if dossier.perk}}, {{dossier.perk}}{{/if}}</dd>
           <dt>Skills</dt><dd>{{dossier.skills}}</dd>
           {{#if dossier.mutations}}<dt>Mutations</dt><dd>{{dossier.mutations}}</dd>{{/if}}
+          {{#if dossier.boons}}<dt>Boons</dt><dd>{{dossier.boons}}</dd>{{/if}}
+          <dt>Training</dt><dd>{{#if dossier.training}}{{dossier.training}}{{else}}None yet{{/if}}</dd>
+          {{#if dossier.xp}}<dt>XP</dt><dd>{{dossier.xp}}</dd>{{/if}}
         </dl>
       </div>
       {{/if}}
@@ -215,11 +343,14 @@
       <dt>Background</dt><dd class="{{#unless dossier.background}}pending{{/unless}}">{{#if dossier.background}}{{dossier.background}}{{else}}Pending{{/if}}</dd>
       <dt>Perk</dt><dd class="{{#unless dossier.perk}}pending{{/unless}}">{{#if dossier.perk}}{{dossier.perk}}{{else}}Pending{{/if}}</dd>
       <dt>Skills</dt><dd class="{{#unless dossier.skills}}pending{{/unless}}">{{#if dossier.skills}}{{dossier.skills}}{{else}}Pending{{/if}}</dd>
+      {{#if dossier.grantsBoons}}<dt>Boons</dt><dd class="{{#unless dossier.boons}}pending{{/unless}}">{{#if dossier.boons}}{{dossier.boons}}{{else}}Pending{{/if}}</dd>{{/if}}
       {{#if dossier.carriesMutations}}<dt>Mutations</dt><dd class="{{#unless dossier.mutations}}pending{{/unless}}">{{#if dossier.mutations}}{{dossier.mutations}}{{else}}Pending{{/if}}</dd>{{/if}}
+      {{#if dossier.training}}<dt>Training</dt><dd>{{dossier.training}}</dd>{{/if}}
+      {{#if dossier.xp}}<dt>XP</dt><dd>{{dossier.xp}}</dd>{{/if}}
     </dl>
     {{#if dossier.bars.length}}
     <div class="en-vitals"><div>Health<b>{{dossier.health}}</b></div><div>Energy<b>{{dossier.energy}}</b></div></div>
-    <div class="en-bars">{{#each dossier.bars as |a|}}<div class="en-bar">{{a.abbr}}<i><span style="width: {{a.pct}}%"></span></i><em>{{a.value}}</em></div>{{/each}}</div>
+    <div class="en-bars">{{#each dossier.bars as |a|}}<div class="en-bar {{#if a.boosted}}boosted{{/if}}">{{a.abbr}}<i><span style="width: {{a.pct}}%"></span></i><em>{{a.value}}</em></div>{{/each}}</div>
     {{else}}<p class="en-empty">Choose a species to see your attributes.</p>{{/if}}
   </aside>
 </div>

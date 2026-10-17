@@ -21,7 +21,10 @@ export class StoreData extends foundry.abstract.TypeDataModel {
       sellBack: new fields.NumberField({ required: true, nullable: false, integer: true, initial: IROP.store.sellBack, min: 0, max: 100 }),
       // The currency it prices in and charges by default, and pays in when it buys back
       // (Johnald, 2026-10-10). A player may pay with any other an item takes.
-      preferred: new fields.StringField({ required: true, initial: "credits", choices: () => IROP.currencyLabels })
+      preferred: new fields.StringField({ required: true, initial: "credits", choices: () => IROP.currencyLabels }),
+      // Offered in the enlistment terminal's Requisition step (Johnald, 2026-10-16), so a recruit
+      // can buy their starting kit before their first mission.
+      enlist: new fields.BooleanField({ initial: false })
     };
   }
 

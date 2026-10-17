@@ -1689,6 +1689,9 @@ export class OperativeSheet extends IropActorSheet {
     actions: {
       toggleRecord: OperativeSheet.#onToggleRecord,
       toggleNotes: OperativeSheet.#onToggleNotes,
+      framePortrait: OperativeSheet.#onFramePortrait,
+      resetPortrait: OperativeSheet.#onResetPortrait,
+      recordPhoto: OperativeSheet.#onRecordPhoto,
       addRecordEntry: OperativeSheet.#onAddRecordEntry,
       deleteRecordEntry: OperativeSheet.#onDeleteRecordEntry,
       resetCharacter: OperativeSheet.#onResetCharacter,
@@ -2125,9 +2128,87 @@ export class OperativeSheet extends IropActorSheet {
       rank: { key: r.rank, ...(IROP.ranks[r.rank] ?? IROP.ranks.squaddie) },
       nextOfKin: r.nextOfKin,
       timeline: r.timeline.map((e, index) => ({ ...e, index })),
-      roleColor: context.accent
+      roleColor: context.accent,
+      // The photo's framing (2026-10-16): the owner drags and zooms it while adjusting.
+      frame: { x: r.portrait.x, y: r.portrait.y, zoom: r.portrait.zoom, scale: r.portrait.zoom / 100 },
+      // Its own photo, else the sheet's portrait.
+      photo: r.photo || this.actor.img,
+      canFrame: this.isEditable && !this.recordOnly,
+      adjusting: this.#framing
     };
     return context;
+  }
+
+  /** Whether the record's photo is being moved and zoomed. */
+  #framing = false;
+
+  /** Adjust the photo, or finish adjusting. */
+  static #onFramePortrait() {
+    this.#framing = !this.#framing;
+    return this.render();
+  }
+
+  /** Pick the record's own photo; the sheet's portrait is left alone. */
+  static #onRecordPhoto() {
+    const Picker = foundry.applications.apps.FilePicker.implementation;
+    const r = this.actor.system.details.record;
+    return new Picker({ type: "image", current: r.photo || this.actor.img,
+      callback: path => this.actor.update({ "system.details.record.photo": path, "system.details.record.portrait": { set: false, x: 50, y: 18, zoom: 100 } })
+    }).render({ force: true });
+  }
+
+  /** The photo back to the middle, unzoomed. */
+  static async #onResetPortrait() {
+    await this.actor.update({ "system.details.record.portrait": { set: false, x: 50, y: 18, zoom: 100 } });
+    return this.render();
+  }
+
+  /**
+   * Drag the photo to move it and zoom with the slider or the wheel; it saves when the drag or the
+   * zoom ends. Dragging right shows more of the left, so the point it centers on moves the other way,
+   * slower the more it is zoomed in.
+   */
+  #wireFraming() {
+    const frame = this.element.querySelector("[data-portrait-frame].adjusting");
+    if ( !frame ) return;
+    const now = { ...this.actor.system.details.record.portrait };
+    const show = () => {
+      frame.style.setProperty("--px", `${now.x}%`);
+      frame.style.setProperty("--py", `${now.y}%`);
+      frame.style.setProperty("--pz", String(now.zoom / 100));
+    };
+    const save = () => this.actor.update({ "system.details.record.portrait": { set: true, x: Math.round(now.x * 10) / 10, y: Math.round(now.y * 10) / 10, zoom: Math.round(now.zoom) } });
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    let drag = null;
+    frame.addEventListener("pointerdown", event => {
+      if ( event.target.closest("button, input") ) return;
+      drag = { x: event.clientX, y: event.clientY, px: now.x, py: now.y };
+      frame.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+    frame.addEventListener("pointermove", event => {
+      if ( !drag ) return;
+      const rect = frame.getBoundingClientRect();
+      const speed = 100 / (now.zoom / 100);
+      now.x = clamp(drag.px - ((event.clientX - drag.x) / Math.max(1, rect.width)) * speed, 0, 100);
+      now.y = clamp(drag.py - ((event.clientY - drag.y) / Math.max(1, rect.height)) * speed, 0, 100);
+      show();
+    });
+    const end = () => { if ( drag ) { drag = null; save(); } };
+    frame.addEventListener("pointerup", end);
+    frame.addEventListener("pointercancel", end);
+    const slider = frame.querySelector("[data-portrait-zoom]");
+    slider?.addEventListener("input", () => { now.zoom = Number(slider.value); show(); });
+    slider?.addEventListener("change", save);
+    let wheelTimer = null;
+    frame.addEventListener("wheel", event => {
+      event.preventDefault();
+      now.zoom = clamp(now.zoom + ((event.deltaY < 0) ? 10 : -10), 100, 300);
+      if ( slider ) slider.value = String(now.zoom);
+      show();
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(save, 300);
+    }, { passive: false });
   }
 
   /** @inheritDoc */
@@ -2139,6 +2220,7 @@ export class OperativeSheet extends IropActorSheet {
     const drawer = this.element.querySelector(".irop-record");
     if ( !drawer ) return;
     this.#placeRecord();
+    this.#wireFraming();
 
     // Service log rows edit one array entry each, outside the form submission.
     for ( const input of drawer.querySelectorAll("[data-record-field]") ) {

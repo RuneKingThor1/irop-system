@@ -10,7 +10,7 @@
   </nav>
   {{/if}}
   <header class="store-head">
-    <img class="store-img" src="{{store.img}}" alt="" {{#if editing}}data-edit="img" data-tooltip="Change the picture"{{/if}}>
+    <img class="store-img" src="{{store.img}}" alt="" {{#if editing}}data-action="editImage" data-edit="img" data-tooltip="Change the picture"{{/if}}>
     <div class="store-title">
       {{#if editing}}
       <input class="store-name" type="text" name="name" value="{{store.name}}" placeholder="Store name">
@@ -21,6 +21,8 @@
           <input type="number" name="system.sellBack" value="{{system.sellBack}}" min="0" max="100" step="5"><em>%</em></label>
         <label data-tooltip="Prices show in it and Buy charges it, unless a player picks another the item takes. Selling back pays in it"><span>Prefers</span>
           <select name="system.preferred">{{selectOptions currencies selected=system.preferred}}</select></label>
+        <label class="store-enlist" data-tooltip="Offered in the enlistment terminal's Requisition step, so new recruits can buy their starting kit. Players need at least Limited on the store to open it">
+          <input type="checkbox" name="system.enlist" {{checked system.enlist}}><span>Open at enlistment</span></label>
       </div>
       {{else}}
       <h1 class="store-name">{{store.name}}</h1>
@@ -50,13 +52,22 @@
   {{!-- The shop (Johnald, 2026-10-10: B, a list beside a detail panel, with C's category filters). --}}
   <section class="shop">
     <nav class="shop-cats">
-      {{#each categories as |c|}}
-      <button type="button" class="shop-cat {{#if c.active}}on{{/if}} {{#if c.sell}}sell{{/if}}" data-action="category" data-category="{{c.key}}" data-shop>{{c.label}} <span class="n">{{c.count}}</span></button>
-      {{/each}}
+      {{!-- Six tabs at a time, arrows for the rest; Sell always on the right (2026-10-16). --}}
+      {{#if catNav.scrolls}}<button type="button" class="shop-cat-arrow" data-action="catScroll" data-dir="back" data-shop {{#unless catNav.back}}disabled{{/unless}} aria-label="Earlier categories"><i class="fa-solid fa-chevron-left"></i></button>{{/if}}
+      <span class="shop-cat-tabs">
+        {{#each catNav.tabs as |c|}}
+        <button type="button" class="shop-cat {{#if c.active}}on{{/if}}" data-action="category" data-category="{{c.key}}" data-shop>{{c.label}} <span class="n">{{c.count}}</span></button>
+        {{/each}}
+      </span>
+      {{#if catNav.scrolls}}<button type="button" class="shop-cat-arrow" data-action="catScroll" data-dir="more" data-shop {{#unless catNav.more}}disabled{{/unless}} aria-label="More categories"><i class="fa-solid fa-chevron-right"></i></button>{{/if}}
+      {{#with catNav.sell as |c|}}
+      <button type="button" class="shop-cat sell {{#if c.active}}on{{/if}}" data-action="category" data-category="sell" data-shop>{{c.label}} <span class="n">{{c.count}}</span></button>
+      {{/with}}
     </nav>
     <div class="shop-panes">
       <ol class="shop-list">
         {{#each list as |r|}}
+        {{#if r.heading}}<li class="shop-heading">{{r.sectionLabel}}</li>{{/if}}
         <li class="shop-row {{#if r.picked}}picked{{/if}} {{#if r.soldOut}}sold-out{{/if}} {{#if r.unpriced}}unpriced{{/if}}" data-action="pick" data-pick="{{r.id}}">
           <img src="{{r.img}}" alt="">
           <span class="shop-row-name">{{r.name}}{{#if r.many}} <small>x{{r.quantity}}</small>{{/if}}</span>
@@ -113,6 +124,7 @@
     <h3 class="section-title">For sale <span class="hint">Drag weapons, armor, gear or mods here to stock the shelf.</span></h3>
     <ol class="store-shelf">
       {{#each shelf as |s|}}
+      {{#if s.heading}}<li class="shelf-heading">{{s.sectionLabel}}</li>{{/if}}
       <li class="shelf-row {{#if s.hidden}}hidden-item{{/if}} {{#if s.soldOut}}sold-out{{/if}} {{#if s.unpriced}}unpriced{{/if}}" data-item-id="{{s.id}}" data-pay-currency="{{s.pay}}">
         <img class="item-img" src="{{s.img}}" alt="">
         <div class="shelf-name">

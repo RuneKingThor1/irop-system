@@ -1,9 +1,13 @@
 import { IROP } from "../config.mjs";
 import {
   STEPS, DEFAULT_IMG, blurb, speciesAttributes, rolePlan, backgroundPlan, skillsTaken, startingRanks, operativeName, stepIssues, operativeData,
-  stepsFor, rollMutations, rerollNegative, mutationsRolled, mutationIds
+  stepsFor, rollMutations, rerollNegative, mutationsRolled, mutationIds, BOON_PICKS, boonPicks,
+  emptyTraining, trainingPlan, cleanTraining, recruitAttributes
 } from "../rules/enlistment.mjs";
 import { perkMeta, liveBackground } from "../rules/backgrounds.mjs";
+import { treesFor } from "../rules/skill-trees.mjs";
+import { parseRequirements, unmetRequirements } from "../rules/requirements.mjs";
+import { isPhysical, walletOf } from "../rules/store.mjs";
 import { asGM, registerAction } from "../socket.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -65,6 +69,73 @@ export function mutationTables({ tables = game.tables, items = game.items } = {}
   return out;
 }
 
+/**
+ * A boon for an attribute (2026-10-16): the world's Boon item for it when there is one, else one made
+ * to the rules (+IROP.boonAmount), so a world without boon items can still enlist a Human.
+ */
+export function boonFor(attribute, items = game.items) {
+  const item = (items?.filter?.(i => (i.type === "boon") && (i.system.attribute === attribute)) ?? []).sort(byName)[0];
+  if ( item ) return item;
+  const label = IROP.attributes[attribute]?.label ?? attribute;
+  return { name: `${label} Boon`, type: "boon", img: "icons/svg/upgrade.svg",
+    system: { attribute, amount: IROP.boonAmount, description: `<p>The species bonus: +${IROP.boonAmount} ${label}.</p>` },
+    toObject() { return { name: this.name, type: this.type, img: this.img, system: { ...this.system } }; } };
+}
+
+/** A document by UUID, or null, never throwing. */
+function fromUuidQuiet(uuid) {
+  if ( !uuid ) return null;
+  try { return foundry.utils.fromUuidSync(uuid) ?? null; }
+  catch { return null; }
+}
+
+/** A tree node's name: its ability's current name, or the one stored with the node. */
+const nodeName = node => fromUuidQuiet(node.uuid)?.name ?? node.name;
+
+/** How far down its role's own tree a recruit may train (Johnald, 2026-10-16): the first three tiers. */
+export const ENLIST_ROLE_TIERS = 3;
+
+/**
+ * The perk trees a recruit trains in (2026-10-16): the role's Primary and the General trees, as
+ * the Training tab shows them. Specializations open later, with XP earned. A role's own tree
+ * offers only its first ENLIST_ROLE_TIERS tiers here; the rest open on the sheet.
+ */
+export function enlistmentTrees(roleKey, items = game.items) {
+  const all = items?.filter?.(i => i.type === "skillTree") ?? [];
+  return treesFor(all, { role: roleKey ?? "" }).filter(t => t.system.kind !== "specialization").map(t => {
+    if ( !t.system.role ) return t;
+    const { tabLabel, gated, kind, role } = t.system;
+    return { id: t.id, name: t.name, system: { tabLabel, gated, kind, role, tiers: t.system.tiers.slice(0, ENLIST_ROLE_TIERS) } };
+  });
+}
+
+/**
+ * The recruit's training plan worked out (see rules/enlistment.mjs trainingPlan): against the
+ * species, its boons, the starting skills, and the role's trees.
+ */
+export function planFor(choices, { species, role, background }, items = game.items) {
+  const boons = species?.system?.boons ? boonPicks(choices).map(k => boonFor(k, items)) : [];
+  return trainingPlan(choices.training, {
+    attributes: recruitAttributes(species, boons),
+    ranks: startingRanks(skillsTaken(choices, role, background)),
+    trees: role ? enlistmentTrees(role.system.role, items) : [],
+    nameOf: nodeName,
+    requirementsOf: node => parseRequirements(fromUuidQuiet(node.uuid)?.system?.prerequisites),
+    unmet: unmetRequirements,
+    budget: IROP.startingXP
+  });
+}
+
+/**
+ * The stores the GM opened at enlistment (2026-10-16: "Open at enlistment" on the store), by name,
+ * each with whether this user can open it.
+ */
+export function enlistmentStores(user = game.user, actors = game.actors) {
+  return (actors?.filter?.(a => (a.type === "store") && a.system.enlist) ?? [])
+    .sort(byName)
+    .map(store => ({ store, open: !!user?.isGM || !!store.testUserPermission?.(user, "LIMITED") }));
+}
+
 /** A die from 1 to faces, on Foundry's own random numbers. */
 function rollDie(faces) {
   const u = globalThis.CONFIG?.Dice?.randomUniform?.() ?? Math.random();
@@ -112,6 +183,20 @@ export async function createOperative(choices = {}, user = game.user, request = 
     }
     mutations = docs.map(d => d.toObject());
   }
+  // The species' boons: two attributes, none twice (stepIssues checked the count).
+  const boons = species.system.boons ? boonPicks(choices).map(k => boonFor(k).toObject()) : [];
+  // Training: worked out again here, on the world's own trees; nothing that does not fit is filed.
+  const plan = planFor(choices, { species, role, background });
+  if ( plan.dropped.length ) return { error: `Your training no longer allows ${plan.dropped.map(d => d.name).join(", ")}. Check the Training step.` };
+  if ( plan.left < 0 ) return { error: `Your training costs ${plan.spent} XP, more than the ${plan.budget} you start with.` };
+  const trainingPerks = [];
+  for ( const e of plan.entries.filter(x => x.kind === "perk") ) {
+    const tree = game.items.get(e.tree);
+    const node = tree?.system?.findNode?.(e.ref)?.node ?? null;
+    const ability = node?.uuid ? await foundry.utils.fromUuid(node.uuid) : null;
+    if ( ability?.type !== "ability" ) return { error: `${e.label} is missing its ability in this world. Ask the GM to fix the tree.` };
+    trainingPerks.push({ data: ability.toObject(), tree: e.tree, node: e.ref, xp: e.xp });
+  }
   const live = liveBackground(background);
   const entry = (live.system?.perks ?? []).find(p => p.id === choices.perk);
   const ability = entry?.uuid ? await foundry.utils.fromUuid(entry.uuid) : null;
@@ -119,7 +204,7 @@ export async function createOperative(choices = {}, user = game.user, request = 
   const owner = user.isGM ? (game.users.get(choices.owner)?.id ?? user.id) : user.id;
   const data = operativeData(choices, {
     species: species.toObject(), role: role.toObject(), background: live.toObject?.() ?? background.toObject(),
-    perkAbility: (ability?.type === "ability") ? ability.toObject() : null, mutations
+    perkAbility: (ability?.type === "ability") ? ability.toObject() : null, mutations, boons, training: plan, trainingPerks
   }, { owner, date: await today(), request });
   const actor = await Actor.implementation.create(data);
   if ( !actor ) return { error: "The operative could not be made." };
@@ -146,7 +231,16 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       roleSkill: EnlistmentApp.#onRoleSkill,
       backgroundSkill: EnlistmentApp.#onBackgroundSkill,
       perk: EnlistmentApp.#onPerk,
+      boon: EnlistmentApp.#onBoon,
       rollMutations: EnlistmentApp.#onRollMutations,
+      trainAttribute: EnlistmentApp.#onTrainAttribute,
+      trainSkill: EnlistmentApp.#onTrainSkill,
+      trainPerk: EnlistmentApp.#onTrainPerk,
+      perkTab: EnlistmentApp.#onPerkTab,
+      resetTraining: EnlistmentApp.#onResetTraining,
+      requisition: EnlistmentApp.#onRequisition,
+      record: EnlistmentApp.#onRecord,
+      openStore: EnlistmentApp.#onOpenStore,
       rerollNegative: EnlistmentApp.#onRerollNegative,
       browse: EnlistmentApp.#onBrowse,
       enlist: EnlistmentApp.#onEnlist,
@@ -176,7 +270,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** A recruit with nothing chosen yet. */
   static freshChoices() {
-    return { species: "", role: "", background: "", roleSkill: "", backgroundSkills: [], perk: "", firstName: "", lastName: "", callsign: "", img: DEFAULT_IMG, owner: "", mutations: null };
+    return { species: "", role: "", background: "", roleSkill: "", backgroundSkills: [], perk: "", firstName: "", lastName: "", callsign: "", img: DEFAULT_IMG, owner: "", mutations: null, boons: [], training: emptyTraining() };
   }
 
   /** The operative made, the request waiting on the GM's client, and the steps visited, by key. */
@@ -185,6 +279,13 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
   visited = new Set(["species"]);
   #typed = -1;
   #typer = null;
+  /** The perk tree on show in Training, by id. */
+  perkTab = "";
+
+  /** After enlisting: the stamped record, or the Requisition stores. */
+  phase = "record";
+  /** Hooks that redraw Requisition as the new operative's purse and kit change. */
+  #hooks = [];
   /** The step last shown: the pane slides in only when the step changes, not on every pick. */
   #shown = -1;
 
@@ -217,6 +318,15 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const perkEntry = (bgLive?.system?.perks ?? []).find(p => p.id === c.perk);
     const key = steps[this.step].key;
     const mutationItems = (species?.system?.mutations ? mutationIds(c.mutations) : []).map(id => game.items?.get(id)).filter(Boolean);
+    // Boons, for a species that grants them: the attribute and what it adds.
+    const boonList = species?.system?.boons ? boonPicks(c).map(k => ({ key: k, boon: boonFor(k) })) : [];
+    const boonAdd = Object.fromEntries(boonList.map(b => [b.key, Number(b.boon.system.amount) || 0]));
+    const boonText = boonList.map(b => `${IROP.attributes[b.key].label} +${boonAdd[b.key]}`).join(", ");
+    // Training: the plan, kept to what it allows as the choices above it change.
+    const plan = planFor(c, { species, role, background });
+    if ( !this.result ) c.training = cleanTraining(c.training, plan);
+    const trainedRanks = Object.fromEntries(plan.skills.map(sk => [sk.key, sk.rank]));
+    const trainedText = trainingText(plan);
 
     // The cards on each step.
     const speciesCards = list.species.map(s => ({
@@ -256,6 +366,19 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }))
     } : null;
 
+    const boons = (key === "boons") ? {
+      amount: IROP.boonAmount, picks: BOON_PICKS, count: boonList.length,
+      options: speciesAttributes(species?.system ?? {}).map(a => {
+        const boon = boonFor(a.key);
+        const amount = Number(boon.system.amount) || 0;
+        return { key: a.key, abbr: a.abbr, label: IROP.attributes[a.key].label, value: a.value, after: a.value + amount, amount,
+          on: boonList.some(b => b.key === a.key), item: boon.id ? boon.name : "" };
+      })
+    } : null;
+
+    const training = (key === "training") ? await trainingContext(plan, this.perkTab) : null;
+    if ( training ) this.perkTab = training.tab;
+
     // Mutations, for a species that carries them.
     const pad = n => String(n).padStart(2, "0");
     const mutations = (key === "mutations") ? {
@@ -275,16 +398,17 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return {
       step: this.step, stepNo: this.step + 1, stepCount: steps.length, key, is: { [key]: true }, slide: this.#shown !== this.step, prompt: steps[this.step].prompt, isGM,
       steps: steps.map((st, i) => ({
-        n: `0${i + 1}`, index: i, label: st.label, on: i === this.step,
+        n: `0${i + 1}`, index: i, label: st.label, on: (i === this.step) && !(this.result && (this.phase === "requisition")),
         done: !issues[st.key] && (i < this.step || this.visited.has(st.key)) && (st.key !== "review"),
         warn: !!issues[st.key] && this.visited.has(st.key) && (i !== this.step),
         value: {
           species: species?.name, role: role?.name, background: background?.name,
           skills: taken.length ? `${taken.length} skills${perkEntry ? ", a perk" : ""}` : "",
-          mutations: mutationItems.length ? `${mutationItems.length} rolled` : "", identity: name
+          mutations: mutationItems.length ? `${mutationItems.length} rolled` : "", boons: boonList.length ? `${boonList.length} picked` : "", identity: name,
+          training: plan.spent ? `${plan.spent} of ${plan.budget} XP` : ""
         }[st.key] ?? ""
       })),
-      mutations,
+      mutations, boons, training,
       issue: issues[key], first: this.step === 0, last: key === "review",
       species: speciesCards, roles: roleCards, backgrounds: backgroundCards, skills,
       identity: {
@@ -298,10 +422,17 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
         name: name || "Unidentified recruit", img: c.img || DEFAULT_IMG, color: roleColor,
         species: species?.name ?? "", role: role?.name ?? "", background: background?.name ?? "",
         perk: perkEntry ? (perkAbility(perkEntry)?.name ?? perkEntry.name) : "",
-        skills: Object.entries(ranks).map(([k, r]) => (r > 1 ? `${skillLabel(k)} ${r}` : skillLabel(k))).join(", "),
+        skills: rankText(trainedRanks),
         carriesMutations: !!s?.mutations, mutations: mutationItems.map(m => m.name).join(", "),
+        grantsBoons: !!s?.boons, boons: boonText,
+        training: trainedText, xp: (this.visited.has("training") || plan.spent) ? `${plan.spent} spent, ${plan.left} left` : "",
         health: s?.health ?? "", energy: s?.energy ?? "",
-        bars: s ? speciesAttributes(s).map(a => ({ ...a, pct: Math.min(100, Math.round((a.value / 70) * 100)) })) : []
+        // The bars show the boons on top of the species' attributes.
+        bars: s ? speciesAttributes(s).map(a => {
+          const pips = plan.attributes.find(x => x.key === a.key)?.pips ?? 0;
+          const value = a.value + (boonAdd[a.key] ?? 0) + (pips * IROP.attributeAdvance.perRank);
+          return { ...a, value, boosted: !!boonAdd[a.key] || !!pips, pct: Math.min(100, Math.round((value / 70) * 100)) };
+        }) : []
       },
       waiting: !!this.waiting,
       result: this.result ? {
@@ -309,9 +440,14 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
         first: c.firstName, last: c.lastName, species: species?.name ?? "", role: role?.name ?? "", background: background?.name ?? "",
         perk: perkEntry ? (perkAbility(perkEntry)?.name ?? perkEntry.name) : "",
         enlisted: this.result.system?.details?.record?.enlisted ?? "",
-        mutations: mutationItems.map(m => m.name).join(", "),
-        skills: Object.entries(ranks).map(([k, r]) => (r > 1 ? `${skillLabel(k)} ${r}` : skillLabel(k))).join(", ")
-      } : null
+        mutations: mutationItems.map(m => m.name).join(", "), boons: boonText, training: trainedText,
+        skills: rankText(trainedRanks)
+      } : null,
+      // After enlisting: the stores the GM opened for it.
+      requisition: this.result ? requisitionContext(this.result, this.phase) : null,
+      phase: this.phase,
+      // The Requisition step on the rail, after the others, once a store is open to this user.
+      hasStores: enlistmentStores().some(x => x.open), reqNo: `0${steps.length + 1}`
     };
   }
 
@@ -342,7 +478,8 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       });
       input.addEventListener("change", () => this.render());
     }
-    if ( this.result && !reducedMotion() ) this.element.querySelector(".en-stamp")?.classList.add("hit");
+    if ( this.result && (this.phase === "record") && !reducedMotion() ) this.element.querySelector(".en-stamp")?.classList.add("hit");
+    if ( this.result && !this.#hooks.length ) this.#watch(this.result.id);
     // The perks are role="button" blocks (their descriptions hold paragraphs): Enter and Space press them.
     for ( const el of this.element.querySelectorAll('[role="button"]') ) {
       el.addEventListener("keydown", e => {
@@ -354,6 +491,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @override */
   _onClose(options) {
     clearInterval(this.#typer);
+    this.#unwatch();
     for ( const [request, app] of PENDING ) if ( app === this ) PENDING.delete(request);
     return super._onClose(options);
   }
@@ -410,6 +548,132 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static #onPerk(event, target) {
     this.choices.perk = target.dataset.perk;
     return this.render();
+  }
+
+  /** A boon's attribute on or off: two at most, never the same one twice. */
+  static #onBoon(event, target) {
+    const key = target.dataset.attribute;
+    if ( !IROP.attributes[key] ) return null;
+    const picks = boonPicks(this.choices);
+    if ( picks.includes(key) ) this.choices.boons = picks.filter(k => k !== key);
+    else if ( picks.length < BOON_PICKS ) this.choices.boons = [...picks, key];
+    else return ui.notifications.info(`${BOON_PICKS} boons, no attribute twice. Take one off to pick another.`);
+    return this.render();
+  }
+
+  /** The plan for the choices as they stand. */
+  #plan() {
+    return planFor(this.choices, this.picked);
+  }
+
+  /** Keep the plan to what it allows, and say what fell out (a perk whose need was taken off). */
+  #settle(before) {
+    const plan = this.#plan();
+    this.choices.training = cleanTraining(this.choices.training, plan);
+    const lost = before.filter(id => !plan.perks.includes(id));
+    if ( lost.length ) {
+      const names = plan.dropped.filter(d => lost.includes(d.id)).map(d => d.name);
+      ui.notifications.info(`${names.join(", ")} came off: the plan no longer allows ${(names.length === 1) ? "it" : "them"}.`);
+    }
+    return this.render();
+  }
+
+  /** Training: an attribute pip on (data-delta 1) or off (-1). */
+  static #onTrainAttribute(event, target) {
+    return this.#trainPip("attributes", target);
+  }
+
+  /** Training: a skill pip on or off, over the starting ranks. */
+  static #onTrainSkill(event, target) {
+    return this.#trainPip("skills", target);
+  }
+
+  #trainPip(group, target) {
+    const key = target.dataset.key;
+    const up = Number(target.dataset.delta) > 0;
+    const plan = this.#plan();
+    const t = this.choices.training ??= emptyTraining();
+    const before = [...plan.perks];
+    const have = Number(t[group][key]) || 0;
+    if ( up ) {
+      const next = (group === "attributes") ? plan.nextAttribute(key) : plan.nextSkill(key);
+      const label = (group === "attributes") ? IROP.attributes[key]?.label : IROP.skills[key]?.label;
+      if ( !next ) return ui.notifications.info(`${label} is at its top rank.`);
+      if ( !next.affordable ) return ui.notifications.info(`The next ${label} rank costs ${next.cost} XP; ${plan.left} left.`);
+      t[group][key] = have + 1;
+    }
+    else if ( have > 0 ) t[group][key] = have - 1;
+    else return null;
+    return this.#settle(before);
+  }
+
+  /** Training: a perk in or out of the plan; one it cannot take says why. */
+  static #onTrainPerk(event, target) {
+    const id = target.dataset.node;
+    const plan = this.#plan();
+    const t = this.choices.training ??= emptyTraining();
+    if ( plan.perks.includes(id) ) {
+      t.perks = plan.perks.filter(x => x !== id);
+      return this.#settle(plan.perks);
+    }
+    const st = plan.perkTrees.map(p => p.states.get(id)).find(Boolean);
+    if ( !st ) return null;
+    if ( !st.canBuy ) return ui.notifications.info(st.reason);
+    t.perks = [...plan.perks, id];
+    return this.#settle(plan.perks);
+  }
+
+  /** Training: show another tree's perks. */
+  static #onPerkTab(event, target) {
+    this.perkTab = target.dataset.tree;
+    return this.render();
+  }
+
+  /** Training: start the plan over. */
+  static #onResetTraining() {
+    this.choices.training = emptyTraining();
+    return this.render();
+  }
+
+  /** After enlisting: the stores, and back to the record. */
+  static #onRequisition() {
+    if ( !this.result ) return null;
+    this.phase = "requisition";
+    return this.render();
+  }
+
+  static #onRecord() {
+    this.phase = "record";
+    return this.render();
+  }
+
+  /** Open a store's own window, buying for the operative just enlisted. */
+  static #onOpenStore(event, target) {
+    const store = game.actors?.get(target.dataset.id);
+    if ( !store || !this.result ) return null;
+    const sheet = store.sheet;
+    sheet?.setBuyer?.(this.result.id);
+    return sheet?.render({ force: true });
+  }
+
+  /** Redraw Requisition as the operative's purse and kit change. */
+  #watch(actorId) {
+    let timer = null;
+    const redraw = () => {
+      if ( this.phase !== "requisition" ) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => this.render(), 80);
+    };
+    const mine = doc => (doc?.id === actorId) || (doc?.parent?.id === actorId);
+    for ( const hook of ["updateActor", "createItem", "updateItem", "deleteItem"] ) {
+      const id = Hooks.on(hook, doc => { if ( mine(doc) ) redraw(); });
+      this.#hooks.push([hook, id]);
+    }
+  }
+
+  #unwatch() {
+    for ( const [hook, id] of this.#hooks ) Hooks.off(hook, id);
+    this.#hooks = [];
   }
 
   /** Roll the mutations, once: two Positives (duplicates rerolled) and a Negative, posted to chat. */
@@ -505,6 +769,8 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.step = 0;
     this.visited = new Set(["species"]);
     this.result = null;
+    this.phase = "record";
+    this.#unwatch();
     this.choices = EnlistmentApp.freshChoices();
     return this.render();
   }
@@ -534,4 +800,85 @@ export function addEnlistButton(app, html) {
   button.dataset.tooltip = "Make a new operative, step by step";
   button.addEventListener("click", () => EnlistmentApp.open());
   actions.prepend(button);
+}
+
+/* -------------------------------------------- */
+
+/** Skills at their ranks, as the record lists them: "Athletics 2, Insight". */
+function rankText(ranks) {
+  return Object.entries(ranks).filter(([, r]) => r > 0).map(([k, r]) => (r > 1 ? `${skillLabel(k)} ${r}` : skillLabel(k))).join(", ");
+}
+
+/** What the training bought, in a line: "Toughness +1, Athletics 2, Strong Back (1)". */
+function trainingText(plan) {
+  const parts = [
+    ...plan.attributes.filter(a => a.pips).map(a => `${IROP.attributes[a.key].label} +${a.pips}`),
+    ...plan.skills.filter(s => s.pips).map(s => `${skillLabel(s.key)} ${s.rank}`),
+    ...plan.entries.filter(e => e.kind === "perk").map(e => e.label.replace(/\s*\([^)]*\)$/, ""))
+  ];
+  return parts.join(", ");
+}
+
+/** The Training step: the XP meter, attribute and skill pips, and the trees' perks. */
+async function trainingContext(plan, tab = "") {
+  const pips = (max, start, bought) => Array.from({ length: max }, (_, i) => ({ start: i < start, bought: (i >= start) && (i < start + bought) }));
+  const attributes = plan.attributes.map(a => {
+    const next = plan.nextAttribute(a.key);
+    return { key: a.key, abbr: IROP.attributes[a.key].abbr, label: IROP.attributes[a.key].label, base: a.base, value: a.value, pips: pips(IROP.attributeAdvance.maxRanks, 0, a.pips),
+      next: next?.cost ?? null, canAdd: !!next?.affordable, canDrop: a.pips > 0, bought: a.pips > 0 };
+  });
+  const skills = plan.skills.map(s => {
+    const next = plan.nextSkill(s.key);
+    return { key: s.key, label: skillLabel(s.key), rank: s.rank, pips: pips(IROP.skillRanks.max, s.start, s.pips),
+      next: next?.cost ?? null, canAdd: !!next?.affordable, canDrop: s.pips > 0, bought: s.pips > 0, has: s.rank > 0 };
+  });
+  const trees = [];
+  for ( const { tree, states } of plan.perkTrees ) {
+    const tiers = [];
+    for ( const [index, tier] of tree.system.tiers.entries() ) {
+      if ( !tier.nodes.length ) continue;
+      const nodes = [];
+      for ( const node of tier.nodes ) {
+        const st = states.get(node.id);
+        const source = fromUuidQuiet(node.uuid);
+        nodes.push({
+          id: node.id, name: nodeName(node), img: source?.img || node.img || "icons/svg/item-bag.svg", cost: st.cost,
+          on: st.state === "owned", state: st.state, canBuy: st.canBuy, reason: st.reason,
+          meta: source ? perkMeta(source.system) : "", blurb: blurb(source?.system?.description, 140)
+        });
+      }
+      tiers.push({ number: index + 1, exclusive: tier.exclusive && (tier.nodes.length > 1), gated: !!tree.system.gated, nodes });
+    }
+    if ( tiers.length ) {
+      const taken = tree.system.tiers.flatMap(t => t.nodes).filter(n => states.get(n.id)?.state === "owned").length;
+      trees.push({ id: tree.id, label: tree.system.tabLabel || tree.name, tiers, taken, limited: !!tree.system.role });
+    }
+  }
+  // Each tree on its own tab (2026-10-16), the one picked shown, else the first.
+  const active = trees.find(t => t.id === tab) ?? trees[0] ?? null;
+  for ( const t of trees ) t.on = t === active;
+  return {
+    budget: plan.budget, spent: plan.spent, left: plan.left, pct: plan.budget ? Math.round((plan.spent / plan.budget) * 100) : 0,
+    attributes, skills, trees, active, tab: active?.id ?? "", roleTiers: ENLIST_ROLE_TIERS, perRank: IROP.attributeAdvance.perRank, any: plan.spent > 0
+  };
+}
+
+/** Requisition: the operative's purse and kit, and the stores open to them. */
+function requisitionContext(result, phase) {
+  const actor = game.actors?.get(result.id) ?? result;
+  const stores = enlistmentStores();
+  const kit = (actor.items?.filter?.(i => isPhysical(i)) ?? []).sort(byName)
+    .map(i => ({ name: i.name, img: i.img, qty: Number(i.system?.quantity) || 1 }));
+  return {
+    on: phase === "requisition",
+    any: stores.length > 0,
+    wallet: Object.entries(IROP.currencies).map(([k, cur]) => ({ key: k, label: cur.label, value: walletOf(actor, k) })),
+    stores: stores.filter(s => s.open).map(({ store }) => ({
+      id: store.id, name: store.name, img: store.img, blurb: blurb(store.system.description, 140),
+      count: store.items.filter(i => !i.flags?.irop?.shelf?.hidden).length
+    })),
+    // A store the GM opened that players cannot see yet.
+    closed: game.user?.isGM ? stores.filter(s => !(game.users?.some?.(u => !u.isGM && s.store.testUserPermission?.(u, "LIMITED")))).map(s => s.store.name) : [],
+    kit, name: actor.name
+  };
 }

@@ -1295,8 +1295,8 @@ check("disorientated both ways",
   const ability = { _id: "ab1", name: "One of Us", type: "ability", img: "one.webp", system: { description: "<p>Slums.</p>", source: "generalist" }, flags: {} };
 
   check("enlistment: mockup A's steps, with Mutations only for a species that carries them (2026-10-16)",
-    en.stepsFor({ system: { mutations: false } }).map(s => s.key).join() === "species,role,background,skills,identity,review"
-      && en.stepsFor(species).map(s => s.key).join() === "species,role,background,skills,mutations,identity,review" && en.stepsFor(null).length === 6);
+    en.stepsFor({ system: { mutations: false } }).map(s => s.key).join() === "species,role,background,skills,training,identity,review"
+      && en.stepsFor(species).map(s => s.key).join() === "species,role,background,skills,mutations,training,identity,review" && en.stepsFor(null).length === 7);
   check("enlistment: a card's blurb is plain text, cut at a sentence",
     en.blurb("<p>Short one.</p>") === "Short one." && en.blurb("<p>First sentence here. Second sentence is much longer than the room left for it.</p>", 30) === "First sentence here."
       && en.blurb("") === "");
@@ -1348,6 +1348,58 @@ check("disorientated both ways",
     en.rollMutations({ positive: [{ lo: 1, hi: 2, id: "a", name: "A" }, { lo: 4, hi: 4, id: "b", name: "B" }], negative: [] }, dice([3, 1, 4])).positive.length === 2
       && en.rollMutations({ positive: [], negative: [] }, dice([])).negative === null && en.entryAt(tables.negative, 7) === null);
   const withMutations = { ...full, mutations: rolled };
+
+  // Boons (2026-10-16): a species that grants them picks two attributes, none twice.
+  const humanSpecies = { ...species, name: "Human", system: { ...species.system, mutations: false, boons: true } };
+  check("enlistment: a Human's steps have Boons, after skills, and no Mutations",
+    en.stepsFor(humanSpecies).map(s => s.key).join() === "species,role,background,skills,boons,training,identity,review");
+  check("enlistment: boon picks are real attributes, none twice, two at most",
+    eq(en.boonPicks({ boons: ["agi", "agi", "nope", "cha", "per"] }), ["agi", "cha"]) && eq(en.boonPicks({}), []) && en.BOON_PICKS === 2);
+  check("enlistment: a Human short of boons is told; with two, nothing is missing",
+    /Pick 2 attributes for your boons \(1 picked\)/.test(en.stepIssues({ ...full, boons: ["agi"] }, { species: humanSpecies, role, background }).boons)
+      && Object.values(en.stepIssues({ ...full, boons: ["agi", "cha"] }, { species: humanSpecies, role, background })).every(v => v === "")
+      && en.stepIssues(full, { species, role, background }).boons === "");
+  const boonData = en.operativeData({ ...full, boons: ["agi", "cha"] }, { species: humanSpecies, role, background,
+    boons: [{ _id: "b1", name: "Agility Boon", type: "boon", system: { attribute: "agi", amount: 10 } }] });
+  check("enlistment: a Human's boons come along as copies; a species without them takes none",
+    boonData.items.some(i => (i.name === "Agility Boon") && !("_id" in i))
+      && !en.operativeData(full, { species, role, background, boons: [{ name: "Agility Boon", type: "boon", system: {} }] }).items.some(i => i.type === "boon"));
+  // Training (2026-10-16): the first XP, planned in the terminal and spent at Enlist.
+  check("enlistment: training pips cost by which pip is bought, from the rank already held",
+    (en.pipsCost("attribute", 0, 2) === 30) && (en.pipsCost("skill", 1, 2) === 100) && (en.pipsCost("skill", 3, 0) === 0));
+  check("enlistment: before training, the species' attributes with its boons",
+    (en.recruitAttributes(species, [{ system: { attribute: "tgh", amount: 10 } }]).tgh === 50) && (en.recruitAttributes(species).cha === 45) && (en.recruitAttributes(null).lck === 30));
+  const tree = { id: "t1", name: "Marauder Primary", system: { tabLabel: "Primary", gated: true, tiers: [
+    { exclusive: true, nodes: [{ id: "a", name: "Hard Charger", xp: 20, uuid: "", requires: "" }, { id: "b", name: "Breach and Clear", xp: 20, uuid: "", requires: "" }] },
+    { exclusive: false, nodes: [{ id: "c", name: "Thick Hide", xp: 30, uuid: "", requires: "" }] }] } };
+  const tough = { c: [{ kind: "attribute", keys: ["tgh"], min: 45 }] };
+  const recruit = { attributes: en.recruitAttributes(species), ranks: { awareness: 1, athletics: 2 }, trees: [tree],
+    requirementsOf: n => tough[n.id] ?? [], unmet: (list, sys) => list.filter(r => sys.attributes[r.keys[0]].value < r.min).map(r => `Toughness ${r.min}`), budget: 100 };
+  const trained = en.trainingPlan({ attributes: { tgh: 1 }, skills: { awareness: 1 }, perks: ["a", "c"] }, recruit);
+  check("enlistment: a plan of a Toughness rank, Awareness 2 and two perks spends all 100 XP, and writes the ledger lines",
+    (trained.spent === 100) && (trained.left === 0) && eq(trained.perks, ["a", "c"]) && !trained.dropped.length
+      && eq(trained.entries.map(e => `${e.kind} ${e.label} ${e.xp}`), ["attribute Toughness rank 1 10", "skill Awareness rank 2 40", "perk Hard Charger (Primary) 20", "perk Thick Hide (Primary) 30"])
+      && (trained.attributes.find(a => a.key === "tgh").value === 45) && (trained.nextAttribute("str").cost === 10) && !trained.nextAttribute("str").affordable
+      && (trained.nextSkill("athletics").cost === 60) && trained.perkTrees[0].states.get("b").state === "excluded", JSON.stringify(trained.entries));
+  const untough = en.trainingPlan({ attributes: {}, skills: { awareness: 1 }, perks: ["a", "c"] }, recruit);
+  check("enlistment: taking off the Toughness rank a perk needed drops that perk, and says so",
+    eq(untough.perks, ["a"]) && eq(untough.dropped.map(d => d.name), ["Thick Hide"]) && /Toughness 45/.test(untough.dropped[0].reason) && (untough.spent === 60));
+  check("enlistment: a plan keeps only one of a Pick one tier, the first taken, and nothing below an empty tier",
+    eq(en.trainingPlan({ perks: ["a", "b"] }, recruit).perks, ["a"]) && eq(en.trainingPlan({ perks: ["c"] }, recruit).perks, [])
+      && /Tier 1 first/.test(en.trainingPlan({ attributes: { tgh: 1 }, perks: ["c"] }, recruit).dropped[0].reason));
+  const capped = en.trainingPlan({ skills: { athletics: 5 }, attributes: { str: 9 } }, { ...recruit, budget: 1000 });
+  check("enlistment: training never goes past a top rank; cleaned, the plan keeps only what it allows",
+    (capped.skills.find(s => s.key === "athletics").rank === 4) && (capped.attributes.find(a => a.key === "str").pips === 6)
+      && eq(en.cleanTraining({}, untough), { attributes: {}, skills: { awareness: 1 }, perks: ["a"] }) && eq(en.emptyTraining(), { attributes: {}, skills: {}, perks: [] }));
+  const trainedData = en.operativeData(full, { species, role, background, training: trained,
+    trainingPerks: [{ data: { _id: "x1", name: "Hard Charger", type: "ability", system: {}, flags: { core: { a: 1 } } }, tree: "t1", node: "a", xp: 20 }] }, { date: "17 May 2040" });
+  const charger = trainedData.items.find(i => i.name === "Hard Charger");
+  check("enlistment: the operative comes with the training: the rank, the skill, the perk marked with its tree, and the ledger dated the day enlisted",
+    (trainedData.system.attributes.tgh.advances === 1) && (trainedData.system.skills.awareness.rank === 2) && (trainedData.system.xp.earned === 100)
+      && (trainedData.system.xp.log.length === 4) && (trainedData.system.xp.log[0].date === "17 May 2040") && !("tree" in trainedData.system.xp.log[3])
+      && eq(charger?.flags?.irop?.perk, { tree: "t1", node: "a", xp: 20 }) && (charger.flags.core.a === 1) && !("_id" in charger));
+  check("enlistment: with nothing trained, the XP is left as a new operative's",
+    !("xp" in en.operativeData(full, { species, role, background }).system));
   check("enlistment: all chosen and mutations rolled, nothing is missing", Object.values(en.stepIssues(withMutations, { species, role, background })).every(v => v === ""));
 
   const data = en.operativeData(full, { species, role, background, perkAbility: ability }, { owner: "p1", date: "17 May 2040", request: "rq1" });

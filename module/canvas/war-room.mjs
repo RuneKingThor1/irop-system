@@ -92,7 +92,8 @@ export function drawOverlay() {
   const { regions, matches } = sceneTerritories(scene);
   const container = new PIXI.Container();
   container.eventMode = "none";
-  const size = Math.max(22, Math.round((canvas.grid?.size ?? 100) * 0.32));
+  // 2px up with the rest of the system's text (Johnald, 2026-10-16).
+  const size = Math.max(24, Math.round((canvas.grid?.size ?? 100) * 0.32) + 2);
   for ( const region of regions ) {
     const match = matches.get(region.id);
     if ( !match ) continue;

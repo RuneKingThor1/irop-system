@@ -1509,9 +1509,10 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
     const pad = rules.find(r => r.sel.startsWith(".irop-resource-ledger .window-content"))?.body ?? "";
     check("ledger and support windows: margins of 18px or more inside the window",
       /padding:\s*18px 22px 20px/.test(pad) && /padding:\s*18px 22px/.test(rules.find(r => r.sel === ".irop-support-dialog .window-content")?.body ?? ""));
-    check("ledger and support windows: no text under 14px, the body at 16px",
-      sizes.length > 15 && sizes.every(s => s.px >= 14) && /font-size:\s*16px/.test(ours.find(r => /\.irop \.resource-ledger, \.irop \.support-body/.test(r.sel))?.body ?? ""),
-      JSON.stringify(sizes.filter(s => s.px < 14)));
+    // All text 2px up again on 2026-10-16 (Johnald, for low vision).
+    check("ledger and support windows: no text under 16px, the body at 18px",
+      sizes.length > 15 && sizes.every(s => s.px >= 16) && /font-size:\s*18px/.test(ours.find(r => /\.irop \.resource-ledger, \.irop \.support-body/.test(r.sel))?.body ?? ""),
+      JSON.stringify(sizes.filter(s => s.px < 16)));
     check("ledger window: the Turn label set in from the window's edge",
       /margin-right:\s*12px/.test(rules.find(r => r.sel === ".irop .rl-week")?.body ?? ""));
     check("ledger and support windows: 580 wide for the larger text",
@@ -1781,12 +1782,12 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
         if ( /^\.irop \.(tr-|turn-report)/.test(sel) ) last.set(sel, Number(size));
       }
     }
-    const small = [...last].filter(([, px]) => px < 14);
-    check("turn report: larger text, the body 16px and nothing under 14px",
-      (last.get(".irop .turn-report") === 16) && (last.size > 10) && !small.length
-        && (last.get(".irop .tr-detail") === 14) && (last.get(".irop .tr-phase") === 15), JSON.stringify(small));
-    check("turn report: 640 wide for it, and the chat card's banner left as it was",
-      (TurnReport.DEFAULT_OPTIONS.position.width === 640) && /\.irop-card \.week-phase \{[^}]*font-size:\s*13px/.test(css));
+    const small = [...last].filter(([, px]) => px < 16);
+    check("turn report: larger text, the body 18px and nothing under 16px",
+      (last.get(".irop .turn-report") === 18) && (last.size > 10) && !small.length
+        && (last.get(".irop .tr-detail") === 16) && (last.get(".irop .tr-phase") === 17), JSON.stringify(small));
+    check("turn report: 640 wide for it, and the chat card's banner 2px up with everything else",
+      (TurnReport.DEFAULT_OPTIONS.position.width === 640) && /\.irop-card \.week-phase \{[^}]*font-size:\s*15px/.test(css));
   }
   check("turn report: a manual GENESIS phase lists the rules' suggestions unticked; the projects stay ticked",
     !!r.querySelector(".tr-manual") && [...boxes("Heat")].every(i => !i.checked) && [...boxes("Megacities grow")].every(i => !i.checked) && [...boxes("ODR projects")].every(i => i.checked));
@@ -2735,15 +2736,15 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
     if ( !sel.startsWith(".irop-card") || LABELS.test(sel) ) continue;
     const size = (body.match(/font-size:\s*([^;]+)/) ?? [])[1];
     if ( !size ) continue;
-    const px = { "var(--irop-small-size)": 12, "var(--irop-label-size)": 13 }[size.trim()] ?? parseFloat(size);
-    if ( Number.isFinite(px) && (px < 14) ) small.push(`${sel}: ${size}`);
+    const px = { "var(--irop-small-size)": 14, "var(--irop-label-size)": 15 }[size.trim()] ?? parseFloat(size);
+    if ( Number.isFinite(px) && (px < 16) ) small.push(`${sel}: ${size}`);
   }
-  check("chat cards: their text is 2px over Foundry's chat text", base.trim() === "calc(1em + 2px)", base);
-  check("chat cards: no body text under 14px", !small.length, small.join(" | "));
+  check("chat cards: their text is 4px over Foundry's chat text (2026-10-16)", base.trim() === "calc(1em + 4px)", base);
+  check("chat cards: no body text under 16px", !small.length, small.join(" | "));
   // Item and card sheets too (Johnald, 2026-10-08: "weapons, species, perks, etc").
   const sheetRule = css.split("}").find(b => b.split("{")[0].trim().replace(/\s+/g, " ") === ".application.irop:is(.item-sheet, .event-card-sheet) .window-content") ?? "";
-  check("item and card sheets: their text and the small sizes 2px larger, in the window body",
-    /--irop-label-size:\s*15px/.test(sheetRule) && /--irop-small-size:\s*14px/.test(sheetRule) && /font-size:\s*calc\(var\(--font-size-14, 14px\) \+ 2px\)/.test(sheetRule));
+  check("item and card sheets: their text and the small sizes larger again, in the window body",
+    /--irop-label-size:\s*17px/.test(sheetRule) && /--irop-small-size:\s*16px/.test(sheetRule) && /font-size:\s*calc\(var\(--font-size-14, 14px\) \+ 4px\)/.test(sheetRule));
 }
 
 // Reset character (Johnald, 2026-10-08): one option in the sheet's menu, after a confirm.
@@ -3340,7 +3341,13 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   game.user = { id: "gm", isGM: true, name: "GM" };
   const gmSheet = new StoreSheet(store);
   const gmCtx = await gmSheet._prepareContext({});
-  const gmDoc = inspect("store gm", tpl("templates/actor/store.hbs")(gmCtx), { actions: new Set(Object.keys(StoreSheet.DEFAULT_OPTIONS.actions)), source: store.system._source });
+  // editImage is Foundry's own sheet action (2026-10-16: the store picture, editable in Manage).
+  const gmDoc = inspect("store gm", tpl("templates/actor/store.hbs")(gmCtx), { actions: new Set([...Object.keys(StoreSheet.DEFAULT_OPTIONS.actions), "editImage"]), source: store.system._source });
+  check("store gm: the shelf in sections, each with a heading, the hidden ones in theirs",
+    [...gmDoc.querySelectorAll(".shelf-heading")].map(h => h.textContent).join() === "Ranged,Explosives,Armor,Gear"
+      && [...gmDoc.querySelectorAll(".shelf-row")].map(r => r.dataset.itemId).slice(0, 4).join() === "proto,pistol,rifle,frag",
+    [...gmDoc.querySelectorAll(".shelf-row")].map(r => r.dataset.itemId).join());
+  check("store gm: the store's picture opens Foundry's image picker in Manage", gmDoc.querySelector(".store-img")?.dataset.action === "editImage" && gmDoc.querySelector(".store-img").dataset.edit === "img");
   const row = (doc, id) => doc.querySelector(`.shelf-row[data-item-id="${id}"]`);
   check("store gm: the name, markup, buy back and preferred currency to set, and the description to write",
     !!gmDoc.querySelector('input[name="name"]') && !!gmDoc.querySelector('input[name="system.markup"]')
@@ -3381,18 +3388,46 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
     !!doc.querySelector(".shop") && !doc.querySelector(".store-shelf") && !doc.querySelector("[name]") && !doc.querySelector(".shelf-gm")
       && !doc.querySelector(".store-views") && /Prefers Credits\. Prices \+20%\. Buys back at 50% of an item's price\./.test(doc.querySelector(".store-terms-read").textContent));
   check("store player: categories with their counts, empty ones left out, Sell last, all usable on a read only sheet",
-    [...doc.querySelectorAll(".shop-cat")].map(b => b.textContent.replace(/\s+/g, " ").trim()).join() === "All 7,Weapons 3,Armor 1,Gear 3,Sell 3"
+    [...doc.querySelectorAll(".shop-cat")].map(b => b.textContent.replace(/\s+/g, " ").trim()).join() === "All 7,Ranged 2,Explosives 1,Armor 1,Gear 3,Sell 3"
       && (doc.querySelector(".shop-cat.on").dataset.category === "all") && (doc.querySelector(".shop-cat.sell").dataset.category === "sell")
       && [...doc.querySelectorAll(".shop-cat")].every(b => b.hasAttribute("data-shop")),
     [...doc.querySelectorAll(".shop-cat")].map(b => b.textContent.replace(/\s+/g, " ").trim()).join());
-  check("store player: the list holds everything on show, weapons first, the hidden prototype left out",
-    !listRow(doc, "proto") && ([...doc.querySelectorAll(".shop-row")].map(r => r.dataset.pick).join() === "frag,pistol,rifle,heavy,medkit,junk,stim")
+  check("store player: six tabs or fewer need no arrows; Sell sits apart on the right, always shown",
+    !doc.querySelector(".shop-cat-arrow") && doc.querySelectorAll(".shop-cat-tabs .shop-cat").length === 5 && !doc.querySelector(".shop-cat-tabs .sell")
+      && doc.querySelector(".shop-cats > .shop-cat.sell")?.dataset.category === "sell");
+  // A store with more sections than six tabs (bug, Johnald, 2026-10-16: the arrows did nothing with All picked).
+  {
+    const extra = [["xm", "Baton", "weapon", { category: "melee", weaponClass: "oneHanded" }], ["xd", "Turret", "gear", { kind: "deployable" }],
+      ["xa", "Slugs", "gear", { kind: "ammunition" }], ["xc", "Ration", "gear", { kind: "consumable" }], ["xp", "Plate", "gear", { kind: "plating" }]]
+      .map(([id, name, type, sys]) => shelfItem(id, name, type, { prices: { credits: 5 }, ...sys }, {}));
+    store.items.push(...extra);
+    const big = new StoreSheet(store);
+    Object.defineProperty(big, "isEditable", { get: () => false });
+    let v = await shop({ of: big });
+    const tabs = d => [...d.querySelectorAll(".shop-cat-tabs .shop-cat")].map(b => b.dataset.category).join();
+    const first = tabs(v.doc);
+    await shopActs.catScroll.call(big, {}, { dataset: { dir: "more" } });
+    v = await shop({ of: big });
+    check("store player: with All picked, the arrow moves the tabs along and All stays picked",
+      first.startsWith("all,") && (first.split(",").length === 6) && (tabs(v.doc) !== first) && !tabs(v.doc).startsWith("all")
+        && !!v.doc.querySelector('.shop-cat-arrow[data-dir="back"]:not([disabled])') && (v.ctx.categories.find(c => c.active)?.key === "all")
+        && !!v.doc.querySelector(".shop-cats > .shop-cat.sell"), `${first} -> ${tabs(v.doc)}`);
+    v = await shop({ of: big, category: "all" });
+    check("store player: picking a tab brings it back into view", tabs(v.doc).startsWith("all,"));
+    for ( const x of extra ) store.items.splice(store.items.indexOf(x), 1);
+  }
+  check("store player: the list holds everything on show in sections (melee, ranged, explosives, armor, gear), the hidden prototype left out",
+    !listRow(doc, "proto") && ([...doc.querySelectorAll(".shop-row")].map(r => r.dataset.pick).join() === "pistol,rifle,frag,heavy,medkit,junk,stim")
+      && [...doc.querySelectorAll(".shop-heading")].map(h => h.textContent).join() === "Ranged,Explosives,Armor,Gear"
       && [...doc.querySelectorAll(".shop-row")].every(r => r.dataset.action === "pick"));
   check("store player: prices in the list carry the markup and their currency; sold out says so",
     (listRow(doc, "frag").querySelector(".shop-row-price").textContent === "30 cr") && (listRow(doc, "rifle").querySelector(".shop-row-price").textContent === "12 Alloys")
       && (listRow(doc, "heavy").querySelector(".shop-row-price").textContent === "108 cr") && (listRow(doc, "pistol").querySelector(".shop-row-price").textContent === "Sold out")
       && listRow(doc, "pistol").classList.contains("sold-out"));
-  check("store player: the first item is picked and shown in full: what it is, how many they carry, its price, Buy",
+  check("store player: the first item is picked: the sold out pistol, which cannot be bought",
+    listRow(doc, "pistol").classList.contains("picked") && detailOf(doc).querySelector('[data-action="buy"]').disabled);
+  ({ ctx, doc } = await shop({ pick: "frag" }));
+  check("store player: an item picked is shown in full: what it is, how many they carry, its price, Buy",
     listRow(doc, "frag").classList.contains("picked") && (detailOf(doc).dataset.itemId === "frag")
       && /Frag Grenade/.test(detailOf(doc).querySelector(".shop-detail-name").textContent) && /Kael carries 2\./.test(detailOf(doc).querySelector(".shop-carry").textContent)
       && (detailOf(doc).querySelector(".shop-price").textContent === "30 cr") && /In stock/.test(detailOf(doc).textContent)
@@ -3421,10 +3456,10 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   check("store player: too dear cannot be bought, and says why; limited stock shows what is left",
     detailOf(doc).querySelector('[data-action="buy"]').disabled && (detailOf(doc).querySelector(".shop-why").textContent === "Not enough Credits")
       && /1 left/.test(detailOf(doc).textContent));
-  ({ ctx, doc } = await shop({ category: "weapon" }));
-  check("store player: a category shows only its own, and picks its first",
-    ([...doc.querySelectorAll(".shop-row")].map(r => r.dataset.pick).join() === "frag,pistol,rifle") && listRow(doc, "frag").classList.contains("picked")
-      && (doc.querySelector(".shop-cat.on").dataset.category === "weapon"));
+  ({ ctx, doc } = await shop({ category: "ranged" }));
+  check("store player: a section shows only its own, and picks its first",
+    ([...doc.querySelectorAll(".shop-row")].map(r => r.dataset.pick).join() === "pistol,rifle") && listRow(doc, "pistol").classList.contains("picked")
+      && (doc.querySelector(".shop-cat.on").dataset.category === "ranged") && !doc.querySelector(".shop-heading"));
   check("store player: buying as their own character, with the purse shown",
     /Buying as\s*Kael/.test(doc.querySelector(".buyer-pick").textContent) && !doc.querySelector("select[data-buyer]")
       && [...doc.querySelectorAll(".wallet-coin")].map(w => w.textContent.replace(/\s+/g, " ").trim()).join() === "Credits 100,Valuables 3,Alien Alloys 25");
@@ -4269,12 +4304,12 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
       === JSON.stringify([{ tens: "4", ones: "0" }, { tens: "4", ones: "5" }, { tens: "10", ones: "5" }, { tens: "", ones: "7" }]));
   // Small text, raised 2026-10-07 (Johnald): nothing outside the record drawer and icon glyphs under 12px.
   const tiny = [...css.matchAll(/(?:^|\})\s*([^{}@]+?)\s*\{([^}]*)\}/g)]
-    .filter(([, , body]) => Number(body.match(/font-size:\s*(\d+)px/)?.[1] ?? 99) < 12)
+    .filter(([, , body]) => Number(body.match(/font-size:\s*(\d+)px/)?.[1] ?? 99) < 14)
     .map(([, sel]) => sel.trim())
     .filter(sel => !/irop-record \.|record-(log|stamp|stack|bio|btn|entry)|\.step|\.pip\b|button\.icon/.test(sel));
-  check("small text: nothing on the sheets under 12px", tiny.length === 0, tiny.join(" | "));
-  check("small text: labels 13px, secondary 12px, lighter slate",
-    /--irop-label-size:\s*13px/.test(css) && /--irop-small-size:\s*12px/.test(css)
+  check("small text: nothing on the sheets under 14px (2px up, 2026-10-16)", tiny.length === 0, tiny.join(" | "));
+  check("small text: labels 15px, secondary 14px, lighter slate",
+    /--irop-label-size:\s*15px/.test(css) && /--irop-small-size:\s*14px/.test(css)
       && /\.irop \.mono-label \{[^}]*font-size: var\(--irop-label-size\);[^}]*color: var\(--irop-label-ink\);/.test(css));
   const bigRule = ruleOf(".irop .stat.big .stat-value");
   check("big stat css: the number fills the box, centred and large",
@@ -4403,7 +4438,14 @@ check("tabs: Attributes, Abilities, Combat, Gear, in that order", OperativeSheet
   check("record: order is header, portrait, info beside emblem and rank, service, bio",
     sections.join(" | ") === "record-head | record-identity | record-pair | record-panel record-service | record-panel record-bio", sections.join(" | "));
   const top = body.querySelector(".record-identity");
-  check("record: the top section holds only the portrait", top.children.length === 1 && top.firstElementChild.matches("img.record-portrait"));
+  check("record: the top section holds only the portrait, in its frame", top.children.length === 1 && top.firstElementChild.matches("[data-portrait-frame]")
+    && !!top.querySelector("img.record-portrait"));
+  // Photo framing (Johnald, 2026-10-16): the owner moves and zooms it; the frame carries where it centers.
+  const frameEl = top.firstElementChild;
+  check("record: the photo centers where its owner set it, and can be adjusted",
+    /--px: 50%; --py: 18%; --pz: 1;/.test(frameEl.getAttribute("style")) && !!frameEl.querySelector('[data-action="framePortrait"]'));
+  check("record: with no photo of its own the record shows the sheet's portrait; the header portrait is never framed",
+    frameEl.querySelector("img.record-portrait").getAttribute("src") === operative.img && "recordPhoto" in OperativeSheet.DEFAULT_OPTIONS.actions);
   const pair = [...body.querySelector(".record-pair").children].map(el => el.classList[1]);
   check("record: Basic info on the left, emblem and rank on the right", pair.join() === "record-fields,record-insignia", pair.join());
   // Johnald, 2026-10-08: the role's emblem on top, the rank (Squaddie for now) below; Biometrics gone.
@@ -6669,7 +6711,8 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
 // The enlistment terminal (Johnald, 2026-10-12, mockup A): every step rendered, the picks, and the operative made.
 {
   foundry.applications.api.ApplicationV2 ??= class { constructor(options = {}) { this.options = options; } render() { return this; } };
-  const { EnlistmentApp, enlistmentItems, createOperative, registerEnlistment, addEnlistButton, mutationTables } = await import("../module/apps/enlistment.mjs");
+  const { EnlistmentApp, enlistmentItems, createOperative, registerEnlistment, addEnlistButton, mutationTables, enlistmentStores } = await import("../module/apps/enlistment.mjs");
+  const oldActors = game.actors;
   const oldUser = game.user;
   const oldUsers = game.users;
   const oldItems = game.items;
@@ -6682,7 +6725,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   const mk = (id, name, type, system, img = `${id}.webp`) => {
     const d = new FakeDoc({});
     Object.assign(d, { id, name, type, img, uuid: `Item.${id}`, flags: {} });
-    d.system = new MODELS[type](system, { parent: d });
+    d.system = new ({ ...MODELS, skillTree: itemModels.SkillTreeData })[type](system, { parent: d });
     d.toObject = () => ({ _id: id, name, type, img, folder: null, system: d.system.toObject(), flags: {} });
     return d;
   };
@@ -6705,7 +6748,23 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     mk("mt", "Positive Mutation (test)", "mutation", { polarity: "positive" }),
     mk("n1", "Frayed Focus", "mutation", { polarity: "negative" }),
     mk("n2", "Molt Cycle", "mutation", { polarity: "negative" }),
-    mk("ow", "Old Warmachine", "role", { role: "warmachine", enlist: false })
+    // A Boon item for Charisma (2026-10-16); Agility has none, so one is made to the rules.
+    mk("bc", "Charisma Boon", "boon", { attribute: "cha", amount: 10 }),
+    mk("ow", "Old Warmachine", "role", { role: "warmachine", enlist: false }),
+    // Training (2026-10-16): the Marauder's Primary tree, two tiers, the second needing Toughness 45;
+    // and a specialization, which opens later and stays out of the terminal.
+    mk("ab2", "Hard Charger", "ability", { kind: "passive", description: "<p>Charge through cover.</p>" }),
+    mk("ab3", "Thick Hide", "ability", { kind: "passive", prerequisites: "Toughness 45", description: "<p>Shrug off the first hit.</p>" }),
+    mk("tp", "Marauder Primary", "skillTree", { role: "marauder", kind: "primary", gated: true, tiers: [
+      { exclusive: false, nodes: [{ id: "nhc", uuid: "Item.ab2", name: "Hard Charger", xp: 20 }] },
+      { exclusive: false, nodes: [{ id: "nth", uuid: "Item.ab3", name: "Thick Hide", xp: 30 }] },
+      { exclusive: false, nodes: [] },
+      { exclusive: false, nodes: [{ id: "nt4", uuid: "Item.ab2", name: "Tier Four", xp: 10 }] }] }),
+    mk("ab4", "Jack of All Trades", "ability", { kind: "passive" }),
+    mk("tg", "Generalist", "skillTree", { role: "", kind: "general", gated: false, tiers: [
+      { exclusive: false, nodes: [{ id: "ngn", uuid: "Item.ab4", name: "Jack of All Trades", xp: 10 }] }] }),
+    mk("ts", "Breacher", "skillTree", { role: "marauder", kind: "specialization", gated: true, tiers: [
+      { exclusive: false, nodes: [{ id: "nsp", uuid: "Item.ab2", name: "Hard Charger", xp: 10 }] }] })
   ];
   world.get = id => world.find(d => d.id === id) ?? null;
   game.items = world;
@@ -6745,7 +6804,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     { species: ["hu", "mu"], roles: ["lg", "mr"], backgrounds: ["sd"] }));
   let d = await show(app, "species");
   check("enlistment: it opens on species: six steps down the rail, the first lit, the record a blank draft",
-    texts(d, ".en-step .t").join() === "Species,Role,Background,Skills and perk,Identity,Review" && d.querySelector(".en-step.on")?.dataset.index === "0"
+    texts(d, ".en-step .t").join() === "Species,Role,Background,Skills and perk,Training,Identity,Review" && d.querySelector(".en-step.on")?.dataset.index === "0"
       && /SELECT SPECIES|Select species/.test(d.querySelector(".en-prompt-text").textContent) && d.querySelector(".en-ds-name").textContent === "Unidentified recruit"
       && /Choose a species to see your attributes/.test(d.querySelector(".en-dossier").textContent) && !d.querySelector('[data-action="back"]'));
   check("enlistment: species cards, without the unplayable", texts(d, ".en-card .en-name").join() === "Human,Mutant" && /Takes boons/.test(d.querySelector('[data-id="hu"]').textContent));
@@ -6791,7 +6850,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   await act(app, "next");
   d = await show(app, "mutations");
   check("enlistment: a Mutant's Mutations step, after skills, with nothing rolled yet",
-    texts(d, ".en-step .t").join() === "Species,Role,Background,Skills and perk,Mutations,Identity,Review" && d.querySelector(".en-step.on")?.dataset.index === "4"
+    texts(d, ".en-step .t").join() === "Species,Role,Background,Skills and perk,Mutations,Training,Identity,Review" && d.querySelector(".en-step.on")?.dataset.index === "4"
       && !!d.querySelector('[data-action="rollMutations"]') && /Roll your mutations/.test(d.querySelector(".en-issue")?.textContent ?? "")
       && /Mutations\s*Pending/.test(d.querySelector(".en-dossier").textContent) && /equally likely/.test(d.querySelector(".en-pane").textContent));
   // Positive die of 3 (the placeholder left out): 2, 2 again, then 3; Negative die of 2: 1.
@@ -6816,6 +6875,45 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
       && !d.querySelector('[data-action="rerollNegative"]') && /second outcome stands/.test(d.querySelector(".en-pane").textContent)
       && /replacing Frayed Focus/.test(posted.at(-1).content) && (app.choices.mutations.log.length === 5));
   await act(app, "next");
+  d = await show(app, "training");
+  check("enlistment: Training, after Mutations: 100 XP, seven attributes, every skill at its starting rank, and the role's Primary perks, no specialization",
+    d.querySelector(".en-step.on .t")?.textContent === "Training" && /100 of 100 left/.test(d.querySelector(".en-xp-left").textContent)
+      && d.querySelectorAll(".en-train-cols .en-block:first-child .en-train-row").length === 7
+      && d.querySelectorAll(".en-train-cols .en-block:last-child .en-train-row").length === Object.keys(IROP.skills).length
+      && texts(d, ".en-tperk .en-perk-name").join() === "Hard Charger,Thick Hide" && !d.querySelector('[data-node="nt4"]')
+      && texts(d, ".en-tree-tab").join() === "Marauder Primary,Generalist" && d.querySelector(".en-tree-tab.on")?.dataset.tree === "tp"
+      && /first 3 tiers/.test(d.querySelector(".en-train-tree .hint")?.textContent ?? "") && (d.querySelector('[data-action="trainSkill"][data-key="athletics"]')?.closest(".en-train-row").querySelectorAll("i.start").length === 2)
+      && /Tier 1 first/.test(d.querySelector('[data-node="nth"] .en-tperk-why')?.textContent ?? "") && !d.querySelector('[data-node="nsp"]') && !d.querySelector(".en-issue"));
+  await act(app, "perkTab", { tree: "tg" });
+  d = await show(app, "training general");
+  check("enlistment: the General tree on its own tab, without the role's tier note",
+    texts(d, ".en-tperk .en-perk-name").join() === "Jack of All Trades" && d.querySelector(".en-tree-tab.on")?.dataset.tree === "tg" && !d.querySelector(".en-train-tree .hint"));
+  await act(app, "perkTab", { tree: "tp" });
+  await act(app, "trainPerk", { node: "nth" });
+  check("enlistment: a perk not open yet is refused, saying why", /Tier 1 first/.test(said.at(-1) ?? ""));
+  await act(app, "trainPerk", { node: "nt4" });
+  check("enlistment: a perk below the first three tiers cannot be planned", !app.choices.training.perks.includes("nt4"));
+  await act(app, "trainAttribute", { key: "tgh", delta: "1" });
+  await act(app, "trainPerk", { node: "nhc" });
+  await act(app, "trainPerk", { node: "nth" });
+  await act(app, "trainSkill", { key: "awareness", delta: "1" });
+  await act(app, "trainAttribute", { key: "str", delta: "1" });
+  check("enlistment: training a Toughness rank, two perks and Awareness 2 spends all 100; one more rank is refused with the cost",
+    eq(app.choices.training, { attributes: { tgh: 1 }, skills: { awareness: 1 }, perks: ["nhc", "nth"] }) && /costs 10 XP; 0 left/.test(said.at(-1) ?? ""), JSON.stringify(app.choices.training));
+  d = await show(app, "trained");
+  check("enlistment: trained: the meter empty, the pips and perks lit, the record and the rail showing it",
+    /0 of 100 left/.test(d.querySelector(".en-xp-left").textContent) && texts(d, ".en-tperk.on .en-perk-name").join() === "Hard Charger,Thick Hide"
+      && d.querySelectorAll(".en-pips i.bought").length === 2 && !!d.querySelector('[data-action="resetTraining"]')
+      && /Toughness \+1, Awareness 2, Hard Charger, Thick Hide/.test(d.querySelector(".en-dossier").textContent) && /100 spent, 0 left/.test(d.querySelector(".en-dossier").textContent)
+      && /100 of 100 XP/.test(d.querySelector(".en-step.on .v").textContent) && texts(d, ".en-bar.boosted em").join() === "45");
+  await act(app, "trainAttribute", { key: "tgh", delta: "-1" });
+  check("enlistment: taking off the rank a perk needed takes the perk off too, with a word", eq(app.choices.training.perks, ["nhc"]) && /Thick Hide came off/.test(said.at(-1) ?? ""));
+  await act(app, "resetTraining");
+  check("enlistment: Reset starts the plan over", eq(app.choices.training, { attributes: {}, skills: {}, perks: [] }));
+  for ( const [name, dataset] of [["trainAttribute", { key: "tgh", delta: "1" }], ["trainPerk", { node: "nhc" }], ["trainPerk", { node: "nth" }], ["trainSkill", { key: "awareness", delta: "1" }]] ) {
+    await act(app, name, dataset);
+  }
+  await act(app, "next");
   d = await show(app, "identity");
   check("enlistment: identity: names, callsign, a portrait, and for the GM, who it is for",
     ["firstName", "lastName", "callsign", "owner"].every(f => !!d.querySelector(`[data-field="${f}"]`)) && texts(d, '[data-field="owner"] option').join() === "GM (you),Johnald"
@@ -6831,13 +6929,42 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   const data = made.at(-1);
   check("enlistment: the GM enlists for a player: the operative is theirs, named by callsign, with the picks applied",
     data?.name === "Ghost" && eq(data.ownership, { default: 0, p1: 3 }) && data.system.skills.athletics.rank === 2 && data.system.attributes.cha.base === 45
-      && data.items.map(i => i.name).join() === "Mutant,Marauder,Slum Dweller,One of Us,Iron Gut,Twin Hearts,Molt Cycle" && data.system.details.record.firstName === "Kael");
+      && data.items.map(i => i.name).join() === "Mutant,Marauder,Slum Dweller,One of Us,Iron Gut,Twin Hearts,Molt Cycle,Hard Charger,Thick Hide" && data.system.details.record.firstName === "Kael");
+  check("enlistment: the training goes on the operative and its ledger: the rank, Awareness 2, the perks marked with their tree",
+    (data.system.attributes.tgh.advances === 1) && (data.system.skills.awareness.rank === 2) && (data.system.xp.earned === 100)
+      && eq(data.system.xp.log.map(e => `${e.kind} ${e.ref} ${e.xp}`), ["attribute tgh 10", "skill awareness 40", "perk nhc 20", "perk nth 30"])
+      && eq(data.items.find(i => i.name === "Thick Hide").flags.irop.perk, { tree: "tp", node: "nth", xp: 30 }), JSON.stringify(data.system.xp));
   check("enlistment: a player with no character gets this one", player.updates.at(-1)?.character === "a1");
   d = await show(app, "finish");
   check("enlistment: the finish: the record printed and stamped, the rail locked, the sheet a click away",
     /ENLISTED|Enlisted/.test(d.querySelector(".en-stamp").textContent) && /Kael Hart/.test(d.querySelector(".en-record").textContent) && /One of Us/.test(d.querySelector(".en-record").textContent)
       && [...d.querySelectorAll(".en-step")].every(b => b.disabled) && !!d.querySelector('[data-action="openSheet"]') && !!d.querySelector('[data-action="again"]')
-      && /Iron Gut, Twin Hearts, Molt Cycle/.test(d.querySelector(".en-record").textContent));
+      && /Iron Gut, Twin Hearts, Molt Cycle/.test(d.querySelector(".en-record").textContent) && /Training\s*Toughness \+1/.test(d.querySelector(".en-record").textContent));
+
+  // Requisition (2026-10-16): the stores the GM opened at enlistment, once the record is filed.
+  const opened = [];
+  const store = (id, name, enlist, players) => ({ id, name, type: "store", img: `${id}.webp`, system: { enlist, description: "<p>Guns, mostly. Some ammunition.</p>" },
+    items: [{ flags: {} }, { flags: { irop: { shelf: { hidden: true } } } }], testUserPermission: u => u.isGM || players,
+    sheet: { setBuyer(b) { opened.push(`${id}:${b}`); }, render() { opened.push(`${id}:open`); return this; } } });
+  const actors = [store("s2", "Back Room", true, false), store("s1", "Armory", true, true), store("s3", "Closed Shop", false, true)];
+  actors.get = id => actors.find(a => a.id === id);
+  game.actors = actors;
+  check("enlistment: the stores open at enlistment, by name; a player sees only those they may open",
+    eq(enlistmentStores(gm).map(s => `${s.store.name} ${s.open}`), ["Armory true", "Back Room true"]) && eq(enlistmentStores(player).filter(s => s.open).map(s => s.store.name), ["Armory"]));
+  d = await show(app, "finish with stores");
+  check("enlistment: with stores open, the finish leads on to Requisition, the last step on the rail",
+    !!d.querySelector('.en-foot [data-action="requisition"]') && !d.querySelector('.en-step-req').disabled && /Requisition/.test(d.querySelector(".en-step-req").textContent));
+  await act(app, "requisition");
+  d = await show(app, "requisition");
+  check("enlistment: Requisition: the purse, each store with what is on show, and a word when players cannot open one",
+    texts(d, ".en-store .en-name").join() === "Armory,Back Room" && /1 on the shelf/.test(d.querySelector('[data-id="s1"]').textContent)
+      && d.querySelectorAll(".en-coin").length === 3 && /Players cannot open Back Room yet/.test(d.querySelector(".en-pane").textContent)
+      && /Nothing yet/.test(d.querySelector(".en-kit").textContent) && !!d.querySelector('.en-foot [data-action="openSheet"]'));
+  await act(app, "openStore", { id: "s1" });
+  check("enlistment: a store opens in its own window, buying for the recruit", eq(opened, ["s1:a1", "s1:open"]));
+  await act(app, "record");
+  check("enlistment: back to the record", app.phase === "record");
+  game.actors = oldActors;
   await act(app, "again");
   check("enlistment: Enlist another starts a fresh recruit, rolls and all", app.step === 0 && !app.result && !app.choices.species && !app.choices.mutations);
   const forged = await createOperative({ ...app.choices, species: "mu", role: "mr", background: "sd", roleSkill: "athletics", backgroundSkills: ["athletics", "insight", "coercion"],
@@ -6859,8 +6986,9 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   game.socket = { on() {}, emit: (channel, payload) => sent.push(payload) };
   game.user = player;
   const mine = new EnlistmentApp();
-  Object.assign(mine.choices, { species: "hu", role: "mr", background: "sd", roleSkill: "survival", backgroundSkills: ["awareness", "insight", "coercion"], perk: "pk1", callsign: "Vale", owner: "gm" });
-  mine.step = 5;
+  Object.assign(mine.choices, { species: "hu", role: "mr", background: "sd", roleSkill: "survival", backgroundSkills: ["awareness", "insight", "coercion"], perk: "pk1", callsign: "Vale", owner: "gm",
+    boons: ["agi", "cha"] });
+  mine.step = 7;
   await act(mine, "enlist");
   check("enlistment: a player's Enlist goes to the GM's client with the file and a request to wait on",
     sent[0]?.action === "enlist.create" && sent[0].payload.choices.callsign === "Vale" && !!mine.waiting && sent[0].payload.request === mine.waiting);
@@ -6870,8 +6998,33 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   game.user = gm;
   const handled = await createOperative(sent[0].payload.choices, player, request);
   check("enlistment: on the GM's client a player's file is always for that player", eq(made.at(-1).ownership, { default: 0, p1: 3 }) && made.at(-1).flags.irop.enlistment.request === request);
+  const vale = made.at(-1).items.filter(i => i.type === "boon");
+  check("enlistment: a Human's boons come along: the world's Charisma Boon, and an Agility Boon made to the rules",
+    eq(vale.map(b => `${b.name} ${b.system.attribute} +${b.system.amount}`), ["Agility Boon agi +10", "Charisma Boon cha +10"]) && !vale.some(b => "_id" in b), JSON.stringify(vale.map(b => b.name)));
   EnlistmentApp.received(handled.actor);
   check("enlistment: the operative arriving finishes the player's terminal", !mine.waiting && mine.result?.name === "Vale");
+
+  // Boons (2026-10-16): a Human picks two attributes, none twice.
+  game.user = gm;
+  const human = new EnlistmentApp();
+  await act(human, "pick", { kind: "species", id: "hu" });
+  for ( const attribute of ["agi", "agi", "cha", "agi"] ) await act(human, "boon", { attribute });
+  await act(human, "boon", { attribute: "per" });
+  check("enlistment: boons toggle, never the same attribute twice and never more than two", eq(human.choices.boons, ["cha", "agi"]) && /2 boons, no attribute twice/.test(said.at(-1) ?? ""),
+    JSON.stringify(human.choices.boons));
+  human.choices.boons = ["agi", "cha"];
+  human.step = 4;
+  d = await show(human, "boons");
+  check("enlistment: a Human's Boons step, after skills: seven attribute cards, the picks lit, each showing where it lands",
+    texts(d, ".en-step .t").join() === "Species,Role,Background,Skills and perk,Boons,Training,Identity,Review" && d.querySelectorAll(".en-boon").length === 7
+      && texts(d, ".en-boon.on .en-name").join() === "Agility,Charisma" && /40\s*50/.test(d.querySelector('[data-attribute="agi"] .en-boon-value').textContent)
+      && /Charisma Boon/.test(d.querySelector('[data-attribute="cha"]').textContent) && /2 of 2 picked/.test(d.querySelector(".en-sub").textContent));
+  check("enlistment: the record lists the boons and its bars rise with them",
+    /Agility \+10, Charisma \+10/.test(d.querySelector(".en-dossier").textContent) && d.querySelectorAll(".en-bar.boosted").length === 2
+      && texts(d, ".en-bar.boosted em").join() === "50,50");
+  human.choices.boons = ["agi"];
+  d = await show(human, "boons short");
+  check("enlistment: one boon short, the step says so", /Pick 2 attributes for your boons \(1 picked\)/.test(d.querySelector(".en-issue")?.textContent ?? ""));
 
   // The sidebar button.
   const sideWindow = new JSDOM('<section><div class="header-actions"><button>Create Actor</button></div></section>').window;

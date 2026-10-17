@@ -12,8 +12,44 @@ const TextEditor = foundry.applications.ux.TextEditor.implementation;
 
 /** How each kind of item reads on a shelf, one and many. */
 const TYPE_LABELS = { weapon: "Weapon", armor: "Armor", gear: "Gear", mod: "Mod" };
-const TYPE_PLURALS = { weapon: "Weapons", armor: "Armor", gear: "Gear", mod: "Mods" };
-const TYPE_ORDER = ["weapon", "armor", "gear", "mod"];
+
+/**
+ * The shop's sections, in order (Johnald, 2026-10-16): weapons by their Combat tab section, gear by
+ * its kind. Each item sits in one; the shop's tabs and the shelf's headings follow this list.
+ */
+/** How many category tabs show at once. */
+const CAT_TABS = 6;
+
+export const SHOP_SECTIONS = [
+  { key: "melee", label: "Melee" },
+  { key: "ranged", label: "Ranged" },
+  { key: "special", label: "Special" },
+  { key: "explosives", label: "Explosives" },
+  { key: "deployable", label: "Deployables" },
+  { key: "armor", label: "Armor" },
+  { key: "plating", label: "Armor Plating" },
+  { key: "mod", label: "Mods" },
+  { key: "ammunition", label: "Ammunition" },
+  { key: "medical", label: "Medical" },
+  { key: "consumable", label: "Consumables" },
+  { key: "general", label: "Gear" }
+];
+
+/** The shop section an item sits in. */
+export function shopSection(item) {
+  const s = item?.system ?? {};
+  if ( item?.type === "weapon" ) {
+    if ( IROP.weaponGroups[s.section] ) return s.section;
+    // Plain data (a copy, not a live item) has no section getter: the Combat tab's rule, RULED 2026-10-08.
+    if ( IROP.weaponGroups[s.sheetSection] ) return s.sheetSection;
+    if ( ["launcher", "chemthrower"].includes(s.weaponClass) ) return "special";
+    if ( s.category === "melee" ) return "melee";
+    return ["thrown", "explosive"].includes(s.category) ? "explosives" : "ranged";
+  }
+  if ( item?.type === "gear" ) return SHOP_SECTIONS.some(x => x.key === s.kind) ? s.kind : "general";
+  return item?.type === "armor" ? "armor" : "mod";
+}
+const sectionIndex = item => SHOP_SECTIONS.findIndex(x => x.key === shopSection(item));
 
 const signed = n => (n > 0 ? `+${n}` : `${n}`);
 
@@ -90,8 +126,8 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** @override */
   static DEFAULT_OPTIONS = {
     classes: ["irop", "store-sheet"],
-    // Wider for the shop's list beside its detail panel (2026-10-10).
-    position: { width: 780, height: 780 },
+    // Room for the list beside its detail panel, the tabs and the larger text with no scrolling (Johnald, 2026-10-16).
+    position: { width: 900, height: 860 },
     window: { resizable: true },
     form: { submitOnChange: true },
     actions: {
@@ -99,6 +135,7 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       sell: StoreSheet.#onSell,
       switchView: StoreSheet.#onSwitchView,
       category: StoreSheet.#onCategory,
+      catScroll: StoreSheet.#onCatScroll,
       pick: StoreSheet.#onPick,
       editItem: StoreSheet.#onEditItem,
       removeItem: StoreSheet.#onRemoveItem,
@@ -116,6 +153,9 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   _initializeApplicationOptions(options) {
     options = super._initializeApplicationOptions(options);
     if ( options.document && (!options.document.isOwner || !game.user?.isGM) ) options.form = { ...(options.form ?? {}), submitOnChange: false };
+    // Never taller than the screen it opens on.
+    const room = globalThis.window?.innerHeight;
+    if ( room && (options.position?.height > room - 40) ) options.position = { ...options.position, height: Math.max(500, room - 40) };
     return options;
   }
 
@@ -137,6 +177,10 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /** The shop's category, and the item picked in it. */
   #category = "all";
+  /** The first category tab on show: six at a time, with arrows (Johnald, 2026-10-16). */
+  #catStart = 0;
+  /** Set when a tab is picked, so the strip brings it into view once; the arrows then move freely. */
+  #reveal = false;
   #selected = null;
 
   /** Whether this sheet shows the shop: always for a shopper; for whoever runs it, when chosen. */
@@ -146,6 +190,11 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /** Hooks that redraw the sheet when the buyer's purse or kit changes. */
   #hooks = [];
+
+  /** Buy for this operative (the enlistment terminal opens a store for the recruit it just made). */
+  setBuyer(id) {
+    this.#buyerId = id;
+  }
 
   /** The operatives this user can buy for: their own, or any for a GM. */
   get buyers() {
@@ -167,8 +216,8 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const buyer = this.buyer;
     const { markup, sellBack, preferred } = store.system;
     const items = store.items.filter(i => manage || !shelfOf(i).hidden)
-      .sort((a, b) => (TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)) || a.name.localeCompare(b.name));
-    const shelf = items.map(item => {
+      .sort((a, b) => (sectionIndex(a) - sectionIndex(b)) || a.name.localeCompare(b.name));
+    const shelf = items.map((item, i) => {
       const s = shelfOf(item);
       const soldOut = s.limited && (s.stock < 1);
       // What it costs in each currency it takes; the player pays with the store's preferred
@@ -183,7 +232,9 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const affordable = options.some(o => o.affordable);
       const short = options.map(o => IROP.currencies[o.currency].label).join(" or ");
       return {
-        id: item.id, name: item.name, img: item.img, typeLabel: TYPE_LABELS[item.type] ?? item.type,
+        id: item.id, name: item.name, img: item.img, typeLabel: typeLine(item) || (TYPE_LABELS[item.type] ?? item.type),
+        section: shopSection(item), sectionLabel: SHOP_SECTIONS[sectionIndex(item)]?.label ?? "",
+        heading: (i === 0) || (shopSection(items[i - 1]) !== shopSection(item)),
         options, pickPay: options.length > 1, pay: pick?.currency ?? "", priceText: pick?.text ?? "No price",
         prices: Object.entries(IROP.currencies).map(([key, c]) => ({
           key, label: c.label, price: priceIn(item, key), accepted: item.system.accepts?.[key] !== false
@@ -210,16 +261,26 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the picked item in full beside it. Selling is its own category.
     const shopView = this.shopView;
     const onShow = shelf.filter(r => !r.hidden);
-    const typeOf = id => store.items.get(id)?.type;
     const categories = [{ key: "all", label: "All", count: onShow.length }]
-      .concat(TYPE_ORDER.map(t => ({ key: t, label: TYPE_PLURALS[t], count: onShow.filter(r => typeOf(r.id) === t).length }))
+      .concat(SHOP_SECTIONS.map(x => ({ key: x.key, label: x.label, count: onShow.filter(r => r.section === x.key).length }))
         .filter(c => c.count));
-    if ( buyer && (sellBack > 0) ) categories.push({ key: "sell", label: "Sell", count: sellable.length, sell: true });
-    const category = categories.some(c => c.key === this.#category) ? this.#category : "all";
-    for ( const c of categories ) c.active = c.key === category;
+    const sellTab = (buyer && (sellBack > 0)) ? { key: "sell", label: "Sell", count: sellable.length, sell: true } : null;
+    const category = (categories.some(c => c.key === this.#category) || (sellTab && (this.#category === "sell"))) ? this.#category : "all";
+    for ( const c of [...categories, ...(sellTab ? [sellTab] : [])] ) c.active = c.key === category;
+    // Six tabs on show at a time, the chosen one kept in view; Sell always shows, apart, on the right.
+    const maxStart = Math.max(0, categories.length - CAT_TABS);
+    const at = categories.findIndex(c => c.active);
+    if ( (at >= 0) && this.#reveal ) {
+      if ( at < this.#catStart ) this.#catStart = at;
+      if ( at >= this.#catStart + CAT_TABS ) this.#catStart = at - CAT_TABS + 1;
+    }
+    this.#reveal = false;
+    this.#catStart = Math.min(Math.max(0, this.#catStart), maxStart);
+    const catNav = { tabs: categories.slice(this.#catStart, this.#catStart + CAT_TABS), back: this.#catStart > 0, more: this.#catStart < maxStart,
+      scrolls: categories.length > CAT_TABS, sell: sellTab };
     const selling = category === "sell";
-    const list = (selling ? sellable : onShow.filter(r => (category === "all") || (typeOf(r.id) === category)))
-      .map(r => ({ ...r }));
+    const list = (selling ? sellable : onShow.filter(r => (category === "all") || (r.section === category)))
+      .map((r, i, all) => ({ ...r, heading: !selling && (category === "all") && ((i === 0) || (all[i - 1].section !== r.section)) }));
     const picked = list.find(r => r.id === this.#selected) ?? list[0] ?? null;
     for ( const r of list ) r.picked = r === picked;
     const detail = (shopView && picked) ? await this.#detailFor(picked, { selling, buyer }) : null;
@@ -227,7 +288,7 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const buyers = this.buyers;
     return Object.assign(context, {
       store, system: store.system, manage, isGM: !!game.user.isGM,
-      shopView, categories, list, detail, selling,
+      shopView, categories, catNav, list, detail, selling,
       // The store's own fields to edit: whoever runs it, in Manage.
       editing: manage && !shopView,
       descriptionHTML: await TextEditor.enrichHTML(store.system.description ?? "", { relativeTo: store }),
@@ -358,8 +419,15 @@ export class StoreSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /** A shop category: its first item is picked. */
+  /** The category arrows: one tab along either way. */
+  static #onCatScroll(event, target) {
+    this.#catStart += (target.dataset.dir === "back") ? -1 : 1;
+    return this.render();
+  }
+
   static #onCategory(event, target) {
     this.#category = target.dataset.category ?? "all";
+    this.#reveal = true;
     this.#selected = null;
     return this.render();
   }
