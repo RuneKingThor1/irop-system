@@ -13,10 +13,11 @@
         <div class="row-main">
           <img class="item-img" src="{{a.img}}" alt="" data-action="editItem" data-tooltip="Open the ability">
           <div class="item-name summary-toggle" data-action="toggleSummary" role="button" tabindex="0" aria-expanded="{{#if a.expanded}}true{{else}}false{{/if}}">
-            <span class="ability-name">{{a.name}}<i class="fa-solid fa-chevron-down summary-chevron" inert></i></span>
+            <span class="ability-name">{{a.name}}{{#if a.automated}}<i class="fa-solid fa-gears perk-auto-badge" data-tooltip="{{a.automated}}" inert></i>{{/if}}<i class="fa-solid fa-chevron-down summary-chevron" inert></i></span>
             <span class="item-sub">{{a.sourceLabel}}{{#if a.system.tree}} · {{a.system.tree}}{{/if}}{{#if a.discipline}} · {{a.discipline}}{{/if}} · {{a.actionLabel}}</span>
           </div>
-          {{#if a.system.energyCost}}<span class="stat-chip energy" data-tooltip="Energy cost">{{a.system.energyCost}} EN</span>{{/if}}
+          {{#if a.energy}}<span class="stat-chip energy {{#if a.energyChanged}}from-perks{{/if}}" data-tooltip="{{a.energyTip}}">{{a.energy}} EN</span>{{/if}}
+          {{#if a.ammoCost}}<span class="stat-chip" data-tooltip="Ammo it spends from the weapon">{{a.ammoCost}} ammo</span>{{/if}}
           {{#if a.system.range}}<span class="stat-chip" data-tooltip="Range in tiles">{{a.system.range}} T</span>{{/if}}
           {{#if a.system.area}}<span class="stat-chip" data-tooltip="Area in tiles">AOE {{a.system.area}}</span>{{/if}}
           {{!-- Uses left, typed in on the sheet: the ability's own Details tab is the GM's (2026-10-10). --}}
@@ -51,7 +52,9 @@
       <li class="perk-tile draggable" data-item-id="{{a.id}}" {{#if a.accent}}style="--row-accent: {{a.accent}}"{{/if}} {{#if a.tip}}data-tooltip="{{a.tip}}"{{/if}}>
         <img src="{{a.img}}" alt="" data-action="editItem">
         <a class="perk-tile-name" data-action="editItem">{{a.name}}</a>
+        {{#if a.automated}}<i class="fa-solid fa-gears perk-auto-badge perk-tile-auto" inert></i>{{/if}}
         <span class="perk-tile-controls">
+          {{#if a.usable}}<button type="button" class="icon" data-action="useItem" data-tooltip="Use ({{a.system.uses.value}} of {{#if a.system.uses.max}}{{a.system.uses.max}}{{else}}{{a.ruledUses.max}}{{/if}} left this mission)"><i class="fa-solid fa-bolt"></i></button>{{/if}}
           <button type="button" class="icon" data-action="postItem" data-tooltip="Post to chat"><i class="fa-solid fa-comment"></i></button>
           {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
         </span>

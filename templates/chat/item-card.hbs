@@ -6,12 +6,18 @@
       <span class="card-sub">{{typeLabel}}{{#if actionType}} · {{actionType}}{{/if}}{{#if discipline}} · {{discipline}}{{/if}}</span>
     </div>
   </header>
-  {{#if (or spent system.range system.area)}}
+  {{#if (or spent ammoSpent system.range system.area)}}
   <div class="card-stats">
     {{#if spent}}<span class="stat-chip energy">{{spent}} Energy spent</span>{{/if}}
+    {{#if ammoSpent}}<span class="stat-chip">{{ammoSpent}}</span>{{/if}}
     {{#if system.range}}<span class="stat-chip">Range {{system.range}}</span>{{/if}}
     {{#if system.area}}<span class="stat-chip">Area {{system.area}}</span>{{/if}}
   </div>
   {{/if}}
   <div class="card-description">{{{description}}}</div>
+  {{#if perkLines.length}}<div class="card-upgrades"><p><strong>Perks:</strong> {{#each perkLines}}{{this}}{{#unless @last}}; {{/unless}}{{/each}}</p></div>{{/if}}
+  {{#if upgrades.length}}
+  {{!-- What the character's upgrade perks add to it (2026-10-18). --}}
+  <div class="card-upgrades">{{#each upgrades as |u|}}<p><strong>{{u.from}}:</strong> {{u.text}}</p>{{/each}}</div>
+  {{/if}}
 </div>

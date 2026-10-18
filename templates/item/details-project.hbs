@@ -7,7 +7,7 @@
     {{#if project.isIntelligence}}<label data-tooltip="One short term and one long term action run at a time"><span>Term</span>
       <select name="system.term">{{selectOptions project.terms selected=system.term}}</select></label>{{/if}}
     {{#if project.isEngineering}}<label><span>Builds</span><select name="system.builds">{{selectOptions project.builds selected=system.builds}}</select></label>{{/if}}
-    <label data-tooltip="Doc: it varies from project to project; the GM sets it"><span>Cost ({{project.resource}})</span>
+    <label data-tooltip="Doc: it varies from project to project; the GM sets it"><span>Cost ({{config.progressUnit}})</span>
       <input type="number" name="system.cost" value="{{system.cost}}" min="0"></label>
     <label><span>Progress</span><input type="number" name="system.progress" value="{{system.progress}}" min="0"></label>
     {{#if project.hasPlace}}<label><span>{{project.placeLabel}}</span>
@@ -16,7 +16,7 @@
       <input type="number" name="system.salvage" value="{{system.salvage}}" min="0"></label>{{/if}}
   </div>
   <div class="project-meter"><div class="os-track"><span style="width: {{project.pct}}%"></span></div>
-    <span class="os-count">{{system.progress}} / {{system.cost}} {{project.resource}}</span></div>
+    <span class="os-count">{{system.progress}} / {{system.cost}} {{config.progressUnit}}</span></div>
 
   {{#if project.isIntelligence}}
   <p class="hint">Worked by soldiers with any Social skill, Stealth, Hacking or Lock Picking: the skill's attribute modifier + 5 per rank, each turn.</p>

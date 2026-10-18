@@ -1,4 +1,5 @@
 import { IROP } from "../config.mjs";
+import { slotPerks } from "../rules/perks.mjs";
 
 const fields = foundry.data.fields;
 
@@ -79,6 +80,8 @@ export class WeaponData extends foundry.abstract.TypeDataModel {
       description: description(),
       category: choice(() => IROP.weaponCategories, "ranged"),
       weaponClass: choice(() => IROP.weaponClasses, "smallArms"),
+      // What it is, for the role perks (Johnald, 2026-10-18): an SMG, a Pistol, a SAW. Blank is untyped.
+      weaponType: new fields.StringField({ required: true, blank: true, initial: "", choices: () => IROP.weaponTypes }),
       // Which Combat tab section it sits in; "auto" follows the category (see IROP.weaponGroups).
       sheetSection: choice(() => IROP.weaponGroupChoices, "auto"),
       tier: int(1, { min: 0, max: 9 }),
@@ -181,7 +184,13 @@ export class WeaponData extends foundry.abstract.TypeDataModel {
     // Natural weapons take no mods unless a slot count is set by hand (2026-10-08).
     if ( (this.modSlots === null) && (this.weaponClass === "natural") ) return 0;
     if ( (this.modSlots === null) && ["launcher", "chemthrower"].includes(this.weaponClass) ) return IROP.modSlots.special;
-    return this.modSlots ?? IROP.modSlots.weapon[this.category] ?? 0;
+    return (this.modSlots ?? IROP.modSlots.weapon[this.category] ?? 0) + this.perkSlots;
+  }
+
+  /** Extra slots from the owner's role perks (Munnr, Go Low, Go Loud; 2026-10-18). */
+  get perkSlots() {
+    const actor = this.parent?.actor;
+    return actor ? slotPerks(actor.items.filter(i => i.type === "ability"), this.parent) : 0;
   }
 
   /** Mods fitted to this weapon, if it is owned. */
@@ -208,6 +217,8 @@ export class ArmorData extends foundry.abstract.TypeDataModel {
     return {
       description: description(),
       armorClass: choice(() => IROP.armorClasses, "light"),
+      // Its tier, as weapons have (2026-10-18): Light Armor Specialist and Heavy Armor Paragon scale by it.
+      tier: int(1, { min: 0, max: 9 }),
       // Armor HP: the Field Manual's Adaptive Armor, the live sheet's HP Bonus.
       // RULED 2026-10-07 (Johnald, correcting 2026-10-06): this is NOT the Armor Bonus.
       points: int(0, { min: 0 }),
@@ -228,7 +239,10 @@ export class ArmorData extends foundry.abstract.TypeDataModel {
   }
 
   get slots() {
-    return this.modSlots ?? IROP.modSlots.armor[this.armorClass] ?? 0;
+    const actor = this.parent?.actor;
+    // Medium Armor Mastery II's extra slot (2026-10-18).
+    const perk = actor ? slotPerks(actor.items.filter(i => i.type === "ability"), this.parent) : 0;
+    return (this.modSlots ?? IROP.modSlots.armor[this.armorClass] ?? 0) + perk;
   }
 
   get mods() {
@@ -305,6 +319,9 @@ export class ModData extends foundry.abstract.TypeDataModel {
       installedOn: text(""),
       // Fitted, it hides what it is fitted to from concealment checks (Johnald, 2026-10-10).
       concealsHost: new fields.BooleanField({ initial: false }),
+      // Fitted to a ranged weapon, the D.M. it adds to attacks in each range band (Johnald, 2026-10-17:
+      // the Reflex Sight is -5 at Medium). Minus is easier, as on the weapon's own bands.
+      rangeDm: new fields.SchemaField(Object.fromEntries(Object.keys(IROP.rangeBands).map(k => [k, int(0, { min: -50, max: 50 })]))),
       ...physical()
     };
   }

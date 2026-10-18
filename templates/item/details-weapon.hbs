@@ -2,6 +2,7 @@
   <div class="form-grid">
     <label><span>Category</span><select name="system.category">{{selectOptions config.weaponCategories selected=system.category}}</select></label>
     <label><span>Class</span><select name="system.weaponClass">{{selectOptions config.weaponClasses selected=system.weaponClass}}</select></label>
+    <label data-tooltip="What it is, for the role perks: an SMG perk needs an SMG"><span>Type</span><select name="system.weaponType">{{selectOptions config.weaponTypes selected=system.weaponType}}</select></label>
     <label data-tooltip="Where it sits on the Combat tab. By category: Launchers and Chemthrowers to Special, melee to Melee, thrown and explosive to Explosives, the rest to Ranged">
       <span>Section</span><select name="system.sheetSection">{{selectOptions config.weaponGroupChoices selected=system.sheetSection}}</select></label>
     <label data-tooltip="Magazine: a clip plus one special ammo slot. Single use: fired once and tossed (LAW). Fuel: a tank out of 100 (chemthrowers). Grenades or Rockets: launchers that load them into slots">

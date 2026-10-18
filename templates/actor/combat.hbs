@@ -54,6 +54,7 @@
             <div class="item-stat dim"><span class="label">Ammo</span><span class="value">none</span></div>
             {{/if}}
           </div>
+          {{#if w.perkLines.length}}<span class="stat-chip perk-chip" data-tooltip="{{w.perkTip}}"><i class="fa-solid fa-gears"></i> {{w.perkLines.length}}</span>{{/if}}
           <div class="row-controls">
             {{#if w.canAttack}}<button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-crosshairs"></i> Attack</button>{{/if}}
             <button type="button" class="icon {{#if w.system.equipped}}on{{/if}}" data-action="toggleEquip" data-tooltip="Equipped"><i class="fa-solid fa-hand-fist"></i></button>

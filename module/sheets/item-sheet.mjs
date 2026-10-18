@@ -11,6 +11,8 @@ import { liveBackground, perkMeta, takenPerk, withPerk, withoutPerk } from "../r
 import { startingSkillPlan } from "../rules/starting-skills.mjs";
 import { itemStats, typeLine } from "./store-sheet.mjs";
 import { formulaInWords } from "./actor-sheet.mjs";
+import { weaponPerkSummary } from "../rules/perks.mjs";
+import { perkContext } from "../rolls.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -713,7 +715,11 @@ export function nodeSource(uuid) {
  */
 export function itemFactsFor(item) {
   const keep = list => list.filter(st => (st.value !== "") && (st.value !== null) && (st.value !== undefined));
-  if ( PHYSICAL.includes(item.type) ) return { title: "Stats", stats: keep([{ label: "Type", value: typeLine(item) }, ...itemStats(item)]) };
+  if ( PHYSICAL.includes(item.type) ) {
+    // An owned weapon's perks (2026-10-18): Shredder's shred, a Specialist's range bonus.
+    const perks = ((item.type === "weapon") && item.actor) ? weaponPerkSummary(item.actor.items.filter(i => i.type === "ability"), item, perkContext(item.actor)).lines : [];
+    return { title: "Stats", stats: keep([{ label: "Type", value: typeLine(item) }, ...itemStats(item), { label: "Perks", value: perks.join("; ") }]) };
+  }
   if ( item.type === "role" ) return { title: "Dossier", stats: keep(roleFacts(item)) };
   if ( item.type === "species" ) return { title: "Stats", stats: keep(speciesFacts(item)) };
   if ( item.type === "ability" ) return { title: "Stats", stats: keep(abilityFacts(item)) };

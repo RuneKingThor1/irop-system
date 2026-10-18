@@ -424,7 +424,10 @@
    the same reason, whether or not a row has an Attack button. */
 .irop .item-stats { display: grid; gap: 4px; flex: none; }
 .irop .weapon-stats { grid-template-columns: 70px 96px 78px 54px 100px; }
-.irop .armor-stats { grid-template-columns: 70px 72px 56px 72px 62px; }
+/* Six boxes since Barrier joined (bug, Johnald, 2026-10-17: Dodges wrapped to a second line), each wide
+   enough for its label at the larger font. */
+.irop .armor-stats { grid-template-columns: 78px 88px 78px 52px 88px 72px; }
+.irop .armor-stats .item-stat .label { white-space: nowrap; }
 .irop .deploy-stats { grid-template-columns: 70px 62px; }
 .irop .deploy-row .row-controls { min-width: 196px; justify-content: flex-end; }
 /* Weapon sections (Ranged, Melee, Special, Explosives): titled like the skill groups. */
@@ -3161,8 +3164,12 @@
 .irop-card.medal-card .medal-award { display: flex; gap: 10px; align-items: center; }
 .irop-card.medal-card .medal-ribbon { flex: none; margin: 0; }
 .irop-card.medal-card .medal-why { font-style: italic; }
-.irop .medal-form .medal-why { align-items: start; }
-.irop .medal-form textarea { min-height: 84px; }
+/* The award dialog (bug, Johnald, 2026-10-18: the Why box was small, its label underneath): each field
+   its label above, full width; Why a tall box. */
+.irop .medal-form { display: flex; flex-direction: column; gap: 10px; }
+.irop .medal-form label.irop-choose { display: flex; flex-direction: column; align-items: stretch; gap: 4px; margin: 0; }
+.irop .medal-form label.irop-choose > input, .irop .medal-form label.irop-choose > textarea { width: 100%; box-sizing: border-box; }
+.irop .medal-form textarea { min-height: 110px; resize: vertical; font-size: 15px; line-height: 1.4; padding: 6px 8px; }
 .irop-card.rank-card .rank-line { display: flex; gap: 10px; align-items: center; }
 .irop-card.rank-card .rank-line img { width: 56px; height: 56px; border: none; flex: none; }
 
@@ -3226,3 +3233,24 @@
 /* An NPC's caste without the Mutant species (2026-10-17): flagged until cleared. */
 .irop .npc-line .field-inline.stray .mono-label { color: var(--irop-warn); }
 .irop .npc-line .field-inline.stray select { border-color: var(--irop-warn); }
+
+/* The NPC sheet's Threat Codex button (2026-10-17). */
+.irop :where(.window-content) .npc-line button.npc-codex { width: auto; flex: none; height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border-color: #c4121c; }
+
+/* Role perks in the roll windows and on cards (2026-10-18). */
+.irop .perk-list .perk-auto { margin: 0; font-size: 14px; color: var(--irop-good); }
+.irop .perk-list .perk-auto i { margin-right: 4px; }
+.irop .perk-list label em { font-size: 14px; }
+.irop .through-ability { color: var(--irop-accent, #42abf2); }
+.irop-card .card-upgrades { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.irop-card .card-upgrades p { margin: 0 0 4px; }
+.irop .perk-auto-badge { font-size: 14px; color: var(--irop-good); margin-left: 4px; }
+
+.irop .perk-tile { position: relative; }
+.irop .perk-tile .perk-tile-auto { position: absolute; top: 3px; right: 4px; font-size: 14px; margin: 0; opacity: 0.85; }
+
+.irop-card .perk-notes { margin: 4px 0; font-size: 16px; color: var(--irop-good, #5fb85f); }
+
+/* What perks change, on the sheet (2026-10-18). */
+.irop .item-stat.from-perks .value, .irop .stat-chip.from-perks { color: var(--irop-good); }
+.irop .stat-chip.perk-chip { color: var(--irop-good); border-color: color-mix(in srgb, var(--irop-good) 55%, transparent); cursor: help; white-space: pre-line; }

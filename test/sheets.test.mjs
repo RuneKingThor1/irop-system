@@ -598,6 +598,16 @@ for ( const editMode of [false, true] ) {
   check("special ammo: the attack's damage turns Cold and carries Frostbite (2)",
     prof.damage.type === "cold" && prof.damage.status?.id === "frostbite" && prof.damage.status.value === 2 && prof.ammo?.name === "Cryo Rounds",
     JSON.stringify(prof.damage));
+  // A Reflex Sight fitted to it (Johnald, 2026-10-17): -5 D.M. at Medium; loose, nothing.
+  const sighted = makeActor("operative", OperativeData, {}, [
+    { type: "weapon", name: "Carbine", id: "carb", system: { category: "ranged", range: { short: { tiles: 8, dm: 0 }, medium: { tiles: 20, dm: 10 }, long: { tiles: 40, dm: 20 } } } },
+    { type: "mod", name: "Reflex Sight", id: "rs", system: { target: "ranged", installedOn: "carb", rangeDm: { medium: -5 }, weight: 0.5 } },
+    { type: "mod", name: "Spare Sight", id: "rs2", system: { target: "ranged", installedOn: "", rangeDm: { medium: -5 } } }]);
+  const carbine = attackProfile(sighted.items.find(i => i.id === "carb"));
+  check("mods: a fitted Reflex Sight takes 5 off the Medium band's D.M. on the attack; a loose one does nothing",
+    (carbine.ranges.medium.dm === 5) && (carbine.ranges.medium.mods.map(m => m.name).join() === "Reflex Sight") && (carbine.ranges.short.dm === 0) && (carbine.ranges.long.dm === 20));
+  const { itemStats } = await import("../module/sheets/store-sheet.mjs");
+  check("mods: its stats say Range D.M. Medium -5", itemStats(sighted.items.find(i => i.id === "rs")).some(st => (st.label === "Range D.M.") && (st.value === "Medium -5")));
   globalThis.ui = oldUi;
   delete ap.update;
   delete pistol.update;
@@ -1733,7 +1743,7 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   delete board.render;
   const slotEl = b.querySelector('.odr-slot[data-project-id="ar"]');
   check("odr board: the research under way, its progress, next turn's gain and who works it",
-    /40 \/ 100 Logistics/.test(slotEl.querySelector(".os-count").textContent) && /\+24 next turn/.test(slotEl.querySelector(".os-weekly").textContent)
+    /40 \/ 100 Progression/.test(slotEl.querySelector(".os-count").textContent) && /\+24 next turn/.test(slotEl.querySelector(".os-weekly").textContent)
       && slotEl.querySelector(".os-weekly").dataset.tooltip === "Passive 10, Kael (Tactics) 14" && /Kael/.test(slotEl.querySelector(".os-soldier").textContent)
       && /Unlocks\s*Weapon Modifications/.test(slotEl.textContent) && /Taking stock/.test(slotEl.querySelector(".os-desc").textContent));
   check("odr board: spend, assign, salvage (+30) for the GM",
@@ -2963,6 +2973,66 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   calls.length = 0;
   await rolls.rollAttack(kael, grenade);
   check("blast: with no map on screen, the attack window opens as before", calls.map(c => c[0]).join() === "dialog");
+
+  // Role perks on a real attack (2026-10-18): a Legionary with a rifle at Medium, the target low.
+  {
+    let asked = null;
+    api.DialogV2.input = async ({ content }) => { asked = content; return { cover: "none", range: "medium", "perk.hp-25": true, dm: "0", mode: "public" }; };
+    const legion = [];
+    legion.contents = legion;
+    const ability = (id, name) => ({ id, name, type: "ability", system: { energyCost: 0, description: "" } });
+    legion.push(ability("p1", "Rifle and SAW Specialist I"), ability("p2", "Executioner"), ability("p3", "Weapon Expert"), ability("p4", "Effective Fire"));
+    const carbine = new FakeDoc({});
+    Object.assign(carbine, { id: "car", type: "weapon", name: "T1 Assault Rifle", uuid: "Item.car", img: "r.svg", updates: [] });
+    carbine.system = new itemModels.WeaponData({ category: "ranged", weaponType: "rifle", ammo: { value: 10, max: 30 },
+      range: { short: { tiles: 8, dm: 0 }, medium: { tiles: 20, dm: 10 } }, damage: { formula: "2d6", type: "ballistic" }, critical: { damage: 2 } }, { parent: carbine });
+    carbine.update = async d => carbine.updates.push(d);
+    const legionary = { ...kael, uuid: "Actor.leg", name: "Vex", items: legion };
+    carbine.actor = legionary;
+    const drone = { uuid: "Actor.drone", name: "Drone", system: { defense: 0, vitals: { hp: { value: 2, max: 10 } } } };
+    game.user.targets = new Set([{ name: "Drone", actor: drone }]);
+    foundry.utils = { ...realUtils, fromUuidSync: uuid => ((uuid === "Actor.drone") ? drone : ((uuid === "Actor.leg") ? legionary : null)) };
+    // The roll itself is Foundry's; here it is only caught on its way to chat.
+    const realEvaluate = D100Roll.prototype.evaluate, realToMessage = D100Roll.prototype.toMessage;
+    D100Roll.prototype.evaluate = async function() { return this; };
+    D100Roll.prototype.toMessage = async function(data) { chat.push({ ...data, rolls: [this] }); return chat.at(-1); };
+    await rolls.rollAttack(legionary, carbine);
+    D100Roll.prototype.evaluate = realEvaluate;
+    D100Roll.prototype.toMessage = realToMessage;
+    const card = chat.at(-1);
+    const roll = card?.rolls?.[0] ?? null;
+    const mods = (roll?.options?.modifiers ?? []).map(m => `${m.label} ${m.value}`);
+    const { perkOptions } = await import("../module/rules/perks.mjs");
+    const windowDoc = new JSDOM(tpl("templates/dialog/attack.hbs")({ covers: [], toggles: [], target: {}, modes: [],
+      perks: perkOptions(legion, { roll: "attack", weapon: { system: carbine.system }, targetHpPct: 20 }),
+      through: { name: "Chained Shot", accuracy: 10, accuracyText: "+10", noCrit: true, ammo: 1 } })).window.document;
+    check("perks on an attack: the window lists them, the target's low HP pre-ticked, and the active it is made through",
+      /Rifle and SAW Specialist I: -4 to hit at Medium/.test(windowDoc.querySelector(".perk-list").textContent) && !!windowDoc.querySelector('input[name="perk.hp-25"]')?.checked
+        && /Chained Shot: \+10 to hit, no critical/.test(windowDoc.querySelector(".through-ability")?.textContent ?? ""));
+    check("perks on an attack: at Medium the Specialist's -4 and Executioner's -10 are on the roll; Weapon Expert and Effective Fire ride with the hit",
+      mods.includes("Rifle and SAW Specialist I -4") && mods.some(m => /Executioner/.test(m) && /-10$/.test(m))
+        && (roll.options.attack.perk.damage === 1) && (roll.options.attack.perk.critDamage === 2) && (roll.options.attack.perk.enemyDodge[0]?.value === 15)
+        && (roll.options.attack.perk.critical[0]?.value === -10), JSON.stringify(mods));
+    // The damage: the perks' flat damage and crit damage, Power Attack's +50%, Disabling Shot's half.
+    const realDmgEval = DamageRoll.prototype.evaluate, realDmgMsg = DamageRoll.prototype.toMessage;
+    DamageRoll.prototype.evaluate = async function() { return this; };
+    DamageRoll.prototype.toMessage = async function(data) { chat.push({ ...data, rolls: [this] }); return chat.at(-1); };
+    const hit = { actorUuid: "Actor.leg", itemName: "T1 Assault Rifle", damage: { formula: "2d6", type: "ballistic", critDamage: 2, shred: 0, penetration: 0 } };
+    await rolls.rollDamage({ ...hit, perk: { damage: 1, critDamage: 2, damagePct: 50, drBypass: 3, notes: ["Weapon Expert +1 damage"] } }, { critical: true });
+    const powered = chat.at(-1).rolls[0];
+    await rolls.rollDamage({ ...hit, perk: { half: true, notes: [] } });
+    const halved = chat.at(-1).rolls[0];
+    DamageRoll.prototype.evaluate = realDmgEval;
+    DamageRoll.prototype.toMessage = realDmgMsg;
+    check("perks on damage: a crit with +1 damage, +2 crit damage and +50% reads floor((2d6 + 2 + 1 + 2) * 1.5), 3 DR bypassed, the perks listed; half damage halves",
+      (powered._formula.replace(/\s+/g, "") === "floor((2d6+2+1+2)*1.5)") && (powered.options.drBypass === 3) && (powered.options.perkNotes[0] === "Weapon Expert +1 damage")
+        && (halved._formula.replace(/\s+/g, "") === "floor((2d6)*0.5)"), `${powered._formula} | ${halved._formula}`);
+    // An attack made through an active that cannot crit refuses the critical roll.
+    const before = notes.length;
+    const refused = await rolls.rollCritical({ actorUuid: "Actor.leg", perk: { noCrit: true, through: "Chained Shot" } });
+    check("perks on an attack: Chained Shot's hit cannot crit", (refused !== undefined) && /Chained Shot cannot critically hit/.test(notes.slice(before).join(" ")), notes.slice(before).join(" | "));
+    game.user.targets = new Set();
+  }
 
   // Scatter moves the marker, once, for its owner or a GM.
   const marker = {
@@ -4512,6 +4582,34 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   check("codex: a player cannot reveal anything", page.updates.length === before);
   game.user = oldUser;
   foundry.utils = oldUtils;
+}
+
+// What role perks change, shown on the sheet (Johnald, 2026-10-18): the Energy cost after upgrades,
+// and a weapon's boxes and chip.
+{
+  const gunner = makeActor("operative", OperativeData, {}, [
+    { type: "weapon", name: "T1 SAW", id: "saw", system: { category: "ranged", weaponClass: "saturation", tier: 3, damage: { formula: "2d6", type: "ballistic" }, critical: { chance: 0 } } },
+    { type: "ability", name: "Eat Lead", id: "el", system: { kind: "active", energyCost: 6, source: "warmachine" } },
+    { type: "ability", name: "Efficient Fire", id: "ef", system: { kind: "passive", source: "warmachine" } },
+    { type: "ability", name: "Shredder", id: "sh", system: { kind: "passive", source: "warmachine" } },
+    { type: "ability", name: "SAW Specialist I", id: "ss", system: { kind: "passive", source: "warmachine" } },
+    { type: "ability", name: "Weapon Expert", id: "we", system: { kind: "passive", source: "legionary" } }
+  ]);
+  const { out: gOut } = await renderSheet(OperativeSheet, gunner);
+  const abilitiesDoc = new JSDOM(gOut.abilities).window.document;
+  const eatChip = abilitiesDoc.querySelector('[data-item-id="el"] .stat-chip.energy');
+  check("perks on the sheet: Eat Lead's Energy chip reads 5 after Efficient Fire, marked and explained, with its 2 ammo",
+    (eatChip?.textContent.trim() === "5 EN") && eatChip.classList.contains("from-perks") && /from 6/.test(eatChip.dataset.tooltip)
+      && /2 ammo/.test(abilitiesDoc.querySelector('[data-item-id="el"]').textContent), eatChip?.outerHTML);
+  const row = new JSDOM(gOut.combat).window.document.querySelector('[data-item-id="saw"]');
+  const box = label => [...(row?.querySelectorAll(".item-stat") ?? [])].find(b => b.querySelector(".label")?.textContent === label);
+  const chip = row?.querySelector(".perk-chip");
+  check("perks on the sheet: the SAW's Damage box carries Weapon Expert's +1, and its chip lists Shredder's shred and the Specialist's range bonus",
+    /\+ 1$/.test(box("Damage")?.querySelector(".value").textContent.trim() ?? "") && box("Damage").classList.contains("from-perks")
+      && /Shredder: \+2 shred|Shredder.*shred/.test(chip?.dataset.tooltip ?? "") && /SAW Specialist I: -3 to hit at Short and Medium/.test(chip.dataset.tooltip), chip?.dataset.tooltip);
+  const { itemFactsFor } = await import("../module/sheets/item-sheet.mjs");
+  const facts = itemFactsFor(gunner.items.find(i => i.id === "saw"));
+  check("perks on the weapon's Stats: a Perks line with the shred", /Shredder/.test(facts.stats.find(st => st.label === "Perks")?.value ?? ""));
 }
 
 // ODR ranks and medals (Johnald, 2026-10-17).

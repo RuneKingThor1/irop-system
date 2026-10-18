@@ -1,6 +1,7 @@
 import { xpSpent } from "../rules/xp.mjs";
 import { serviceRank, migrateRankKey } from "../rules/ranks.mjs";
 import { BANK_CAP } from "../rules/dynosrs.mjs";
+import { armorPerks, armorDrAll, actorPerks } from "../rules/perks.mjs";
 import { IROP } from "../config.mjs";
 import { attributeModifier, buildPool } from "../rules/dynosrs.mjs";
 import { houseRules } from "../settings.mjs";
@@ -197,10 +198,18 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
         mutated[key] = (mutated[key] ?? 0) + item.system.choice.attribute;
       }
     }
+    // Role perks straight on the character (2026-10-18): Strongest Avenger's +5, Long Distance Conditioning's speed.
+    const perked = actorPerks(this.parent.items.filter(i => i.type === "ability"));
+    this._perked = perked;
     for ( const [key, attr] of Object.entries(this.attributes) ) {
       attr.boons = boons[key] ?? 0;
       attr.mutation = mutated[key] ?? 0;
-      attr.value = attr.base + (attr.advances * IROP.attributeAdvance.perRank) + attr.boons + attr.mutation;
+      attr.perks = perked.attributes[key] ?? 0;
+      attr.value = attr.base + (attr.advances * IROP.attributeAdvance.perRank) + attr.boons + attr.mutation + attr.perks;
+    }
+    for ( const [path, n] of Object.entries(perked.bonuses) ) {
+      const now = foundry.utils.getProperty(this.bonuses, path);
+      if ( typeof now === "number" ) foundry.utils.setProperty(this.bonuses, path, now + n);
     }
   }
 
@@ -224,15 +233,26 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
 
     // Equipped armor feeds armor points, defense, barrier, damage reduction, mobility and dodges.
     const armor = { points: 0, defense: 0, barrier: 0, dodges: 0, dr: {}, move: Object.fromEntries(Object.keys(IROP.speeds).map(k => [k, 0])) };
+    // Role perks on worn armor (2026-10-18): Medium Armor Mastery's extra armor HP, Full Regalia's DR.
+    const perks = armorPerks(this.parent.items.filter(i => i.type === "ability"));
     for ( const item of this.parent.items ) {
       // Worn and not stowed (2026-10-08): stowing takes armor off, but older data may carry both.
       if ( (item.type !== "armor") || !item.system.equipped || item.system.stowed ) continue;
-      armor.points += item.system.points;
+      const pct = perks.pct[item.system.armorClass] ?? 0;
+      armor.points += item.system.points + (pct ? Math.ceil(item.system.points * pct / 100) : 0);
+      if ( perks.fullRegalia && (item.system.armorClass === "medium") ) {
+        const slots = Number(item.system.slots) || 0;
+        const fitted = this.parent.items.filter(i => (i.type === "mod") && (i.system.installedOn === item.id)).length;
+        if ( slots && (fitted >= slots) ) for ( const t of ["ballistic", "physical", "laser", "plasma"] ) armor.dr[t] = (armor.dr[t] ?? 0) + slots;
+      }
       armor.defense += item.system.defense;
       armor.barrier += item.system.barrier ?? 0;
       for ( const k of Object.keys(armor.move) ) armor.move[k] += item.system.mobility[k] ?? 0;
       armor.dodges += item.system.dodges;
       for ( const [type, n] of Object.entries(item.system.dr) ) armor.dr[type] = (armor.dr[type] ?? 0) + n;
+      // Heavy Armor Mastery II and Heavy Armor Paragon: DR to every type in worn heavy armor.
+      const allDr = armorDrAll(perks, item.system);
+      if ( allDr ) for ( const type of Object.keys(IROP.damageTypes) ) armor.dr[type] = (armor.dr[type] ?? 0) + allDr;
     }
 
     v.hp.max = d.health(mods, species) + v.hp.bonus;
@@ -243,6 +263,8 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     v.dodges.max = d.dodges(mods) + armor.dodges + v.dodges.bonus;
 
     this.critical = d.critical(mods) + this.bonuses.critical;
+    // Got an Eye for this: the PER mod counts twice toward Critical (2026-10-18).
+    for ( const key of this._perked?.critical ?? [] ) this.critical += Number(mods[key]) || 0;
     // Added to every attack roll against this character (RULED 2026-10-07).
     this.defense = armor.defense + this.bonuses.defense;
     this.initiativeBonus = this.bonuses.initiative;

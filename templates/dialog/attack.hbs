@@ -46,6 +46,20 @@
     {{/each}}
   </fieldset>
 
+  {{#if perks.any}}
+  {{!-- Role perks (2026-10-18): applied on their own, ticked for what the system cannot see, counted. --}}
+  <fieldset class="toggle-list perk-list">
+    <legend>Perks</legend>
+    {{#each perks.auto as |p|}}<p class="perk-auto"><i class="fa-solid fa-check"></i> {{p.text}}</p>{{/each}}
+    {{#each perks.situations as |t|}}
+    <label data-tooltip="{{t.text}}"><input type="checkbox" name="perk.{{t.key}}" {{checked t.checked}}><span>{{t.label}}</span><em>{{t.text}}</em></label>
+    {{/each}}
+    {{#each perks.scales as |t|}}
+    <label class="row perk-scale" data-tooltip="{{t.text}}"><span>{{t.label}}</span><input type="number" name="perkCount.{{t.key}}" value="0" min="0" max="{{t.max}}" step="1"></label>
+    {{/each}}
+  </fieldset>
+  {{/if}}
+  {{#if through}}<p class="hint through-ability"><i class="fa-solid fa-bolt"></i> {{through.name}}{{#if through.accuracyText}}: {{through.accuracyText}} to hit{{/if}}{{#if through.autoHit}}, cannot miss{{/if}}{{#if through.noCrit}}, no critical{{/if}}{{#if through.ammo}}, {{through.ammo}} ammo{{/if}}</p>{{/if}}
   <label class="row"><span>Situational D.M.</span><input type="number" name="dm" value="0" step="5"></label>
   <label class="row"><span>Roll mode</span>
     <select name="mode">{{selectOptions modes selected=mode valueAttr="value" labelAttr="label"}}</select></label>

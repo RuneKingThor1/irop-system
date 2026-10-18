@@ -95,6 +95,50 @@ check("no morale on the sheet (scrapped)", !("morale" in m.vitals) && !("morale"
   check("ranks: an operative's rank is worked out from XP earned",
     prepare(OperativeData, { xp: { earned: 420 } }, []).serviceRank.key === "rangerFirst");
 }
+// Mods on range bands (Johnald, 2026-10-17): a fitted Reflex Sight is -5 D.M. at Medium.
+{
+  const mods = await import("../module/rules/mods.mjs");
+  const ranges = { short: { tiles: 10, dm: 0 }, medium: { tiles: 20, dm: 10 }, long: { tiles: 40, dm: 20 }, extreme: { tiles: 0, dm: 0 } };
+  const sight = { name: "Reflex Sight", system: { rangeDm: { medium: -5 } } };
+  const out = mods.rangesWithMods(ranges, [sight]);
+  check("mods: a Reflex Sight takes 5 off the Medium band's D.M., noted, and leaves the others",
+    (out.medium.dm === 5) && (out.medium.tiles === 20) && (out.medium.mods[0].name === "Reflex Sight") && (out.short.dm === 0) && (out.long.dm === 20) && !out.long.mods.length
+      && (mods.rangesWithMods(ranges, []).medium.dm === 10));
+  check("mods: the range D.M. in words, and a mod keeps it and its half weight",
+    (mods.rangeDmText({ medium: -5 }) === "Medium -5") && (mods.rangeDmText({}) === "")
+      && (new items.ModData({ rangeDm: { medium: -5 }, weight: 0.5 }).rangeDm.medium === -5) && (new items.ModData({ weight: 0.5 }).weight === 0.5));
+}
+// Role perks on worn armor (2026-10-18): Medium Armor Mastery I adds half the armor's points; Full Regalia,
+// on a full set of medium armor, +1 DR per slot against four types.
+{
+  const plain = prepare(OperativeData, {}, [{ type: "armor", system: { equipped: true, armorClass: "medium", points: 5 } }]);
+  const mastered = prepare(OperativeData, {}, [{ type: "armor", system: { equipped: true, armorClass: "medium", points: 5 } }, { type: "ability", name: "Medium Armor Mastery I", system: {} }]);
+  const heavy = prepare(OperativeData, {}, [{ type: "armor", system: { equipped: true, armorClass: "heavy", points: 5 } }, { type: "ability", name: "Medium Armor Mastery I", system: {} }]);
+  check("perks: Medium Armor Mastery I: 5 armor HP on medium armor becomes 8 (half, rounded up); heavy armor is unchanged",
+    (plain.vitals.armor.max === 5) && (mastered.vitals.armor.max === 8) && (heavy.vitals.armor.max === 5), `${plain.vitals.armor.max} ${mastered.vitals.armor.max}`);
+  const regalia = prepare(OperativeData, {}, [{ type: "armor", system: { equipped: true, armorClass: "medium", points: 4, modSlots: 2 } },
+    { type: "mod", system: { target: "armor", installedOn: "item0" } }, { type: "mod", system: { target: "armor", installedOn: "item0" } },
+    { type: "ability", name: "Full Regalia", system: {} }]);
+  const half = prepare(OperativeData, {}, [{ type: "armor", system: { equipped: true, armorClass: "medium", points: 4, modSlots: 2 } },
+    { type: "mod", system: { target: "armor", installedOn: "item0" } }, { type: "ability", name: "Full Regalia", system: {} }]);
+  check("perks: Full Regalia: both slots filled, +2 DR to Ballistic, Physical, Laser and Plasma; one empty slot, none",
+    (regalia.drTotal.ballistic === 2) && (regalia.drTotal.plasma === 2) && (regalia.drTotal.fire === 0) && (half.drTotal.ballistic === 0), JSON.stringify(regalia.drTotal));
+  check("weapons: a Type field, blank at first", (new items.WeaponData({}).weaponType === "") && (new items.WeaponData({ weaponType: "smg" }).weaponType === "smg"));
+}
+// Role perks on the character itself (2026-10-18): Strongest Avenger, Long Distance Conditioning, Got an Eye,
+// heavy armor DR, Munnr's slot.
+{
+  const avenger = prepare(OperativeData, {}, [{ type: "ability", name: "Strongest Avenger", system: {} }, { type: "ability", name: "Long Distance Conditioning", system: {} },
+    { type: "ability", name: "Got an Eye for this", system: {} }]);
+  const plainOp = prepare(OperativeData, {}, []);
+  check("perks: Strongest Avenger +5 STR and TGH, Long Distance Conditioning +1 Run and Sprint, Got an Eye adds the PER mod to Critical again",
+    (avenger.attributes.str.value === 45) && (avenger.attributes.tgh.value === 45) && (avenger.movement.run === plainOp.movement.run + 1)
+      && (avenger.movement.sprint === plainOp.movement.sprint + 1) && (avenger.critical === plainOp.critical + avenger.attributes.per.mod));
+  const tank = prepare(OperativeData, {}, [{ type: "armor", system: { equipped: true, armorClass: "heavy", tier: 3, points: 6 } },
+    { type: "ability", name: "Heavy Armor Mastery II", system: {} }, { type: "ability", name: "Heavy Armor Paragon", system: {} }, { type: "ability", name: "Heavy Armor Mastery I", system: {} }]);
+  check("perks: in Tier 3 heavy armor, Mastery II and Paragon give +4 DR to every type; Mastery I takes 6 armor HP to 9",
+    (tank.drTotal.fire === 4) && (tank.drTotal.ballistic === 4) && (tank.vitals.armor.max === 9), JSON.stringify(tank.drTotal));
+}
 check("skill rank 5 clamps to 4", new OperativeData({ skills: { stealth: { rank: 5 } } }).skills.stealth.rank === 4);
 // A full reset (Johnald, 2026-10-08): the data it writes is a valid operative, as new, or keeping what was asked.
 {

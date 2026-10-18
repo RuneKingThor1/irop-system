@@ -181,7 +181,7 @@ export function planTurn({ week = 1, territories = [], projects = [], soldierOf 
     }
     const after = addProgress(s, weekly.total);
     if ( !after.added ) continue;
-    const unit = IROP.resources[IROP.projectKinds[s.kind]?.resource]?.label ?? "";
+    const unit = IROP.progressUnit;
     const ops = [{ id: p.id, path: "system.progress", delta: after.added, min: 0, max: s.cost }];
     if ( after.complete ) ops.push({ id: p.id, path: "system.status", set: "complete" }, { id: p.id, path: "system.assigned", set: [] });
     line({

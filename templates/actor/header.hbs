@@ -75,6 +75,8 @@
       {{/if}}
       <label class="field-inline grow"><span class="mono-label">Faction</span>
         <input type="text" name="system.details.faction" value="{{system.details.faction}}" placeholder="none"></label>
+      {{!-- The enemy's Threat Codex file, in plain sight for the GM (Johnald, 2026-10-17); also in the title bar menu. --}}
+      {{#if isGM}}<button type="button" class="npc-codex" data-action="openCodex" data-tooltip="Open this enemy's Threat Codex file, made if new"><i class="fa-solid fa-skull"></i> Codex</button>{{/if}}
     </div>
     {{> identityList}}
     {{/if}}

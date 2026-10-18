@@ -1,5 +1,8 @@
 import { IROP } from "./config.mjs";
 import { DICE, DICE_ORDER, DIFFICULTY, BANK_CAP } from "./rules/dynosrs.mjs";
+import { rangesWithMods } from "./rules/mods.mjs";
+import { weaponTypeOf } from "./rules/weapon-types.mjs";
+import { perkOptions, perkResult, perkRule, perkUses, abilityAsUpgraded, perkBlast, attackAccuracy, chemPerks, dieUp, weaponPerkSummary } from "./rules/perks.mjs";
 import { COVER, MODIFIERS, ENGAGED_BY_HANDLING, SCATTER, collectModifiers } from "./rules/combat.mjs";
 import { DynosrsRoll } from "./dice/dynosrs-roll.mjs";
 import { D100Roll, DamageRoll } from "./dice/d100-roll.mjs";
@@ -157,7 +160,16 @@ export async function rollDodge(actor) {
   };
   if ( noneLeft() ) return null;
   const statuses = statusesOf(actor);
+  // Role perks on their own dodges (Watch my Six), and the attacker's on this one (Effective Fire).
+  const perks = perkOptions((actor.items?.filter?.(i => i.type === "ability") ?? []), { roll: "dodge", ...perkContext(actor) });
+  const against = lastAttackOn(actor);
+  if ( against?.lines.length ) {
+    perks.situations.unshift({ key: "against", label: `Against ${against.from}`, checked: true,
+      mods: against.lines.map(l => ({ stat: "dodge", value: l.value, from: l.label })), text: against.lines.map(l => `${l.label} ${signed(l.value)}`).join("; ") });
+    perks.any = true;
+  }
   const data = await formDialog("Dodge", "dodge.hbs", {
+    perks,
     targetLabel: `Agility ${agi.value}`,
     covers: Object.entries(COVER).map(([k, c]) => ({ key: k, label: `${c.name} (${signed(c.dodge)})`, checked: k === "none" })),
     disorientated: statuses.has("disorientated"),
@@ -171,6 +183,11 @@ export async function rollDodge(actor) {
   if ( data.unaware ) keys.push("unaware");
   if ( data.disorientated ) keys.push("disorientated");
   const modifiers = collectModifiers({ keys, cover: data.cover, role: "dodge", extra: Number(data.dm) || 0 });
+  const pick = (group, key) => data[`${group}.${key}`] ?? data[group]?.[key];
+  modifiers.push(...perkResult(perks, {
+    ticked: perks.situations.filter(t => pick("perk", t.key)).map(t => t.key),
+    counts: Object.fromEntries(perks.scales.map(t => [t.key, Number(pick("perkCount", t.key)) || 0]))
+  }).dodge);
   const roll = D100Roll.create({
     kind: "dodge", label: "Dodge", target: agi.value, targetLabel: `AGI ${agi.value}`, modifiers, actorUuid: actor.uuid
   });
@@ -227,7 +244,8 @@ export function attackProfile(item, { projectile = 0 } = {}) {
       ranged: s.category === "ranged",
       thrown: s.category === "thrown",
       paraphysical: false,
-      ranges: s.category === "ranged" ? s.range : null,
+      // The bands with the fitted mods' D.M. added: a Reflex Sight is -5 at Medium (2026-10-17).
+      ranges: s.category === "ranged" ? rangesWithMods(s.range, fittedMods(item)) : null,
       critChance: s.critical.chance,
       damage,
       ammo: special,
@@ -266,7 +284,22 @@ export function attackProfile(item, { projectile = 0 } = {}) {
  * against Charisma; accuracy, cover, range and battlefield modifiers are D.M.s
  * on the roll.
  */
-export async function rollAttack(actor, item, { projectile = 0 } = {}) {
+/**
+ * What the perk engine reads off a character (2026-10-18): its attribute mods, its worn armor and the
+ * weapon types in its hands.
+ */
+export function perkContext(actor) {
+  const items = actor?.items?.filter?.(() => true) ?? [];
+  return {
+    attributes: Object.fromEntries(Object.entries(actor?.system?.attributes ?? {}).map(([k, a]) => [k, Number(a.mod) || 0])),
+    gear: {
+      armor: items.filter(i => (i.type === "armor") && i.system.equipped && !i.system.stowed).map(i => ({ armorClass: i.system.armorClass, tier: i.system.tier })),
+      equipped: items.filter(i => (i.type === "weapon") && i.system.equipped && !i.system.stowed).map(i => i.system.weaponType)
+    }
+  };
+}
+
+export async function rollAttack(actor, item, { projectile = 0, ability = null, abilityAttack = null } = {}) {
   // A fuel weapon burns instead of rolling to hit (RULED 2026-10-08).
   if ( (item.type === "weapon") && (item.system.feed === "fuel") ) return rollBurn(actor, item);
   const profile = attackProfile(item, { projectile });
@@ -298,6 +331,10 @@ export async function rollAttack(actor, item, { projectile = 0 } = {}) {
 
   // Blast markers (Johnald, 2026-10-09): anything with a blast radius is set down on the map
   // first, before the attack window. Backing out of it calls the attack off.
+  // Perks that widen it (Blast Radius, Nuclear Option), before it is set down (2026-10-18).
+  const blastRadius = profile.blast ? (profile.blast + ((item.type === "weapon") ? perkBlast((actor.items?.filter?.(i => i.type === "ability") ?? []), { name: item.name, system: item.system }) : 0)
+    + (Number(abilityAttack?.blast) || 0)) : 0;
+  if ( profile.blast ) profile.blast = blastRadius;
   const marker = profile.blast ? await placeBlast({ name: label, radius: profile.blast, template: profile.template, actor, item }) : undefined;
   if ( marker === null ) return null;
 
@@ -324,11 +361,29 @@ export async function rollAttack(actor, item, { projectile = 0 } = {}) {
   }
 
   const ranges = profile.ranges ? Object.entries(IROP.rangeBands).map(([k, label]) => ({
-    key: k, label: `${label}${profile.ranges[k].tiles ? `, ${profile.ranges[k].tiles} tiles` : ""} (${signed(profile.ranges[k].dm)})`,
+    key: k, label: `${label}${profile.ranges[k].tiles ? `, ${profile.ranges[k].tiles} tiles` : ""} (${signed(profile.ranges[k].dm)}${profile.ranges[k].mods?.length ? `, with ${profile.ranges[k].mods.map(m => m.name).join(" and ")}` : ""})`,
     checked: k === "short"
   })) : null;
 
-  const data = await formDialog(`Attack: ${label}`, "attack.hbs", {
+  // Role perks (2026-10-18): what applies to this weapon, tick boxes for what the system cannot see.
+  const abilities = (actor.items?.filter?.(i => i.type === "ability") ?? []);
+  const targetActor = target.uuid ? foundry.utils.fromUuidSync(target.uuid) : null;
+  const hp = targetActor?.system?.vitals?.hp;
+  const perks = (item.type === "weapon")
+    ? perkOptions(abilities, { roll: "attack", weapon: { name: item.name, system: s, special: !!profile.ammo }, targetHpPct: hp?.max ? (hp.value / hp.max) * 100 : null, ...perkContext(actor) })
+    : { auto: [], situations: [], scales: [], any: false };
+  // An attack made through an active (Chained Shot, Pour it On!), with its numbers as upgraded; Vital
+  // Shot's accuracy is its own with a sniper rifle.
+  const throughAccuracy = abilityAttack ? attackAccuracy(abilityAttack, weaponTypeOf(item)) : 0;
+  const through = abilityAttack ? { name: ability?.name ?? "", ...abilityAttack, accuracy: throughAccuracy,
+    accuracyText: throughAccuracy ? signed(throughAccuracy) : "" } : null;
+  if ( through && (item.type === "weapon") && s.usesAmmo && (s.ammo.value < (through.ammo ?? 1)) ) {
+    await removeBlast(marker);
+    return ui.notifications.warn(`${through.name} needs ${through.ammo} ammo; ${item.name} has ${s.ammo.value}.`);
+  }
+
+  const data = await formDialog(`Attack: ${through ? `${through.name}, ` : ""}${label}`, "attack.hbs", {
+    perks, through,
     itemName: label,
     img: item.img,
     targetLabel: `${attr.label} ${attr.value}`,
@@ -357,12 +412,32 @@ export async function rollAttack(actor, item, { projectile = 0 } = {}) {
     rangeLabel: band ? `${IROP.rangeBands[band]} range` : "Range",
     accuracy: -profile.accuracy,
     extra: Number(data.dm) || 0,
-    // On unless the attacker unticks it, for an attack that ignores armor.
-    defense: (target.uuid && (data.defense ?? !profile.ammo?.ignoreDefense)) ? target.defense : 0,
+    // On unless the attacker unticks it, for an attack that ignores armor (or made through one that does).
+    defense: (target.uuid && !abilityAttack?.noDefense && (data.defense ?? !profile.ammo?.ignoreDefense)) ? target.defense : 0,
     defenseLabel: `${target.name}'s Defense`
   });
   // Special ammo's accuracy D.M., on its own labelled line.
   if ( profile.ammo?.accuracy ) modifiers.push({ label: profile.ammo.name, value: profile.ammo.accuracy });
+  // The perks chosen, and the active it was made through.
+  const pick = (group, key) => data[`${group}.${key}`] ?? data[group]?.[key];
+  const perk = perkResult(perks, {
+    band, melee: s.category === "melee",
+    ticked: perks.situations.filter(t => pick("perk", t.key)).map(t => t.key),
+    counts: Object.fromEntries(perks.scales.map(t => [t.key, Number(pick("perkCount", t.key)) || 0]))
+  });
+  modifiers.push(...perk.attack);
+  if ( through?.accuracy ) modifiers.push({ label: through.name, value: through.accuracy });
+  if ( through?.autoHit ) modifiers.push({ label: `${through.name}: cannot miss`, value: -200 });
+  if ( through?.critical ) perk.critical.push({ label: through.name, value: through.critical });
+  perk.noCrit = !!through?.noCrit;
+  perk.through = through?.name ?? "";
+  // The active's own damage: Furious Assault's crit damage, Power Attack's +50%, Disabling Shot's half.
+  if ( through?.critDamage ) { perk.critDamage += through.critDamage; perk.notes.push(`${through.name} +${through.critDamage} critical damage`); }
+  if ( through?.damagePct ) { perk.damagePct += through.damagePct; perk.notes.push(`${through.name} ${signed(through.damagePct)}% damage`); }
+  perk.half = !!through?.halfDamage;
+  if ( perk.half ) perk.notes.push(`${through.name}: half damage`);
+  // Fell Deeds Awake: no Defense on the roll, no DR from armor on the hit.
+  if ( through?.noDefense ) { perk.drBypass += 99; perk.notes.push(`${through.name}: no armor DR`); }
 
   const attack = {
     actorUuid: actor.uuid,
@@ -375,6 +450,8 @@ export async function rollAttack(actor, item, { projectile = 0 } = {}) {
     exposed: keys.includes("exposed"),
     critChance: profile.critChance,
     damage: profile.damage,
+    // What the perks add to the critical and the damage, and what they do to the target's dodge (2026-10-18).
+    perk,
     scatter: profile.scatter,
     // Where the blast was set down, for Scatter to move.
     blast: marker ? { uuid: marker.uuid, radius: profile.blast } : null
@@ -392,9 +469,9 @@ export async function rollAttack(actor, item, { projectile = 0 } = {}) {
   });
   const msg = await toChat(roll, actor, data.mode);
 
-  // Spend what the attack used.
+  // Spend what the attack used: an active may spend more ammo than one (Pour it On! takes 3).
   if ( item.type === "weapon" ) {
-    if ( s.usesAmmo ) await item.update({ "system.ammo.value": Math.max(0, s.ammo.value - 1) });
+    if ( s.usesAmmo ) await item.update({ "system.ammo.value": Math.max(0, s.ammo.value - Math.max(1, through?.ammo ?? 1)) });
     if ( s.weaponClass === "grenade" ) await spendOne(item);
     // A LAW is launched and tossed away; the last one is gone (RULED 2026-10-08).
     if ( s.feed === "singleUse" ) {
@@ -440,7 +517,10 @@ export function addDice(formula, extra) {
  */
 export async function rollBurn(actor, item) {
   const s = item.system;
-  const fuel = s.fuel;
+  // Liquidator perks (2026-10-18): cheaper burns, a bigger die, a stronger status, a harder save, DR bypassed.
+  const chem = chemPerks((actor.items?.filter?.(i => i.type === "ability") ?? []), s.damage.type);
+  const fuel = { ...s.fuel, cost: Math.max(1, (Number(s.fuel.cost) || 1) + chem.fuelCost) };
+  const baseFormula = dieUp(s.damage.formula, chem.dieUp);
   const affordable = Math.min(fuel.maxBurns, Math.floor(fuel.value / fuel.cost));
   if ( affordable < 1 ) return ui.notifications.warn(`${item.name} is out of fuel. Refuel it first.`);
   if ( !s.damage.formula ) return ui.notifications.warn(`${item.name} has no damage formula.`);
@@ -450,7 +530,7 @@ export async function rollBurn(actor, item) {
   const save = IROP.attributes[s.burn.save] ?? IROP.attributes.agi;
   const burns = Array.from({ length: affordable }, (_, i) => ({
     value: i + 1,
-    label: `${i + 1} ${i ? "burns" : "burn"}: ${(i + 1) * fuel.cost} fuel, ${addDice(s.damage.formula, i)}`,
+    label: `${i + 1} ${i ? "burns" : "burn"}: ${(i + 1) * fuel.cost} fuel, ${addDice(baseFormula, i)}`,
     selected: i === 0
   }));
   const ranges = Object.entries(IROP.rangeBands).filter(([k]) => s.range[k]?.tiles || (k === "short")).map(([k, label]) => ({
@@ -465,18 +545,19 @@ export async function rollBurn(actor, item) {
 
   const count = Math.max(1, Math.min(affordable, Number(data.burns) || 1));
   const band = data.range || "short";
-  const dm = s.range[band]?.dm ?? 0;
+  const dm = (s.range[band]?.dm ?? 0) + chem.saveDm;
   const spent = count * fuel.cost;
   await item.update({ "system.fuel.value": fuel.value - spent });
-  const roll = new DamageRoll(addDice(s.damage.formula, count - 1), actor.getRollData(), {
+  const roll = new DamageRoll(addDice(baseFormula, count - 1), actor.getRollData(), {
     label: item.name,
     damageType: s.damage.type,
     damageTypeLabel: IROP.damageTypes[s.damage.type]?.label ?? s.damage.type,
     shred: s.shred, penetration: s.penetration, destruction: s.destruction,
+    drBypass: chem.drBypass, perkNotes: chem.notes.length ? [`Perks: ${chem.notes.join(", ")}`] : [],
     burn: {
       burns: count, spent, save: s.burn.save, saveLabel: save.label, saveAbbr: save.abbr,
       dm, bandLabel: IROP.rangeBands[band],
-      status: s.burn.status ? { id: s.burn.status, value: s.burn.statusValue, ammo: item.name } : null
+      status: s.burn.status ? { id: s.burn.status, value: (Number(s.burn.statusValue) || 0) + chem.statusUp, ammo: item.name } : null
     },
     targetUuid: target.uuid, targetName: target.name
   });
@@ -574,6 +655,7 @@ async function consumeOne(item) {
 export async function rollCritical(attack) {
   const actor = foundry.utils.fromUuidSync(attack.actorUuid);
   if ( !actor ) return ui.notifications.warn("The attacker no longer exists.");
+  if ( attack.perk?.noCrit ) return ui.notifications.info(`${attack.perk.through || "This attack"} cannot critically hit.`);
   const modifiers = collectModifiers({
     keys: attack.exposed ? ["exposed"] : [],
     cover: attack.cover,
@@ -581,6 +663,7 @@ export async function rollCritical(attack) {
     critical: -(attack.critChance || 0)
   });
   if ( attack.ammo?.critical ) modifiers.push({ label: attack.ammo.name, value: attack.ammo.critical });
+  modifiers.push(...(attack.perk?.critical ?? []));
   const target = actor.system.critical;
   const roll = D100Roll.create({
     kind: "critical", label: attack.itemName, subtitle: "Critical", target, targetLabel: `Critical ${target}`,
@@ -597,15 +680,23 @@ export async function rollDamage(attack, { critical = false } = {}) {
   if ( !dmg?.formula ) return ui.notifications.warn("This attack has no damage formula.");
   let formula = dmg.formula;
   if ( critical && dmg.critDamage ) formula = `${formula} + ${dmg.critDamage}`;
+  // Role perks (2026-10-18): Weapon Expert's +1, a Specialist's crit damage.
+  const perk = attack.perk ?? {};
+  if ( perk.damage ) formula = `${formula} + ${perk.damage}`;
+  if ( critical && perk.critDamage ) formula = `${formula} + ${perk.critDamage}`;
+  // Raid Time's +25%, Power Attack's +50%, Disabling Shot's half: on the whole, rounded down.
+  const factor = (1 + ((Number(perk.damagePct) || 0) / 100)) * (perk.half ? 0.5 : 1);
+  if ( factor !== 1 ) formula = `floor((${formula}) * ${factor})`;
   const roll = new DamageRoll(formula, actor?.getRollData() ?? {}, {
     label: attack.itemName,
     damageType: dmg.type,
     damageTypeLabel: IROP.damageTypes[dmg.type]?.label ?? dmg.type,
     critical,
-    shred: dmg.shred,
-    penetration: dmg.penetration,
+    shred: (dmg.shred ?? 0) + (perk.shred ?? 0),
+    penetration: (dmg.penetration ?? 0) + (perk.penetration ?? 0),
+    perkNotes: perk.notes ?? [],
     destruction: dmg.destruction,
-    drBypass: dmg.drBypass ?? 0,
+    drBypass: (dmg.drBypass ?? 0) + (perk.drBypass ?? 0),
     status: dmg.status ?? null,
     targetUuid: attack.targetUuid ?? null,
     targetName: attack.targetName ?? null,
@@ -743,17 +834,44 @@ export async function rollFreePool(actor = null) {
  * paraphysical attack, go straight to the attack.
  */
 export async function useAbility(actor, item) {
+  // Role perks (2026-10-18): limited uses from the perk's rule, set the first time it is used.
+  const ruled = perkUses(item, perkContext(actor).attributes);
+  if ( ruled && (item.system.uses.max !== ruled.max) ) await item.update({ "system.uses.max": ruled.max, "system.uses.value": ruled.max });
   const s = item.system;
   const energy = actor.system.vitals.energy;
-  if ( s.energyCost > energy.value ) {
-    return ui.notifications.warn(`${item.name} costs ${s.energyCost} Energy; ${actor.name} has ${energy.value}.`);
+  // Its numbers as the character's other perks leave them (Superior Training: -1 Energy).
+  const upgraded = abilityAsUpgraded(item, (actor.items?.filter?.(i => i.type === "ability") ?? []));
+  const cost = upgraded.energy;
+  if ( cost > energy.value ) {
+    return ui.notifications.warn(`${item.name} costs ${cost} Energy; ${actor.name} has ${energy.value}.`);
   }
   if ( s.uses.max && (s.uses.value <= 0) ) return ui.notifications.warn(`${item.name} has no uses left.`);
 
   const spend = async () => {
-    if ( s.energyCost ) await actor.update({ "system.vitals.energy.value": energy.value - s.energyCost });
+    if ( cost ) await actor.update({ "system.vitals.energy.value": actor.system.vitals.energy.value - cost });
     if ( s.uses.max ) await item.update({ "system.uses.value": s.uses.value - 1 });
   };
+
+  // An active that only spends ammo (Area Suppression): from the weapon in hand, then its card.
+  if ( upgraded.ammoOnly ) {
+    const weapon = await weaponFor(actor, item, { types: [] });
+    if ( !weapon ) return null;
+    if ( weapon.system.usesAmmo && (weapon.system.ammo.value < upgraded.ammoOnly) ) {
+      return ui.notifications.warn(`${item.name} needs ${upgraded.ammoOnly} ammo; ${weapon.name} has ${weapon.system.ammo.value}.`);
+    }
+    if ( weapon.system.usesAmmo ) await weapon.update({ "system.ammo.value": weapon.system.ammo.value - upgraded.ammoOnly });
+    await spend();
+    return postItemCard(actor, item, { spent: cost, upgrades: upgraded.upgrades, ammoSpent: `${upgraded.ammoOnly} ammo from ${weapon.name}` });
+  }
+
+  // An active made as an attack (Chained Shot, Pour it On!): the weapon's attack, with its numbers.
+  if ( upgraded.attack ) {
+    const weapon = await weaponFor(actor, item, upgraded.attack);
+    if ( !weapon ) return null;
+    const message = await rollAttack(actor, weapon, { ability: item, abilityAttack: upgraded.attack });
+    if ( message ) await spend();
+    return message ?? null;
+  }
 
   // A paraphysical attack spends only once the attack is actually rolled, so
   // cancelling the attack dialog costs nothing. The attack card is the record.
@@ -763,7 +881,47 @@ export async function useAbility(actor, item) {
     return message ?? null;
   }
   await spend();
-  return postItemCard(actor, item, { spent: s.energyCost });
+  return postItemCard(actor, item, { spent: cost, upgrades: upgraded.upgrades });
+}
+
+/**
+ * The weapon an active is made with: the only one in hand that fits, or the one picked. Fits means
+ * equipped, not stowed, a weapon type the active allows (any, if it names none) and an attack.
+ */
+async function weaponFor(actor, ability, attack) {
+  const fits = (actor.items?.filter?.(i => (i.type === "weapon") && i.system.equipped && !i.system.stowed
+    && (!attack.types?.length || attack.types.includes(weaponTypeOf(i)))
+    && (!attack.classes?.length || attack.classes.includes(i.system.weaponClass))
+    && (!attack.melee || (i.system.category === "melee")) && !!attackProfile(i)?.attribute) ?? []);
+  if ( !fits.length ) {
+    ui.notifications.warn(`${ability.name} needs ${attack.melee ? "a melee weapon" : "a weapon"} in hand${attack.types?.length ? ` (${attack.types.map(t => IROP.weaponTypes[t] ?? t).join(", ")})` : ""}. Equip one first.`);
+    return null;
+  }
+  if ( fits.length === 1 ) return fits[0];
+  const data = await DialogV2.input({
+    window: { title: ability.name },
+    classes: ["irop", "irop-roll-dialog"],
+    content: `<label class="irop-choose"><span>With</span><select name="weapon">${fits.map(w => `<option value="${w.id}">${foundry.utils.escapeHTML(w.name)}</option>`).join("")}</select></label>`,
+    ok: { label: "Attack", icon: "fa-solid fa-crosshairs" }
+  });
+  return data ? actor.items.get(data.weapon) ?? null : null;
+}
+
+/**
+ * The last attack card on this character, a few messages back, and what its perks do to dodging it
+ * (Effective Fire's +15): {from, lines: [{label, value}]}, or null.
+ */
+function lastAttackOn(actor) {
+  const messages = game.messages?.contents?.slice(-12).reverse() ?? [];
+  for ( const m of messages ) {
+    const attack = m.rolls?.[0]?.options?.attack;
+    if ( !attack?.targetUuid ) continue;
+    const target = foundry.utils.fromUuidSync(attack.targetUuid);
+    if ( (target?.id !== actor.id) && (target?.actor?.id !== actor.id) ) continue;
+    const lines = attack.perk?.enemyDodge ?? [];
+    return { from: `${foundry.utils.fromUuidSync(attack.actorUuid)?.name ?? "the attacker"}'s ${attack.itemName}`, lines };
+  }
+  return null;
 }
 
 /** Use gear: roll its formula if it has one, and consume one if it is consumable. */
@@ -782,7 +940,10 @@ export async function useGear(actor, item) {
 
 /** Post an item's card to chat. */
 export async function postItemCard(actor, item, extra = {}) {
+  // A weapon's card lists what the poster's perks do with it (2026-10-18).
+  const perkLines = ((item.type === "weapon") && actor) ? weaponPerkSummary((actor.items?.filter?.(i => i.type === "ability") ?? []), item, perkContext(actor)).lines : [];
   const content = await renderTemplate("systems/irop/templates/chat/item-card.hbs", {
+    perkLines,
     item,
     system: item.system,
     typeLabel: game.i18n.localize(`TYPES.Item.${item.type}`),
@@ -838,6 +999,17 @@ export async function startSession({ perCharacter = false } = {}) {
     for ( const a of operatives ) await a.update({ "system.banks.edge": edge, "system.banks.victory": 0 });
     lines.push(`<p>Squad Edge flip: ${edge ? "every operative starts with 1 Edge" : "no starting Edge"} (1d2 = ${flip.total}).</p>`);
   }
+  // Role perks used per mission (Swift Hands, Universal Soldier) are refilled (2026-10-18).
+  let refilled = 0;
+  for ( const a of operatives ) {
+    for ( const item of a.items.filter(i => i.type === "ability") ) {
+      const uses = perkUses(item, perkContext(a).attributes);
+      if ( (uses?.per !== "mission") || ((item.system.uses.value === uses.max) && (item.system.uses.max === uses.max)) ) continue;
+      await item.update({ "system.uses.max": uses.max, "system.uses.value": uses.max });
+      refilled++;
+    }
+  }
+  if ( refilled ) lines.push(`<p>Per mission perks refilled: ${refilled}.</p>`);
   const content = `<div class="irop-card"><header class="card-head"><h3>Session start</h3>
     <span class="card-sub">Banks reset, opening economy rolled</span></header>${lines.join("")}</div>`;
   return ChatMessage.implementation.create({ content, rolls, whisper: [] });
@@ -860,3 +1032,8 @@ export async function endSession({ standDown = true } = {}) {
 }
 
 export { BANK_CAP };
+
+/** The mods fitted to a weapon on its owner's sheet. */
+function fittedMods(item) {
+  return item.actor?.items?.filter?.(i => (i.type === "mod") && (i.system.installedOn === item.id)) ?? [];
+}

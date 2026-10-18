@@ -111,6 +111,8 @@ export class DamageRoll extends foundry.dice.Roll {
       penetration: o.penetration ?? 0,
       destruction: o.destruction ?? 0,
       drBypass: o.drBypass ?? 0,
+      // What role perks added (2026-10-18): "Weapon Expert +1 damage".
+      perkNotes: o.perkNotes ?? [],
       // A status the hit inflicts, from special ammo, with a button to apply it to the target.
       // A chemthrower burn (2026-10-08): the target saves for half; a button rolls the save.
       burn: o.burn ? {

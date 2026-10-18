@@ -1284,6 +1284,141 @@ check("disorientated both ways",
   check("factions: ticked lines become faction ops; unticked, the task stays open", (all.factionOps.length === 2) && (all.factionOps[0].task === "f") && (none.factionOps.length === 0));
 }
 
+// Role perks (Johnald, 2026-10-18): the engine, and Legionary's rules as the pilot.
+{
+  const pk = await import("../module/rules/perks.mjs");
+  const wt = await import("../module/rules/weapon-types.mjs");
+  const ab = names => names.map((name, i) => ({ id: `a${i}`, name, system: { energyCost: 0, description: "" } }));
+  check("weapon types: guessed from the name, then the class",
+    (wt.guessWeaponType("T1 Assault Rifle") === "rifle") && (wt.guessWeaponType("M9 SMG") === "smg") && (wt.guessWeaponType("Sawn-Off Shotgun") === "shotgun")
+      && (wt.guessWeaponType("Heavy SAW") === "saw") && (wt.guessWeaponType("Service Pistol") === "pistol") && (wt.guessWeaponType("Grenade Launcher") === "grenadeLauncher")
+      && (wt.guessWeaponType("M1 Sniper Rifle") === "sniper") && (wt.guessWeaponType("Bearded Axe") === "axe") && (wt.guessWeaponType("Claws", "natural") === "natural")
+      && (wt.guessWeaponType("Thing") === ""));
+  check("perks: a perk's rule is found by name, loosely", !!pk.perkRule("rifle and saw specialist i") && !!pk.perkRule("Drop'em Fast") && !pk.perkRule("Not a perk"));
+  const rifle = { system: { weaponType: "rifle", category: "ranged" }, special: false };
+  const smg = { system: { weaponType: "smg", category: "ranged" }, special: true };
+  const owned = ab(["Rifle and SAW Specialist I", "SMG and Shotgun Specialist I", "Weapon Expert", "Executioner", "Judge and Jury", "Drop'em fast!", "Lock in, Lock on", "Ammo Connoiseur", "Watch my Six"]);
+  const rOpts = pk.perkOptions(owned, { roll: "attack", weapon: rifle, targetHpPct: 20 });
+  check("perks: with a rifle, the rifle perks and the all weapon ones apply; the SMG one and special ammo's do not",
+    rOpts.auto.some(m => m.from === "Rifle and SAW Specialist I") && !rOpts.auto.some(m => m.from === "SMG and Shotgun Specialist I")
+      && rOpts.auto.some(m => m.from === "Weapon Expert") && !rOpts.auto.some(m => m.from === "Ammo Connoiseur"));
+  const hpBox = rOpts.situations.find(s => s.key === "hp-25");
+  const oot = rOpts.situations.find(s => /Overwatch/.test(s.label));
+  check("perks: a target under 25% HP is pre-ticked when its HP shows it; one tick box covers both out of turn perks; a count box for foes in sight",
+    hpBox?.checked && (hpBox.mods.length === 2) && (oot?.mods.length === 2) && !oot.checked && (rOpts.scales[0]?.max === 10)
+      && !pk.perkOptions(owned, { roll: "attack", weapon: rifle, targetHpPct: 60 }).situations.find(s => s.key === "hp-25").checked);
+  const atMedium = pk.perkResult(rOpts, { band: "medium", ticked: ["hp-25", oot.key], counts: { [rOpts.scales[0].key]: 14 } });
+  check("perks: at Medium, ticked, with 14 foes in sight: -4, Executioner -10, -10 for the foes (capped); +1 damage +1 out of turn; crit +1 +1 +3",
+    (atMedium.attack.reduce((s, l) => s + l.value, 0) === -24) && (atMedium.critical.reduce((s, l) => s + l.value, 0) === -10)
+      && (atMedium.damage === 2) && (atMedium.critDamage === 5) && atMedium.notes.some(n => /Weapon Expert \+1 damage/.test(n)));
+  const atShort = pk.perkResult(rOpts, { band: "short" });
+  check("perks: at Short the Medium only bonus stays off", !atShort.attack.some(l => l.label === "Rifle and SAW Specialist I"));
+  check("perks: special ammo's perk needs special ammo loaded", pk.perkOptions(owned, { roll: "attack", weapon: smg }).auto.some(m => m.from === "Ammo Connoiseur"));
+  const dOpts = pk.perkOptions(owned, { roll: "dodge" });
+  check("perks: Watch my Six is a tick box on dodges, and only there", (dOpts.situations.length === 1) && (pk.perkResult(dOpts, { ticked: [dOpts.situations[0].key] }).dodge[0].value === -15)
+      && !rOpts.situations.some(s => /stacked/.test(s.label)));
+  // Actives and their upgrades.
+  const chained = { name: "Chained Shot", system: { energyCost: 6, description: "" } };
+  const kit = [chained, ...ab(["Locked On", "Superior Training"])];
+  kit[1].system.description = "<p>Pour it On! : When you use this ability, it now will grant you a -10 DM. Rally : All rallied creatures may benefit. Chained Shot :Your second shot is now made with a +0 DM and can crit.</p>";
+  const up = pk.abilityAsUpgraded(chained, kit);
+  check("perks: Chained Shot with Locked On and Superior Training: +10 becomes -10, it can crit, 5 Energy, and Locked On's text joins its card",
+    (up.attack.accuracy === -10) && !up.attack.noCrit && (up.energy === 5) && (up.upgrades.length === 1) && (up.upgrades[0].from === "Locked On")
+      && /second shot is now made with a \+0 DM and can crit/.test(up.upgrades[0].text) && !/Rally/.test(up.upgrades[0].text));
+  const pour = pk.abilityAsUpgraded({ name: "Pour it On!", system: { energyCost: 6 } }, [{ name: "Pour it On!", system: {} }, ...ab(["Locked On"])]);
+  check("perks: Pour it On! cannot miss and takes 3 ammo; Locked On brings it to 2", pour.attack.autoHit && (pour.attack.ammo === 2) && (pk.abilityAsUpgraded({ name: "Pour it On!", system: { energyCost: 6 } }, []).attack.ammo === 3));
+  check("perks: upgrade text is cut at the next ability named", pk.upgradeText("Rally: All allies gain. Chained Shot: Heal 1.", "Rally", ["Chained Shot", "Pour it On!"]) === "All allies gain.");
+  check("perks: armor rules, uses, and what each perk does in words",
+    eq(pk.armorPerks(ab(["Medium Armor Mastery I", "Full Regalia"])), { pct: { medium: 50 }, fullRegalia: true, drAll: {}, drByTier: {} }) && eq(pk.perkUses("Swift Hands"), { max: 2, per: "mission" })
+      && /-4 to hit at Medium \(rifle, saw\)/.test(pk.automationText("Rifle and SAW Specialist I")) && /cannot miss/.test(pk.automationText("Pour it On!")) && (pk.automationText("Field Promotion") === ""));
+}
+
+// Role perks, all six doctrines (Johnald, 2026-10-18): every rule names a real perk, and the new pieces work.
+{
+  const pk = await import("../module/rules/perks.mjs");
+  const { PERK_RULES } = await import("../module/rules/perk-rules.mjs");
+  const { perkKey } = await import("../module/rules/skill-trees.mjs");
+  const fs = await import("node:fs");
+  const all = JSON.parse(fs.readFileSync(new URL("../assets/data/sandbox-abilities.json", import.meta.url), "utf8"));
+  const roles = ["Legionary", "Marauder", "Specialist", "Outrider", "Warmachine", "Vanguard"];
+  const perkNames = new Set(all.filter(i => roles.includes(i.folder?.[1])).map(i => perkKey(i.name)));
+  const missing = Object.keys(PERK_RULES).filter(n => !perkNames.has(perkKey(n)));
+  check("perks: every rule is for a role perk that exists", missing.length === 0, missing.join(", "));
+  const targets = Object.values(PERK_RULES).flatMap(r => Object.keys(r.upgrades ?? {}));
+  const badTargets = targets.filter(n => !perkNames.has(perkKey(n)));
+  check("perks: every ability an upgrade changes exists", badTargets.length === 0, badTargets.join(", "));
+  const covered = [...perkNames].filter(n => PERK_RULES[Object.keys(PERK_RULES).find(k => perkKey(k) === n)]).length;
+  check("perks: over a third of all role perks have rules (the stat perks have their own effects)", covered >= 120, String(covered));
+
+  const ab = (names, source = "") => names.map((name, i) => ({ id: `a${i}`, name, system: { energyCost: 6, description: "", source } }));
+  // The same name in two doctrines.
+  const mar = pk.perkOptions(ab(["Will to Survive"], "marauder"), { roll: "dodge" });
+  const war = pk.perkOptions(ab(["Will to Survive"], "warmachine"), { roll: "dodge" });
+  check("perks: Will to Survive is -5 for a Marauder, -10 for a Warmachine, by the perk's Source",
+    (mar.situations[0].mods[0].value === -5) && (war.situations[0].mods[0].value === -10));
+  const smgSpec = { system: { weaponType: "smg", category: "ranged" } };
+  check("perks: the Specialist's SMG Specialist II adds crit damage; the Marauder's does not",
+    pk.perkOptions(ab(["SMG Specialist II"], "specialist"), { weapon: smgSpec }).auto.some(m => m.stat === "critDamage")
+      && !pk.perkOptions(ab(["SMG Specialist II"], "marauder"), { weapon: smgSpec }).auto.some(m => m.stat === "critDamage"));
+  // Values from attributes, armor tiers and weapon tiers.
+  const attrs = { per: 5, agi: 3, cha: 4, str: 6 };
+  const hc = pk.perkOptions(ab(["High Caliber"]), { weapon: { system: { weaponType: "sniper", category: "ranged" } }, attributes: attrs });
+  check("perks: High Caliber adds half the PER mod (5 gives 2)", hc.auto[0].value === 2);
+  const capo = pk.perkOptions(ab(["Capo Ferro"]), { weapon: { system: { weaponType: "sword", weaponClass: "oneHanded", category: "melee" } }, attributes: attrs });
+  check("perks: Capo Ferro, in a duel, is minus the better of PER and AGI", capo.situations[0].mods[0].value === -5);
+  const las = tier => pk.perkResult(pk.perkOptions(ab(["Light Armor Specialist"]), { roll: "dodge", gear: { armor: [{ armorClass: "light", tier }] } })).dodge[0]?.value;
+  check("perks: Light Armor Specialist: -5, -10, -15 by light armor tier; nothing in heavy armor",
+    (las(1) === -5) && (las(2) === -10) && (las(5) === -15) && !pk.perkOptions(ab(["Light Armor Specialist"]), { roll: "dodge", gear: { armor: [{ armorClass: "heavy", tier: 3 }] } }).any);
+  const shred = tier => pk.perkResult(pk.perkOptions(ab(["Shredder"]), { weapon: { system: { weaponType: "lmg", category: "ranged", tier } } })).shred;
+  check("perks: Shredder shreds 1, 2 or 3 by the weapon's Tier", (shred(1) === 1) && (shred(3) === 2) && (shred(5) === 3));
+  // Counts: every second enemy, capped.
+  const bring = pk.perkOptions(ab(["Bring'em On"]), { weapon: { system: { category: "ranged" } } });
+  check("perks: Bring'em On: +1 crit damage per two enemies seen, up to +8",
+    (pk.perkResult(bring, { counts: { [bring.scales[0].key]: 5 } }).critDamage === 2) && (pk.perkResult(bring, { counts: { [bring.scales[0].key]: 30 } }).critDamage === 8));
+  const slash = pk.perkOptions(ab(["Horror Movie Slasher"]), { weapon: { system: { category: "melee" } }, attributes: attrs });
+  check("perks: Horror Movie Slasher's kills count up to half the AGI mod", slash.scales[0].max === 1);
+  // Melee counts for a short range perk marked so; one handed and two handed axes.
+  const ucp = pk.perkOptions(ab(["Up Close and Personal"]), { weapon: { system: { category: "melee" } } });
+  check("perks: Up Close and Personal counts in melee as at Short", pk.perkResult(ucp, { melee: true }).critical[0]?.value === -10);
+  const axe = cls => pk.perkOptions(ab(["Fluid Motions", "Hard as Nails"]), { weapon: { system: { weaponType: "axe", weaponClass: cls, category: "melee" } } }).auto.map(m => m.from);
+  check("perks: Fluid Motions for one handed axes, Hard as Nails for two handed", (axe("oneHanded").join() === "Fluid Motions,Fluid Motions") && (axe("twoHanded").join() === "Hard as Nails"));
+  // Actives: set accuracy, ammo, blast, damage.
+  const eat = pk.abilityAsUpgraded({ name: "Eat Lead", system: { energyCost: 6 } }, [{ name: "Eat Lead", system: {} }, ...ab(["Get Some!", "One Man Army", "Efficient Fire"])]);
+  check("perks: Eat Lead with Get Some!, One Man Army and Efficient Fire: -10 (the better set), 2 ammo, 5 Energy",
+    (eat.attack.accuracy === -10) && (eat.attack.ammo === 2) && (eat.energy === 5));
+  const supp = pk.abilityAsUpgraded({ name: "Area Suppression", system: { energyCost: 6 } }, [{ name: "Area Suppression", system: {} }, ...ab(["Get Some!"])]);
+  check("perks: Area Suppression spends 5 ammo with no roll, 4 with Get Some!", (supp.ammoOnly === 4) && !supp.attack);
+  const vital = pk.abilityAsUpgraded({ name: "Vital Shot", system: { energyCost: 5 } }, []);
+  check("perks: Vital Shot is +10, +20 with a sniper rifle, -30 critical", (pk.attackAccuracy(vital.attack, "dmr") === 10) && (pk.attackAccuracy(vital.attack, "sniper") === 20) && (vital.attack.critical === -30));
+  const nuke = pk.abilityAsUpgraded({ name: "Nuclear Option", system: { energyCost: 5 } }, []);
+  check("perks: Nuclear Option: +2 blast, +50% damage, with a rocket launcher", (nuke.attack.blast === 2) && (nuke.attack.damagePct === 50) && nuke.attack.types.includes("rocketLauncher"));
+  check("perks: Disabling Shot does half damage; Power Attack +50%",
+    pk.abilityAsUpgraded({ name: "Disabling Shot", system: {} }, []).attack.halfDamage && (pk.abilityAsUpgraded({ name: "Power Attack", system: {} }, []).attack.damagePct === 50));
+  check("perks: Blast Radius widens grenades only", (pk.perkBlast(ab(["Blast Radius"]), { system: { weaponType: "grenade", category: "thrown" } }) === 1)
+    && (pk.perkBlast(ab(["Blast Radius"]), { system: { weaponType: "rocketLauncher", category: "ranged" } }) === 0));
+  // The character and their gear.
+  check("perks: on the character, Strongest Avenger's +5 STR and TGH, Long Distance Conditioning's speed, Got an Eye's PER to Critical",
+    eq(pk.actorPerks(ab(["Strongest Avenger", "Long Distance Conditioning", "Got an Eye for this"])), { bonuses: { "move.run": 1, "move.sprint": 1 }, attributes: { str: 5, tgh: 5 }, critical: ["per"] }));
+  check("perks: heavy armor DR, +1 for Mastery II and 1/2/3 by tier for Paragon",
+    (pk.armorDrAll(pk.armorPerks(ab(["Heavy Armor Mastery II", "Heavy Armor Paragon"])), { armorClass: "heavy", tier: 2 }) === 3)
+      && (pk.armorDrAll(pk.armorPerks(ab(["Heavy Armor Paragon"])), { armorClass: "medium", tier: 3 }) === 0));
+  check("perks: extra slots: Munnr on axes, Go Low on SMGs and shotguns, Mastery II on medium armor",
+    (pk.slotPerks(ab(["Munnr", "Go Low, Go Loud"]), { type: "weapon", system: { weaponType: "axe" } }) === 1)
+      && (pk.slotPerks(ab(["Munnr", "Go Low, Go Loud"]), { type: "weapon", system: { weaponType: "shotgun" } }) === 1)
+      && (pk.slotPerks(ab(["Medium Armor Mastery II"]), { type: "armor", system: { armorClass: "medium" } }) === 1)
+      && (pk.slotPerks(ab(["Medium Armor Mastery II"]), { type: "armor", system: { armorClass: "heavy" } }) === 0));
+  const chem = pk.chemPerks(ab(["Chemical Stablization", "Fuel Efficiency", "Fire and Ice", "Toxic Avenger", "Chemical Volatility"]), "fire");
+  check("perks: a Liquidator's fire chemthrower: a die up, 5 less fuel, +1 status, +10 to the save, 3 DR bypassed; not Toxic Avenger's",
+    (chem.dieUp === 1) && (chem.fuelCost === -5) && (chem.statusUp === 1) && (chem.saveDm === 10) && (chem.drBypass === 3) && !chem.notes.includes("Toxic Avenger")
+      && (pk.dieUp("1d4 + 2", 1) === "1d6 + 2") && (pk.dieUp("2d12", 1) === "2d20"));
+  check("perks: uses read from an attribute: Ghost Stepping is half the AGI mod", pk.perkUses("Ghost Stepping", { agi: 6 }).max === 3);
+  // Bug, 2026-10-18: a weapon with no Type set still counts, by its name (the Warmachine's T1 LMG).
+  const lmg = { name: "T1 LMG", system: { weaponType: "", weaponClass: "saturation", category: "ranged" } };
+  const lmgPerks = pk.perkOptions(ab(["LMG Specialist I", "Javelin Rockets"], "warmachine"), { weapon: lmg });
+  check("perks: an untyped T1 LMG still takes LMG Specialist I (-3 at Medium), not the rocket perk",
+    (pk.perkResult(lmgPerks, { band: "medium" }).attack[0]?.value === -3) && !lmgPerks.auto.some(m => m.from === "Javelin Rockets"));
+}
+
 // The Threat Codex (Johnald, 2026-10-17): players see only what was revealed.
 {
   const cx = await import("../module/rules/codex.mjs");

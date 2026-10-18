@@ -355,7 +355,7 @@ function abilities() {
 /** Placeholder mods: the real mod list lives in the live world, added after this backup. */
 function testMods() {
   return [
-    { name: "Reflex Sight (test)", type: "mod", system: { target: "ranged", weight: 1,
+    { name: "Reflex Sight (test)", type: "mod", system: { target: "ranged", weight: 0.5, rangeDm: { medium: -5 },
       description: "<p>Test mod. Fits a ranged weapon.</p>" } },
     { name: "Grip Wrap (test)", type: "mod", system: { target: "melee", weight: 0,
       description: "<p>Test mod. Fits a melee weapon.</p>" } },

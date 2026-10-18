@@ -1,4 +1,5 @@
 import { IROP } from "../config.mjs";
+import { rangeDmText } from "../rules/mods.mjs";
 import { buyFromStore, sellToStore, stockShelf, walletRows } from "../store.mjs";
 import { formulaInWords } from "./actor-sheet.mjs";
 import { isStackable } from "../rules/stacks.mjs";
@@ -57,7 +58,7 @@ const signed = n => (n > 0 ? `+${n}` : `${n}`);
 export function typeLine(item) {
   const s = item.system ?? {};
   switch ( item.type ) {
-    case "weapon": return [IROP.weaponClasses[s.weaponClass], IROP.weaponCategories[s.category]?.label].filter(Boolean).join(", ");
+    case "weapon": return [(s.weaponType && IROP.weaponTypes[s.weaponType]) || IROP.weaponClasses[s.weaponClass], IROP.weaponCategories[s.category]?.label].filter(Boolean).join(", ");
     case "armor": return `${IROP.armorClasses[s.armorClass] ?? ""} armor`.trim();
     case "gear": return IROP.gearKinds[s.kind] ?? "Gear";
     case "mod": return `Mod for ${(IROP.modTargets[s.target] ?? "gear").toLowerCase()}`;
@@ -107,6 +108,8 @@ export function itemStats(item) {
     if ( s.consumable ) add("Use", "Used up when used");
   }
   if ( item.type === "mod" ) add("Fits", IROP.modTargets[s.target] ?? "");
+  // A sight's range D.M. while fitted (2026-10-17): "Medium -5".
+  if ( item.type === "mod" ) add("Range D.M.", rangeDmText(s.rangeDm ?? {}) || null);
   // What it does for concealment (Johnald, 2026-10-10).
   if ( s.concealable ) add("Concealment", "Hidden by nature: does not count");
   else if ( (item.type === "mod") && s.concealsHost ) add("Concealment", "Hides what it is fitted to");

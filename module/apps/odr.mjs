@@ -157,7 +157,7 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
       const weekly = weeklyProgress(s, soldierOf, rules);
       return {
         id: item.id, name: item.name, img: item.img,
-        resource: IROP.resources[s.resource]?.label ?? "",
+        resource: IROP.resources[s.resource]?.label ?? "", unit: IROP.progressUnit,
         progress: s.progress, cost: s.cost, pct: s.percent, remaining: s.remaining, noCost: !(s.cost > 0),
         weekly: weekly.total, breakdown: progressBreakdown(weekly),
         skills: skillsText(s), advancement: s.advancement, unlocks: (s.kind === "research") ? s.unlocks : "",
@@ -180,7 +180,7 @@ export class OdrBoard extends HandlebarsApplicationMixin(ApplicationV2) {
       const switching = (s.kind === "research") && all.some(p => (p.kind === "research") && (p.status === "active"));
       return {
         id: item.id, name: item.name, img: item.img, cost: s.cost, progress: s.progress, pct: s.percent,
-        resource: IROP.resources[s.resource]?.label ?? "",
+        resource: IROP.resources[s.resource]?.label ?? "", unit: IROP.progressUnit,
         hidden: s.status === "hidden", complete: s.status === "complete",
         skills: skillsText(s),
         term: (s.kind === "intelligence") ? IROP.intelTerms[s.term] : "",

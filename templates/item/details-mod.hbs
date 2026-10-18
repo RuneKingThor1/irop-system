@@ -3,6 +3,15 @@
     <label><span>Fits</span><select name="system.target">{{selectOptions config.modTargets selected=system.target}}</select></label>
     <label class="check" data-tooltip="Fitted, it hides what it is fitted to: that item, and what is on it, does not count toward concealment"><input type="checkbox" name="system.concealsHost" {{checked system.concealsHost}}><span>Conceals its host</span></label>
   </div>
+  {{#if (eq system.target "ranged")}}
+  {{!-- Range D.M. while fitted (Johnald, 2026-10-17): added to the weapon's own band, minus is easier. --}}
+  <h3 class="section-title">Range D.M. while fitted</h3>
+  <div class="form-grid mod-range-dm">
+    {{#each config.rangeBands as |label key|}}
+    <label><span>{{label}}</span><input type="number" name="system.rangeDm.{{key}}" value="{{lookup @root.system.rangeDm key}}" step="5" data-tooltip="Added to attacks at {{label}} range; minus is easier"></label>
+    {{/each}}
+  </div>
+  {{/if}}
   <p class="hint">Fit a mod by dragging it onto a weapon or armor tray on the operative's Combat tab. One of each mod per item. A mod's effects (Effects tab) apply to the operative only while it is fitted.</p>
   {{> "systems/irop/templates/item/physical.hbs"}}
 </section>

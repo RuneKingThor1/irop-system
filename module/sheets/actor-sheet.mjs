@@ -3,6 +3,8 @@ import { DICE, DICE_ORDER } from "../rules/dynosrs.mjs";
 import * as rolls from "../rolls.mjs";
 import { rankCost, checkRankPurchase, xpLine } from "../rules/xp.mjs";
 import { rankList, serviceRank } from "../rules/ranks.mjs";
+import { automationText, perkUses, abilityAsUpgraded, weaponPerkSummary } from "../rules/perks.mjs";
+import { perkContext } from "../rolls.mjs";
 import { startingSkillPlan, startingSkillRanks } from "../rules/starting-skills.mjs";
 import { ownedPerks, nodeStates, treesFor, specializationLock, canCrossTrain, ordinal } from "../rules/skill-trees.mjs";
 import { specializationRules, isLedgerOpen, setLedgerOpen } from "../settings.mjs";
@@ -829,6 +831,8 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     };
     const sorted = this.actor.items.contents.sort((a, b) => (a.sort || 0) - (b.sort || 0));
     const rollData = this.actor.system.getRollData?.() ?? {};
+    const abilities = this.actor.items.filter(i => i.type === "ability");
+    const perkCtx = perkContext(this.actor);
     for ( const item of sorted ) {
       const s = item.system;
       // Stowed things leave their usual list for the Gear tab's Stowed box (Johnald, 2026-10-07).
@@ -839,8 +843,18 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         continue;
       }
       switch ( item.type ) {
-        case "weapon":
+        case "weapon": {
+          // What the role perks do with it (2026-10-18), folded into its boxes and listed on a chip.
+          const perk = weaponPerkSummary(abilities, item, perkCtx);
+          const dmgBox = damageStat(s, rollData);
+          if ( perk.damage && (dmgBox.value !== "none") ) {
+            dmgBox.value = `${dmgBox.value} + ${perk.damage}`;
+            dmgBox.tip = `${dmgBox.tip}, + ${perk.damage} from perks`;
+            dmgBox.cls = `${dmgBox.cls ?? ""} from-perks`.trim();
+          }
+          const crit = -s.critical.chance + perk.critical;
           out.weapons.push({
+            perkLines: perk.lines, perkTip: perk.lines.join("; "),
             item, id: item.id, name: item.name, img: item.img, system: s,
             categoryLabel: IROP.weaponCategories[s.category]?.label,
             classLabel: IROP.weaponClasses[s.weaponClass],
@@ -856,10 +870,10 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             stats: [
               { label: "Accuracy", value: signed(-s.accuracy), dim: !s.accuracy,
                 tip: "Accuracy D.M. on the attack roll: minus makes it easier" },
-              damageStat(s, rollData),
+              dmgBox,
               typeStat(s),
-              { label: "Crit", value: signed(-s.critical.chance), dim: !s.critical.chance,
-                tip: "Critical D.M. on the critical roll: minus makes a crit likelier" }
+              { label: "Crit", value: signed(crit), dim: !crit, cls: perk.critical ? "from-perks" : "",
+                tip: `Critical D.M. on the critical roll: minus makes a crit likelier${perk.critical ? ` (${signed(-s.critical.chance)} the weapon's, ${signed(perk.critical)} from perks)` : ""}` }
             ],
             isGrenade: s.weaponClass === "grenade",
             // Grenades, rockets and explosives show how many are carried, which the player can type in (2026-10-10).
@@ -884,6 +898,7 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             freeSlots: Math.max(0, s.slots - s.mods.length)
           });
           break;
+        }
         case "armor":
           out.armors.push({
             item, id: item.id, name: item.name, img: item.img, system: s,
@@ -915,8 +930,15 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             sourceLabel: IROP.abilitySources[s.source], accent: IROP.roles[s.source]?.color ?? null,
             actionLabel: IROP.actionTypes[s.actionType],
             discipline: IROP.disciplines[s.paraphysics.discipline] ?? null,
-            // A passive's tile shows what it does on hover (2026-10-08).
-            tip: (s.kind === "passive") ? plainText(s.description) : ""
+            // A passive's tile shows what it does on hover (2026-10-08), and what of it is automated (2026-10-18).
+            tip: (s.kind === "passive") ? [plainText(s.description), automationText(item)].filter(Boolean).join(" ") : "",
+            automated: automationText(item),
+            // Its Energy cost as the character's other perks leave it (Efficient Fire: one less), and the
+            // ammo an attack active spends (2026-10-18).
+            ...abilityCost(item, abilities),
+            // A passive with limited uses (Swift Hands) is used from its tile.
+            usable: (s.kind === "passive") && !!perkUses(item),
+            ruledUses: perkUses(item, Object.fromEntries(Object.entries(this.actor.system.attributes ?? {}).map(([k, a]) => [k, a.mod])))
           };
           (s.kind === "active" ? out.activeAbilities : out.passiveAbilities).push(row);
           break;
@@ -2584,7 +2606,7 @@ async function medalDialog(title, medal = {}, okLabel = "Award") {
       <label class="irop-choose"><span>Mission</span><input type="text" name="mission" value="${esc(medal.mission)}" list="irop-medal-missions" placeholder="Week 3: Scavenge (Neo Seattle)"></label>
       <datalist id="irop-medal-missions">${options(missions)}</datalist>
       <label class="irop-choose"><span>Date</span><input type="text" name="date" value="${esc(medal.date)}"></label>
-      <label class="irop-choose medal-why"><span>Why</span><textarea name="description" rows="4" placeholder="Held the dam road alone for three rounds while the squad pulled the wounded out.">${esc(medal.description)}</textarea></label>
+      <label class="irop-choose medal-reason"><span>Why</span><textarea name="description" rows="5" placeholder="Held the dam road alone for three rounds while the squad pulled the wounded out.">${esc(medal.description)}</textarea></label>
     </div>`,
     ok: { label: okLabel, icon: "fa-solid fa-medal" }
   });
@@ -2600,4 +2622,18 @@ export function medalCardHTML(who, medal) {
     <p class="medal-award"><span class="medal-ribbon" style="${medalRibbon(medal.name)}"></span><span><strong>${escapeText(who)}</strong> is awarded the <strong>${escapeText(medal.name)}</strong>${medal.mission ? `, ${escapeText(medal.mission)}` : ""}.</span></p>
     ${medal.description ? `<p class="medal-why">${escapeText(medal.description)}</p>` : ""}
   </div>`;
+}
+
+/** An ability's Energy cost and ammo on the sheet, as the character's perks leave them. */
+export function abilityCost(item, abilities) {
+  const base = Number(item.system.energyCost) || 0;
+  const up = abilityAsUpgraded(item, abilities);
+  const changed = up.energy !== base;
+  const ammo = up.attack ? up.attack.ammo : (up.ammoOnly || 0);
+  return {
+    energy: up.energy,
+    energyTip: changed ? `Energy cost: ${up.energy}, from ${base}, changed by your perks` : "Energy cost",
+    energyChanged: changed,
+    ammoCost: (ammo > 1) ? ammo : 0
+  };
 }

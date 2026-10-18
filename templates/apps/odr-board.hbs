@@ -35,7 +35,7 @@
     {{else}}
     <div class="os-progress">
       <div class="os-track"><span style="width: {{pct}}%"></span></div>
-      <span class="os-count">{{progress}} / {{cost}} {{resource}}</span>
+      <span class="os-count">{{progress}} / {{cost}} {{unit}}</span>
     </div>
     <p class="os-weekly" data-tooltip="{{breakdown}}">+{{weekly}} next turn</p>
     {{/if}}
@@ -69,7 +69,7 @@
     <img src="{{img}}" alt="">
     <div class="or-main">
       <a class="or-name" data-action="openProject">{{name}}</a>{{#if hidden}} <span class="or-flag">Hidden</span>{{/if}}
-      <span class="or-sub">{{#if cost}}{{cost}} {{resource}}{{else}}No cost yet{{/if}}{{#if progress}}, {{progress}} done{{/if}}. {{skills}}</span>
+      <span class="or-sub">{{#if cost}}{{cost}} {{unit}}{{else}}No cost yet{{/if}}{{#if progress}}, {{progress}} done{{/if}}. {{skills}}</span>
       {{#if description}}<details class="or-desc"><summary>Briefing</summary>{{{description}}}</details>{{/if}}
     </div>
     <div class="or-actions">

@@ -1,3 +1,4 @@
+import { WEAPON_TYPES } from "./rules/weapon-types.mjs";
 /**
  * IROP CONFIGURATION AND ASSUMPTIONS BLOCK
  * ========================================
@@ -487,6 +488,15 @@ IROP.weaponHandling = {
 };
 
 /** HANDOFF Section 6: range bands. The D.M. for each lives on the weapon. */
+/**
+ * What a project's progress is counted in, on the board and its sheet (Johnald, 2026-10-18): Progression,
+ * not the Logistics or Intel that may be spent to push it.
+ */
+IROP.progressUnit = "Progression";
+
+/** Weapon types, finer than classes, for the role perks (Johnald, 2026-10-18). See rules/weapon-types.mjs. */
+IROP.weaponTypes = WEAPON_TYPES;
+
 IROP.rangeBands = {
   short: "Short",
   medium: "Medium",
