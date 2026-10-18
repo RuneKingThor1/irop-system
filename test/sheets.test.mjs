@@ -4589,7 +4589,7 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
 {
   const gunner = makeActor("operative", OperativeData, {}, [
     { type: "weapon", name: "T1 SAW", id: "saw", system: { category: "ranged", weaponClass: "saturation", tier: 3, damage: { formula: "2d6", type: "ballistic" }, critical: { chance: 0 } } },
-    { type: "ability", name: "Eat Lead", id: "el", system: { kind: "active", energyCost: 6, source: "warmachine" } },
+    { type: "ability", name: "Walk'em Down", id: "el", system: { kind: "active", energyCost: 6, source: "warmachine" } },
     { type: "ability", name: "Efficient Fire", id: "ef", system: { kind: "passive", source: "warmachine" } },
     { type: "ability", name: "Shredder", id: "sh", system: { kind: "passive", source: "warmachine" } },
     { type: "ability", name: "SAW Specialist I", id: "ss", system: { kind: "passive", source: "warmachine" } },
@@ -4598,7 +4598,7 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   const { out: gOut } = await renderSheet(OperativeSheet, gunner);
   const abilitiesDoc = new JSDOM(gOut.abilities).window.document;
   const eatChip = abilitiesDoc.querySelector('[data-item-id="el"] .stat-chip.energy');
-  check("perks on the sheet: Eat Lead's Energy chip reads 5 after Efficient Fire, marked and explained, with its 2 ammo",
+  check("perks on the sheet: Walk'em Down's Energy chip reads 5 after Efficient Fire, marked and explained, with its 2 ammo",
     (eatChip?.textContent.trim() === "5 EN") && eatChip.classList.contains("from-perks") && /from 6/.test(eatChip.dataset.tooltip)
       && /2 ammo/.test(abilitiesDoc.querySelector('[data-item-id="el"]').textContent), eatChip?.outerHTML);
   const row = new JSDOM(gOut.combat).window.document.querySelector('[data-item-id="saw"]');

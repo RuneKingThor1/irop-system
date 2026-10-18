@@ -1383,9 +1383,17 @@ check("disorientated both ways",
   const axe = cls => pk.perkOptions(ab(["Fluid Motions", "Hard as Nails"]), { weapon: { system: { weaponType: "axe", weaponClass: cls, category: "melee" } } }).auto.map(m => m.from);
   check("perks: Fluid Motions for one handed axes, Hard as Nails for two handed", (axe("oneHanded").join() === "Fluid Motions,Fluid Motions") && (axe("twoHanded").join() === "Hard as Nails"));
   // Actives: set accuracy, ammo, blast, damage.
-  const eat = pk.abilityAsUpgraded({ name: "Eat Lead", system: { energyCost: 6 } }, [{ name: "Eat Lead", system: {} }, ...ab(["Get Some!", "One Man Army", "Efficient Fire"])]);
-  check("perks: Eat Lead with Get Some!, One Man Army and Efficient Fire: -10 (the better set), 2 ammo, 5 Energy",
+  const eat = pk.abilityAsUpgraded({ name: "Walk'em Down", system: { energyCost: 6 } }, [{ name: "Walk'em Down", system: {} }, ...ab(["Get Some!", "One Man Army", "Efficient Fire"])]);
+  check("perks: Walk'em Down with Get Some!, One Man Army and Efficient Fire: -10 (the better set), 2 ammo, 5 Energy",
     (eat.attack.accuracy === -10) && (eat.attack.ammo === 2) && (eat.energy === 5));
+  // Renamed from Eat Lead (2026-10-18): the old name still answers, upgrades and their text included.
+  const oldKit = [{ name: "Eat Lead", system: {} }, ...ab(["Get Some!", "Efficient Fire"])];
+  oldKit[1].system.description = "<p>Area Suppression : Bigger zone. Eat Lead! : Now gains a -10 D.M. to the attack.</p>";
+  const old = pk.abilityAsUpgraded({ name: "Eat Lead", system: { energyCost: 6 } }, oldKit);
+  const renamed = pk.abilityAsUpgraded({ name: "Walk'em Down", system: { energyCost: 6 } }, [{ name: "Walk'em Down", system: {} }, ...oldKit.slice(1)]);
+  check("perks: Eat Lead, renamed Walk'em Down, works under either name, upgrades and their old text alike",
+    (pk.canonicalName("Eat Lead") === "Walk'em Down") && (old.attack.accuracy === -10) && (old.energy === 5) && (renamed.attack.accuracy === -10)
+      && /-10 D\.M\. to the attack/.test(renamed.upgrades.find(u => u.from === "Get Some!")?.text ?? ""), JSON.stringify(renamed.upgrades));
   const supp = pk.abilityAsUpgraded({ name: "Area Suppression", system: { energyCost: 6 } }, [{ name: "Area Suppression", system: {} }, ...ab(["Get Some!"])]);
   check("perks: Area Suppression spends 5 ammo with no roll, 4 with Get Some!", (supp.ammoOnly === 4) && !supp.attack);
   const vital = pk.abilityAsUpgraded({ name: "Vital Shot", system: { energyCost: 5 } }, []);

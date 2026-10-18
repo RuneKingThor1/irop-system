@@ -35,6 +35,7 @@
  *             critical: [attribute mods added to Critical]}
  *   slots     extra mod slots: [{types | classes | armorClass, value}]
  *   chem      chemthrowers: {fuelCost, dieUp, statusUp, saveDm, drBypass, damageTypes}
+ *   aka       older names the perk still answers to (a world renamed later)
  *   roles     the same name in another doctrine with other numbers: {roleKey: entry}, by the perk's Source
  *   (a mod's byWeaponTier: [values by the weapon's Tier] is read off the weapon attacking)
  */
@@ -202,12 +203,13 @@ export const PERK_RULES = {
   /* ================= Warmachine ================= */
   /* ---- Primary ---- */
   "Area Suppression": { ammoOnly: 5 },
-  "Eat Lead": { attack: { accuracy: 10, ammo: 3 } },
-  // ASSUMPTION: "your chosen Primary Role ability" is Eat Lead, whose own text names Efficient Fire.
-  "Efficient Fire": { upgrades: { "Eat Lead": { energy: -1, ammoDelta: -1 } } },
+  // Renamed from Eat Lead (Johnald, 2026-10-18); a world not yet renamed still matches the old name.
+  "Walk'em Down": { aka: ["Eat Lead"], attack: { accuracy: 10, ammo: 3 } },
+  // ASSUMPTION: "your chosen Primary Role ability" is Walk'em Down, whose own text names Efficient Fire.
+  "Efficient Fire": { upgrades: { "Walk'em Down": { energy: -1, ammoDelta: -1 } } },
   "Efficient Packing": { actor: { bonuses: { carry: 10 } } },
-  "Get Some!": { upgrades: { "Area Suppression": { ammoDelta: -1 }, "Eat Lead": { accuracyTo: -10 } } },
-  "One Man Army": { upgrades: { "Eat Lead": { accuracyTo: 0 }, "Area Suppression": { energy: -1 } } },
+  "Get Some!": { upgrades: { "Area Suppression": { ammoDelta: -1 }, "Walk'em Down": { accuracyTo: -10 } } },
+  "One Man Army": { upgrades: { "Walk'em Down": { accuracyTo: 0 }, "Area Suppression": { energy: -1 } } },
   "Heavy Armor Mastery I": { armor: { pct: { heavy: 50 } } },
   "Heavy Armor Mastery II": { armor: { drAll: { heavy: 1 } } },
   "LMG Specialist I": { mods: [{ stat: "attack", value: -3, types: ["lmg"], bands: ["medium", "long"] }, { stat: "critDamage", value: 1, types: ["lmg"] }] },

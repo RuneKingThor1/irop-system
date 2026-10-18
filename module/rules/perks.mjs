@@ -10,7 +10,19 @@ import { weaponTypeOf } from "./weapon-types.mjs";
  * to. Kept apart from Foundry so it can be tested.
  */
 
-const RULES = new Map(Object.entries(PERK_RULES).map(([name, rule]) => [perkKey(name), { name, ...rule }]));
+const RULES = new Map(Object.entries(PERK_RULES).flatMap(([name, rule]) =>
+  [name, ...(rule.aka ?? [])].map(n => [perkKey(n), { name, ...rule }])));
+
+/** A perk's name as the rules know it now: an old name (Eat Lead) gives its new one (Walk'em Down). */
+export function canonicalName(name) {
+  return RULES.get(perkKey(name))?.name ?? name;
+}
+
+/** Every name a perk goes by: its own, and its old ones. */
+function namesOf(name) {
+  const rule = RULES.get(perkKey(name));
+  return rule ? [rule.name, ...(rule.aka ?? [])] : [name];
+}
 
 const signed = n => ((n > 0) ? `+${n}` : `${n}`);
 const bandLabel = b => IROP.rangeBands[b] ?? b;
@@ -214,12 +226,13 @@ export function abilityAsUpgraded(ability, abilities = [], plain = h => String(h
   let energy = Number(ability.system?.energyCost) || 0;
   const setTo = [];
   const upgrades = [];
-  const key = perkKey(ability.name);
-  const names = abilities.map(a => a.name).filter(n => perkKey(n) !== key);
+  const key = perkKey(canonicalName(ability.name));
+  const same = n => perkKey(canonicalName(n)) === key;
+  const names = abilities.map(a => a.name).filter(n => !same(n)).flatMap(namesOf);
   for ( const other of abilities ) {
-    if ( perkKey(other.name) === key ) continue;
+    if ( same(other.name) ) continue;
     const up = ruleFor(other)?.upgrades;
-    const change = up ? Object.entries(up).find(([n]) => perkKey(n) === key)?.[1] : null;
+    const change = up ? Object.entries(up).find(([n]) => same(n))?.[1] : null;
     if ( change ) {
       energy += Number(change.energy) || 0;
       if ( ammoOnly ) ammoOnly = Math.max(0, ammoOnly + (Number(change.ammoDelta) || 0));
@@ -235,7 +248,9 @@ export function abilityAsUpgraded(ability, abilities = [], plain = h => String(h
         if ( change.fullDamage ) attack.halfDamage = false;
       }
     }
-    const text = upgradeText(plain(other.system?.description), ability.name, names);
+    // Its text about this ability, under any name it has gone by.
+    let text = "";
+    for ( const n of namesOf(ability.name) ) if ( !text ) text = upgradeText(plain(other.system?.description), n, names);
     if ( text ) upgrades.push({ from: other.name, text });
   }
   // "Now made at +0", "-10 instead": the best of what the upgrades set it to, then what they add.
@@ -267,7 +282,9 @@ export function upgradeText(text, name, otherNames = []) {
 
 /** Where "Name:" or "Name :" starts in a text, from a position, or -1. */
 function findLabel(text, name, from = 0) {
-  const rx = new RegExp(`${String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/!$/, "!?")}\\s?:`, "gi");
+  // "Eat Lead! :" and "Eat Lead:" alike: a name's own "!" is optional, and another may follow it.
+  const core = String(name).replace(/!+$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const rx = new RegExp(`${core}!?\\s?:`, "gi");
   rx.lastIndex = from;
   const m = rx.exec(text);
   return m ? m.index : -1;

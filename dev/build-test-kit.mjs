@@ -299,7 +299,7 @@ const ROLE_TABLE = {
   outrider: ["Stealth, Acrobatics or Lockpicking", "Agility, Perception", "Sniper Rifles, DMRs, Pistols, Magnums, Knives",
     "Disabling Shot, Hit and Run, Called Shot", "Ghost, Sharpshooter, Gunslinger"],
   warmachine: ["Athletics, Survivalism or Coercion", "Toughness, Perception", "LMGs, SAWs, Rocket Launchers, Turrets",
-    "Eat Lead!, Area Suppression, Sweeping Fire", "Rocketeer, Guardian, Machinist"],
+    "Walk'em Down, Area Suppression, Sweeping Fire", "Rocketeer, Guardian, Machinist"],
   vanguard: ["Athletics, Tactics or History", "Strength, Toughness", "One and Two Handed Melee, Shields",
     "Bladestorm, Charge, Cross Strike", "Frontbreaker, Knight, Duelist"]
 };
