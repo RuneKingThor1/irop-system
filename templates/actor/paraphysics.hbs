@@ -1,15 +1,78 @@
 <section class="tab paraphysics {{tab.cssClass}}" data-group="primary" data-tab="paraphysics">
-  {{!-- Its own tab (Johnald, 2026-10-16), only for a paraphysical character (and a GM in Edit mode, to set the first ranks). --}}
-  <div class="panel paraphysics">
-    <header class="panel-head"><h3>Paraphysics</h3></header>
-    <div class="discipline-row">
-      {{#each disciplines as |d|}}
-      <label class="discipline">
-        <span class="mono-label">{{d.label}}</span>
-        {{#if @root.editMode}}<input type="number" name="system.paraphysics.{{d.key}}" value="{{d.rank}}">
-        {{else}}<span class="stat-value">{{d.rank}}</span>{{/if}}
-      </label>
-      {{/each}}
-    </div>
+  {{!-- Its own tab (Johnald, 2026-10-16), only for a paraphysical character (and a GM in Edit mode, to set the first ranks).
+        Paraphysics Framework Draft 0.6 (2026-10-18 and 19). Layout B with A's chip strip (Johnald, 2026-10-19):
+        a slim strip of stats, the disciplines down the left, the picked discipline's powers on the right. --}}
+  {{#with psi as |p|}}
+  <div class="psi-strip">
+    <span class="stat-chip" data-tooltip="The attribute paraphysical attacks roll under; its modifier sets the optimal range bonus">Casts on {{p.casting}}</span>
+    <span class="stat-chip psi-crystals" data-tooltip="Psycrystals unlock a power (rank 1), evolve it (rank 5), and two awaken a person. The GM hands them out.">
+      {{#if p.gm}}<button type="button" class="step" data-action="adjust" data-path="system.psi.crystals" data-delta="-1" data-tooltip="One fewer"><i class="fa-solid fa-minus"></i></button>{{/if}}
+      <i class="fa-solid fa-gem"></i> {{p.crystals}} psycrystal{{#unless (eq p.crystals 1)}}s{{/unless}}
+      {{#if p.gm}}<button type="button" class="step" data-action="adjust" data-path="system.psi.crystals" data-delta="1" data-tooltip="Give one"><i class="fa-solid fa-plus"></i></button>{{/if}}
+    </span>
+    <span class="stat-chip" data-tooltip="Disciplines held, of how many the species can hold">Disciplines {{p.schools}}</span>
+    {{#if p.freePower}}<span class="stat-chip psi-free" data-tooltip="Drop a power of your awakened discipline on the sheet to learn it without a crystal"><i class="fa-solid fa-gift"></i> One power free</span>{{/if}}
+    {{#if p.canAwaken}}<button type="button" class="attack psi-awaken" data-action="awaken" data-tooltip="Spend {{p.awakenCost}} psycrystals to awaken"><i class="fa-solid fa-atom"></i> Awaken</button>{{/if}}
   </div>
+
+  <div class="psi-layout">
+    <ol class="panel psi-sidebar">
+      {{#each p.disciplines as |d|}}
+      <li class="psi-discipline {{#if d.selected}}selected{{/if}} {{#unless d.rank}}unranked{{/unless}} {{#unless d.open}}closed{{/unless}}"
+        data-action="selectDiscipline" data-discipline="{{d.key}}" data-tooltip="{{d.owns}}" role="button" tabindex="0">
+        <span class="psi-dname">{{d.label}}{{#unless d.open}} <span class="wave-tag">W2</span>{{/unless}}</span>
+        <span class="pips psi-pips">
+          {{#each d.pips as |pip|}}<button type="button" class="pip {{#if pip.filled}}filled{{/if}} {{#if pip.granted}}granted{{/if}} {{#if pip.buyable}}buyable{{/if}}"
+            data-action="buyDiscipline" data-discipline="{{d.key}}" data-rank="{{pip.n}}" {{#if pip.buyable}}data-tooltip="Buy rank {{pip.n}}: {{pip.cost}} XP"{{/if}}
+            {{#unless (or @root.editMode pip.buyable)}}disabled{{/unless}}></button>{{/each}}
+        </span>
+      </li>
+      {{/each}}
+    </ol>
+
+    {{#with p.selected as |d|}}
+    <div class="panel psi-main">
+      <header class="panel-head">
+        <h3>{{d.label}}</h3>
+        <span class="stat-chip {{#if d.full}}dim{{/if}}" data-tooltip="Powers held, of the rank's slots{{#if d.bonusText}}. Rank {{d.rank}}, {{d.bonusText}}{{/if}}">{{d.slots}} powers</span>
+      </header>
+      <ol class="item-list psi-powers">
+        {{#each d.powers as |w|}}
+        <li class="item-row power-row draggable" data-item-id="{{w.id}}">
+          <div class="row-main">
+            <img class="item-img" src="{{w.img}}" alt="" data-action="editItem" data-tooltip="Open the power">
+            <div class="item-name">
+              <span class="ability-name">{{w.name}}</span>
+              <span class="item-sub">{{#if w.formerly}}Evolved from {{w.formerly}} · {{/if}}Tier {{w.tier}}{{#if w.tracks}} · {{w.tracks}}{{/if}}{{#if w.save}} · Save {{w.save}}{{/if}}</span>
+            </div>
+            <span class="pips power-pips">
+              {{#each w.pips as |pip|}}<button type="button" class="pip {{#if pip.filled}}filled{{/if}} {{#if pip.crystal}}crystal{{/if}} {{#if pip.buyable}}buyable{{/if}}"
+                data-action="buyPowerRank" data-rank="{{pip.n}}" data-tooltip="{{pip.tip}}"
+                {{#unless (or pip.editable pip.buyable)}}disabled{{/unless}}></button>{{/each}}
+            </span>
+            {{#if w.energy}}<span class="stat-chip energy {{#if w.energyChanged}}from-perks{{/if}}" data-tooltip="{{w.energyTip}}">{{w.energy}} EN</span>{{/if}}
+            {{#if w.concentration}}<span class="stat-chip" data-tooltip="Concentration: Disorientated breaks it">CON</span>{{/if}}
+            <div class="row-controls">
+              <button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-{{#if w.attack}}crosshairs{{else}}bolt{{/if}}"></i> {{#if w.attack}}Cast{{else}}Use{{/if}}</button>
+              {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
+            </div>
+          </div>
+          {{#if w.choosing}}
+          <div class="power-choice">
+            <span class="mono-label">Rank 3: choose one</span>
+            {{#each w.choosing as |c|}}<button type="button" class="ghost" data-action="choosePower" data-choice="{{c.key}}" data-tooltip="{{c.text}}">{{c.label}}</button>{{/each}}
+          </div>
+          {{/if}}
+          {{#if w.noChoices}}<p class="hint power-note">This power offers no Rank 3 modifications yet.</p>{{/if}}
+          {{#if w.choice}}<p class="power-note"><span class="mono-label">Modified</span> {{w.choice}}</p>{{/if}}
+          {{#if w.evolution}}<p class="power-note"><span class="mono-label">Evolution</span> {{w.evolution}}</p>{{/if}}
+        </li>
+        {{else}}
+        <li class="empty-row">{{#if d.rank}}No {{d.label}} powers yet. Drop one on the sheet to learn it.{{else}}Buy rank 1 to open {{d.label}}.{{/if}}</li>
+        {{/each}}
+      </ol>
+    </div>
+    {{/with}}
+  </div>
+  {{/with}}
 </section>

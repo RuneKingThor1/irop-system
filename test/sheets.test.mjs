@@ -434,9 +434,10 @@ for ( const editMode of [false, true] ) {
   check(`operative ${mode}: the Medkit's heal reads 1d4 + the INT mod`,
     new RegExp(`· 1d4 \\+ ${intMod}`).test(gearDoc.querySelector(".gear-row .item-sub")?.textContent ?? ""));
   // The fixture knows a telekinesis attack, so it is paraphysical: the panel shows, with no subtext (2026-10-08).
-  const paraHead = [...new JSDOM(out.paraphysics ?? "").window.document.querySelectorAll(".panel-head")].find(h => h.querySelector("h3")?.textContent === "Paraphysics");
+  // Layout B (2026-10-19): the tab holds the chip strip and the discipline sidebar, no heading of its own.
+  const paraTab = new JSDOM(out.paraphysics ?? "").window.document;
   check(`operative ${mode}: a paraphysical character has the Paraphysics tab (2026-10-16), its panel there and not on Abilities`,
-    !!paraHead && !paraHead.querySelector(".hint") && !/<h3>Paraphysics<\/h3>/.test(out.abilities)
+    !!paraTab.querySelector(".psi-strip") && !!paraTab.querySelector(".psi-sidebar") && !/<h3>Paraphysics<\/h3>/.test(out.abilities)
       && new OperativeSheet(operative)._getTabsConfig("primary").tabs.map(t => t.id).slice(0, 3).join() === "main,abilities,paraphysics");
   check(`operative ${mode}: no subtext beside the Active abilities title`,
     ![...new JSDOM(out.abilities).window.document.querySelectorAll(".panel-head")]
@@ -3027,6 +3028,27 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
     check("perks on damage: a crit with +1 damage, +2 crit damage and +50% reads floor((2d6 + 2 + 1 + 2) * 1.5), 3 DR bypassed, the perks listed; half damage halves",
       (powered._formula.replace(/\s+/g, "") === "floor((2d6+2+1+2)*1.5)") && (powered.options.drBypass === 3) && (powered.options.perkNotes[0] === "Weapon Expert +1 damage")
         && (halved._formula.replace(/\s+/g, "") === "floor((2d6)*0.5)"), `${powered._formula} | ${halved._formula}`);
+    // Field Medic's medikits: three uses each, then one is spent; a Field Medikit needs the perk.
+    {
+      const medic = [];
+      medic.contents = medic;
+      medic.push({ id: "fm", name: "Field Medic", type: "ability", system: { source: "specialist" } });
+      const medikit = { id: "mk", name: "Field Medikit", type: "gear", updates: [],
+        system: { consumable: true, quantity: 2, used: 0, formula: "", description: "<p>Heals.</p><p>Requires : Field Medic</p><p>Cost: 15 Credits</p>" } };
+      medikit.update = async d => { medikit.updates.push(d); for ( const [k, v] of Object.entries(d) ) foundry.utils.setProperty(medikit, k, v); };
+      const doc = { name: "Doc", items: medic, system: {}, getRollData: () => ({}) };
+      const oldGameItems = game.items;
+      game.items = [{ type: "ability", name: "Field Medic" }];
+      for ( let i = 0; i < 3; i++ ) await rolls.useGear(doc, medikit);
+      const afterThree = { q: medikit.system.quantity, used: medikit.system.used };
+      const before = notes.length;
+      const rookie = { name: "Rookie", items: [], system: {}, getRollData: () => ({}) };
+      await rolls.useGear(rookie, medikit);
+      game.items = oldGameItems;
+      check("gear: with Field Medic a medikit gives three uses, then one is spent; without the perk a Field Medikit is refused",
+        (afterThree.q === 1) && (afterThree.used === 0) && medikit.updates.some(u => u["system.used"] === 2)
+          && /requires Field Medic; Rookie does not have it/.test(notes.slice(before).join(" ")), JSON.stringify(medikit.updates));
+    }
     // An attack made through an active that cannot crit refuses the critical roll.
     const before = notes.length;
     const refused = await rolls.rollCritical({ actorUuid: "Actor.leg", perk: { noCrit: true, through: "Chained Shot" } });
@@ -4479,7 +4501,7 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   game.user = { ...(userBefore ?? {}), isGM: true };
   const plainEdit = await renderSheet(OperativeSheet, plainHuman, { editMode: true });
   game.user = userBefore;
-  check("not paraphysical: a GM in edit mode still gets the tab, to set the first ranks", /<h3>Paraphysics<\/h3>/.test(plainEdit.out.paraphysics ?? "") && !/<h3>Paraphysics<\/h3>/.test(plainEdit.out.abilities));
+  check("not paraphysical: a GM in edit mode still gets the tab, to set the first ranks", /class="psi-sidebar|psi-sidebar/.test(plainEdit.out.paraphysics ?? "") && !/<h3>Paraphysics<\/h3>/.test(plainEdit.out.abilities));
   check("human: Boons take the full width", !/class="two-col"[\s\S]*?<h3>Boons/.test(out.abilities.split("<h3>Paraphysics")[0]));
 
   const baron = makeActor("operative", OperativeData, {}, [
@@ -7440,6 +7462,212 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   globalThis.Actor = oldActor;
   globalThis.CONFIG = oldConfig;
   globalThis.ChatMessage = oldChat;
+}
+
+// Paraphysics, Framework Draft 0.6 (2026-10-18 and 19): the tab, buying ranks, learning a power, undoing.
+{
+  const psiTab = await import("../module/sheets/paraphysics-tab.mjs");
+  const api = foundry.applications.api;
+  const saved = { confirm: api.DialogV2.confirm, input: api.DialogV2.input, ui: globalThis.ui, user: game.user };
+  const notes = [];
+  globalThis.ui = { notifications: { info: m => notes.push(m), warn: m => notes.push(m) } };
+  api.DialogV2.confirm = async () => true;
+  game.user = { isGM: false, name: "Player" };
+  const power = (name, o) => ({ type: "ability", name, system: { kind: "active", energyCost: o.energy, range: 8,
+    paraphysics: { discipline: "astrokinesis", attack: !!o.attack, tier: o.tier, rank: o.rank, trackA: o.a ?? "", trackB: o.b ?? "",
+      choices: o.choices ?? [], choice: o.choice ?? "", concentration: !!o.concentration, save: o.save ?? "", evolution: o.evolution ?? "" } } });
+  const psiActor = () => makeActor("operative", OperativeData, {
+    attributes: { cha: { base: 55 } }, paraphysics: { astrokinesis: 3 }, psi: { crystals: 1 }, xp: { earned: 600, log: [] }
+  }, [
+    { type: "species", name: "Human", system: { paraphysical: true } },
+    { id: "gb", ...power("Gravbolt", { tier: 1, rank: 2, energy: 3, attack: true, a: "accuracy", b: "damage", choices: ["chain", "piercing"] }) },
+    { id: "sf", ...power("Starfall", { tier: 2, rank: 3, energy: 5, a: "damage", b: "range", choices: ["wide", "efficient"] }) },
+    { id: "ln", ...power("The Long Night", { tier: 3, rank: 5, energy: 10, a: "duration", b: "potency", choices: ["anchored"], choice: "anchored", concentration: true, save: "tgh", evolution: "<p>It never ends.</p>" }) }
+  ]);
+  let actor = psiActor();
+  check("psi: the species casts on Charisma, holds up to five, and the discipline's ranks are in derived data",
+    actor.system.casting.attribute === "cha" && actor.system.casting.schools === 5 && actor.system.casting.held === 1
+      && actor.system.disciplines.astrokinesis.rank === 3 && actor.system.getRollData().paraphysics.astrokinesis === 3);
+  const { context, out } = await renderSheet(OperativeSheet, actor);
+  const psi = context.psi;
+  const astro = psi.disciplines.find(d => d.key === "astrokinesis");
+  check("psi tab: the six open disciplines show, wave two hidden from a player",
+    psi.disciplines.length === 6 && !psi.disciplines.some(d => d.key === "divining") && astro.rank === 3 && astro.slots === "3 of 6" && !astro.full,
+    JSON.stringify(psi.disciplines.map(d => d.key)));
+  const gb = astro.powers.find(w => w.name === "Gravbolt"), sf = astro.powers.find(w => w.name === "Starfall"), ln = astro.powers.find(w => w.name === "The Long Night");
+  check("psi tab: a power's next pip is for sale at its price, crystals at 1 and 5",
+    gb.pips.filter(p => p.filled).length === 2 && gb.pips[2].buyable && /Rank 3, its choice: 40 XP/.test(gb.pips[2].tip)
+      && gb.pips[0].crystal && gb.pips[4].crystal && !gb.pips[3].buyable && (gb.tracks === "Accuracy -10"), JSON.stringify(gb));
+  check("psi tab: Energy after the discipline discount (Starfall tier 2, base 5, Astrokinesis 3: 4) and Gravbolt's base 3 untouched",
+    sf.energy === 4 && sf.energyChanged && /discipline rank/.test(sf.energyTip) && gb.energy === 3 && !gb.energyChanged && ln.energy === 10,
+    JSON.stringify([sf.energy, gb.energy, ln.energy]));
+  check("psi tab: at Rank 3 with none taken, the power offers its choices; a taken one and an evolution read out",
+    sf.choosing?.map(c => c.key).join() === "wide,efficient" && !gb.choosing && /^Anchored/.test(ln.choice) && ln.evolution === "It never ends." && !ln.concentration && ln.save === "TGH");
+  const tab = new JSDOM(out.paraphysics).window.document;
+  check("psi tab: renders crystals, the next discipline rank for sale, the powers and the choice buttons",
+    /1/.test(tab.querySelector(".psi-crystals")?.textContent ?? "") && tab.querySelectorAll(".power-row").length === 3
+      && tab.querySelectorAll('[data-action="choosePower"]').length === 2
+      && tab.querySelector('.psi-discipline [data-action="buyDiscipline"][data-discipline="astrokinesis"][data-rank="4"]')?.dataset.tooltip === "Buy rank 4: 125 XP"
+      && !tab.querySelector('[data-action="awaken"]') && !tab.querySelector('[data-path="system.psi.crystals"]'));
+
+  // Layout B (2026-10-19): the slim strip, disciplines down the left, the picked one's powers.
+  check("psi tab: a slim strip of chips, six disciplines in the sidebar, the held one picked and its powers shown",
+    tab.querySelectorAll(".psi-strip .stat-chip").length === 3 && /1 psycrystal$/.test(tab.querySelector(".psi-crystals")?.textContent.trim() ?? "")
+      && tab.querySelectorAll(".psi-sidebar .psi-discipline").length === 6 && tab.querySelector(".psi-discipline.selected")?.dataset.discipline === "astrokinesis"
+      && tab.querySelector(".psi-main h3")?.textContent === "Astrokinesis" && !tab.querySelector(".psi-sidebar .item-sub"));
+  const picker = new OperativeSheet(actor);
+  picker.render = async () => picker;
+  await psiTab.onSelectDiscipline.call(picker, {}, { dataset: { discipline: "telepathy" } });
+  const other = new JSDOM(tpl("templates/actor/paraphysics.hbs")({ ...(await picker._prepareContext({})), tab: {} })).window.document;
+  check("psi tab: picking another discipline shows it, with an invitation when it is not held",
+    other.querySelector(".psi-main h3")?.textContent === "Telepathy" && /Buy rank 1 to open Telepathy/.test(other.querySelector(".psi-main .empty-row")?.textContent ?? ""));
+
+  // Buying, in Play mode.
+  const updates = [];
+  actor.update = async u => { updates.push(u); return actor; };
+  for ( const i of actor.items ) i.update = async u => { updates.push({ item: i.id, ...u }); return i; };
+  const sheet = { actor, isEditMode: false };
+  await psiTab.onBuyDiscipline.call(sheet, null, { dataset: { discipline: "astrokinesis", rank: "4" } });
+  let u = updates.pop();
+  check("psi: a discipline rank is bought for its XP and logged",
+    u["system.paraphysics.astrokinesis"] === 4 && u["system.xp.log"].at(-1).kind === "discipline" && u["system.xp.log"].at(-1).xp === 125 && u["system.xp.log"].at(-1).rank === 4);
+  await psiTab.onBuyPowerRank.call(sheet, null, { dataset: { rank: "3" }, closest: () => ({ dataset: { itemId: "gb" } }) });
+  const rankUp = updates.pop(), rankLog = updates.pop();
+  check("psi: a power rank is bought for XP and logged against the power",
+    rankUp.item === "gb" && rankUp["system.paraphysics.rank"] === 3 && rankLog["system.xp.log"].at(-1).kind === "power" && rankLog["system.xp.log"].at(-1).xp === 40);
+  notes.length = 0;
+  await psiTab.onBuyPowerRank.call(sheet, null, { dataset: { rank: "4" }, closest: () => ({ dataset: { itemId: "sf" } }) });
+  check("psi: Rank 4 waits on the Rank 3 choice", /Choose Starfall's Rank 3 modification first/.test(notes[0] ?? ""), notes[0]);
+  await psiTab.onChoosePower.call(sheet, null, { dataset: { choice: "efficient" }, closest: () => ({ dataset: { itemId: "sf" } }) });
+  check("psi: the choice is taken", updates.pop()["system.paraphysics.choice"] === "efficient");
+
+  // Learning a power: the slots are full until the discipline rises; then a crystal.
+  notes.length = 0;
+  const pull = { name: "Pull", type: "ability", system: { paraphysics: { discipline: "astrokinesis", tier: 1 } } };
+  let made = null;
+  const create = async () => { made = { id: "pl", name: "Pull", system: { paraphysics: { rank: 3 } }, update: async x => updates.push({ item: "pl", ...x }) }; return [made]; };
+  const fullUp = makeActor("operative", OperativeData, { paraphysics: { astrokinesis: 1 }, psi: { crystals: 1 }, xp: { earned: 600, log: [] } },
+    [{ type: "species", name: "Human", system: { paraphysical: true } }, { id: "a1", ...power("Gravbolt", { tier: 1, rank: 1, energy: 3 }) }, { id: "a2", ...power("Pulse", { tier: 1, rank: 1, energy: 2 }) }]);
+  check("psi: learning a power is refused while the discipline's slots are full (two per rank)",
+    (await psiTab.learnPower({ actor: fullUp }, pull, create)) === null && /rank 1 holds 2 powers, and all are taken/.test(notes[0] ?? ""), notes[0]);
+  actor = makeActor("operative", OperativeData, { attributes: { cha: { base: 55 } }, paraphysics: { astrokinesis: 4 }, psi: { crystals: 1 }, xp: { earned: 600, log: [] } },
+    [{ type: "species", name: "Human", system: { paraphysical: true } }, { id: "gb", ...power("Gravbolt", { tier: 1, rank: 1, energy: 3 }) }]);
+  actor.update = async x => { updates.push(x); return actor; };
+  const learned = await psiTab.learnPower({ actor }, pull, create);
+  const learnUpdate = updates.pop(), itemReset = updates.pop();
+  check("psi: a power is learned at Rank 1 for a psycrystal, logged",
+    learned === made && itemReset["system.paraphysics.rank"] === 1 && learnUpdate["system.psi.crystals"] === 0
+      && learnUpdate["system.xp.log"].at(-1).kind === "crystal" && learnUpdate["system.xp.log"].at(-1).xp === 0);
+  check("psi: the ledger shows crystals, not XP", psiTab.crystalAmount({ kind: "crystal" }) === "1 psycrystal"
+    && psiTab.crystalAmount({ kind: "awaken" }) === "2 psycrystals" && psiTab.crystalAmount({ kind: "awakenPower" }) === "free");
+
+  // Undoing (GM).
+  const upd = {};
+  let r = psiTab.refundPsi(actor, { kind: "discipline", ref: "astrokinesis", rank: 4 }, upd);
+  check("psi: undoing the top discipline rank takes it off", upd["system.paraphysics.astrokinesis"] === 3 && !r.remove.length);
+  const upd2 = {};
+  r = psiTab.refundPsi(actor, { kind: "crystal", ref: "gb", rank: 1 }, upd2);
+  check("psi: undoing a learned power gives the crystal back and removes it", upd2["system.psi.crystals"] === 2 && r.remove.join() === "gb");
+
+  // Awakening: a character with no paraphysics but the crystals sees the tab and the button.
+  const plain = makeActor("operative", OperativeData, { psi: { crystals: 2 }, xp: { earned: 100, log: [] } }, [{ type: "species", name: "Human", system: {} }]);
+  const plainSheet = new OperativeSheet(plain);
+  const plainOut = (await renderSheet(OperativeSheet, plain)).out;
+  check("psi: two crystals open the tab to a non paraphysical character, with an Awaken button",
+    plainSheet.showsParaphysics && !plain.system.isParaphysical && !!new JSDOM(plainOut.paraphysics ?? "").window.document.querySelector('[data-action="awaken"]'));
+  plain.update = async x => { updates.push(x); return plain; };
+  api.DialogV2.input = async () => ({ discipline: "telekinesis" });
+  await psiTab.onAwaken.call({ actor: plain }, null, null);
+  u = updates.pop();
+  check("psi: awakening spends 2 crystals, grants rank 1 and a free power, and is logged",
+    u["system.psi.crystals"] === 0 && u["system.psi.awakened"] && u["system.psi.freePower"] && u["system.paraphysics.telekinesis"] === 1 && u["system.xp.log"].at(-1).kind === "awaken");
+
+  // A Reticulon casts on Intelligence; a Telestoi's granted Telepathy rank raises its cap.
+  const ret = makeActor("operative", OperativeData, { attributes: { int: { base: 62 } } }, [{ type: "species", name: "Reticulon", system: { paraphysical: true, paraphysics: { attribute: "int", schools: 4 } } }]);
+  const tel = makeActor("operative", OperativeData, {}, [{ type: "species", name: "Telestoi", system: { paraphysical: true, paraphysics: { schools: 3, bonus: { telepathy: 1, optics: 1 } } } }]);
+  check("psi: species casting and granted ranks", ret.system.casting.attribute === "int" && ret.system.casting.mod === 6 && ret.system.casting.schools === 4
+    && tel.system.disciplines.telepathy.rank === 1 && tel.system.disciplines.telepathy.cap === 6 && tel.system.casting.held === 2,
+    JSON.stringify([ret.system.casting, tel.system.casting]));
+
+  // The old "Energy" discipline migrates to Astrokinesis.
+  check("psi: Energy ranks and powers migrate to Astrokinesis",
+    OperativeData.migrateData({ paraphysics: { energy: 2 } }).paraphysics.astrokinesis === 2
+      && itemModels.AbilityData.migrateData({ paraphysics: { discipline: "energy" } }).paraphysics.discipline === "astrokinesis");
+
+  // The attack: rank Accuracy, the focus and optimal range.
+  const rolls = await import("../module/rolls.mjs");
+  const caster = psiActor();
+  let pa = rolls.powerAttack(caster, caster.items.get("gb"));
+  check("psi attack: rank 2 gives -10, no focus carried, optimal range -10 at CHA 55",
+    pa.track === -10 && !pa.hasFocus && pa.focusValue === -15 && pa.optimal === -10, JSON.stringify(pa));
+  caster.items.push(Object.assign(new FakeDoc({}), { id: "fc", type: "gear", name: "Focus Stone", system: new itemModels.GearData({ kind: "focus", weight: 0.5 }) }));
+  pa = rolls.powerAttack(caster, caster.items.get("gb"));
+  check("psi attack: a carried focus is seen", pa.hasFocus);
+  const card = rolls.powerCard(caster, caster.items.get("ln"));
+  check("psi card: the save D.M., the modification and the evolution",
+    card.powerLines.some(l => l === "Target saves on Toughness at +15") && card.powerLines.some(l => /^Anchored/.test(l)) && card.powerLines.some(l => l === "Evolved: It never ends."),
+    JSON.stringify(card));
+
+  // Concealment: a carried focus is never hidden and fails every checkpoint.
+  const conceal = await import("../module/rules/concealment.mjs");
+  const focusItem = { id: "f", type: "gear", name: "Focus Stone", system: { kind: "focus", weight: 0.5, concealable: true } };
+  const load = conceal.concealmentLoad([focusItem], 40);
+  check("psi focus: never concealed, fails the checkpoint however light the load",
+    load.visible === 0.5 && load.exposed.join() === "Focus Stone" && !conceal.placeCheck(load, "slums").pass
+      && conceal.placeCheck(conceal.concealmentLoad([{ ...focusItem, system: { ...focusItem.system, stowed: true } }], 40), "slums").pass);
+
+  api.DialogV2.confirm = saved.confirm;
+  api.DialogV2.input = saved.input;
+  globalThis.ui = saved.ui;
+  game.user = saved.user;
+}
+
+// A power's Ranks tab (Johnald, 2026-10-19): each rank the GM's to write.
+{
+  const { IropItemSheet, powerRanksContext } = await import("../module/sheets/item-sheet.mjs");
+  const make = system => { const it = new FakeDoc({}); Object.assign(it, { id: "pw", type: "ability", name: "Gravbolt", img: "x.svg", uuid: "Item.pw" }); it.system = new itemModels.AbilityData(system, { parent: it }); return it; };
+  const gravbolt = make({ energyCost: 3, range: 8, paraphysics: { discipline: "astrokinesis", attack: true, tier: 1, rank: 1, trackA: "accuracy", trackB: "damage",
+    damage: { formula: "2d4 + @cha.mod", type: "cosmic" }, choices: ["chain"], evolution: "<p>Old text.</p>" } });
+  check("power ranks: old saved choices become editable copies, an old evolution its text",
+    gravbolt.system.paraphysics.options.length === 1 && gravbolt.system.paraphysics.options[0].label === "Chain" && gravbolt.system.paraphysics.options[0].archetype === "chain"
+      && gravbolt.system.paraphysics.evolution.text === "<p>Old text.</p>" && !("choices" in gravbolt.system.paraphysics));
+  const sheet = new IropItemSheet(gravbolt);
+  check("power ranks: the Ranks tab is a power's only", sheet.isPower && sheet._getTabsConfig("primary").tabs.some(t => t.id === "ranks")
+    && !new IropItemSheet(make({ paraphysics: { discipline: "" } }))._getTabsConfig("primary").tabs.some(t => t.id === "ranks"));
+  const ctx = powerRanksContext(gravbolt.system.paraphysics);
+  const field = (step, key) => step.fields.find(f => f.name.endsWith(`.${key}`));
+  check("power ranks: blank Rank 2 and 4 Accuracy show the track defaults as placeholders",
+    field(ctx.steps[0], "accuracy").placeholder === -10 && field(ctx.steps[1], "accuracy").placeholder === -15 && field(ctx.steps[0], "accuracy").value === ""
+      && field(ctx.steps[0], "potency").placeholder === 0 && ctx.steps[0].cost === "20 XP" && ctx.steps[1].cost === "60 XP");
+  const html = tpl("templates/item/power-ranks.hbs")({ powerRanks: ctx, system: gravbolt.system, editable: true, tab: {} });
+  const doc = new JSDOM(html).window.document;
+  check("power ranks: five cards; Rank 1 binds the power's own fields; the option and evolution have their inputs",
+    doc.querySelectorAll(".rank-card").length === 5 && !!doc.querySelector('input[name="system.energyCost"]') && !!doc.querySelector('input[name="system.paraphysics.duration"]')
+      && !!doc.querySelector('input[name="system.paraphysics.rank2.accuracy"][placeholder="-10"]') && !!doc.querySelector('input[name="system.paraphysics.options.0.label"][value="Chain"]')
+      && !!doc.querySelector('input[name="system.paraphysics.options.0.anchored"]') && !!doc.querySelector('[name="system.paraphysics.evolution.concentration"]')
+      && !!doc.querySelector('select.power-library-pick option[value="wide"]') && !doc.querySelector('select.power-library-pick option[value="chain"]')
+      && doc.querySelectorAll('[data-action="addPowerOption"]').length === 2 && [...doc.querySelectorAll("[data-action]")].every(b => b.dataset.action in IropItemSheet.DEFAULT_OPTIONS.actions));
+  // The form's options, keyed by place, go back as a list. (Foundry's own step expands the form; the stand-in here does the same.)
+  const base = Object.getPrototypeOf(IropItemSheet.prototype);
+  base._processFormData ??= (event, form, formData) => foundry.utils.expandObject(formData.object);
+  const processed = IropItemSheet.prototype._processFormData.call(Object.create(IropItemSheet.prototype), null, null,
+    { object: { "system.paraphysics.options.1.label": "B", "system.paraphysics.options.0.label": "A", "system.paraphysics.options.0.id": "a", "system.paraphysics.options.1.id": "b" } });
+  check("power ranks: the options come back from the form as a list, in order",
+    Array.isArray(processed.system?.paraphysics?.options) && processed.system.paraphysics.options.map(o => o.label).join() === "A,B", JSON.stringify(processed));
+  // Adding and removing.
+  const updates = [];
+  gravbolt.update = async u => { updates.push(u); return gravbolt; };
+  const ui = { item: gravbolt, element: { querySelector: () => ({ value: "efficient" }) } };
+  await IropItemSheet.DEFAULT_OPTIONS.actions.addPowerOption.call(ui, null, { dataset: { kind: "library" } });
+  let u = updates.pop()["system.paraphysics.options"];
+  check("power ranks: a library archetype is added as a copy with its numbers", u.length === 2 && u[1].label === "Efficient" && u[1].energy === -1 && u[1].archetype === "efficient");
+  await IropItemSheet.DEFAULT_OPTIONS.actions.addPowerOption.call(ui, null, { dataset: { kind: "custom" } });
+  u = updates.pop()["system.paraphysics.options"];
+  check("power ranks: a custom option starts blank", u.length === 2 && u[1].label === "New option" && !u[1].archetype);
+  gravbolt.system.paraphysics.choice = gravbolt.system.paraphysics.options[0].id;
+  await IropItemSheet.DEFAULT_OPTIONS.actions.removePowerOption.call(ui, null, { closest: () => ({ dataset: { optionId: gravbolt.system.paraphysics.options[0].id } }) });
+  u = updates.pop();
+  check("power ranks: removing the option taken opens the choice again", u["system.paraphysics.options"].length === 0 && u["system.paraphysics.choice"] === "");
 }
 
 console.log(`${pass} passed, ${fail} failed`);

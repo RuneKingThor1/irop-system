@@ -2,7 +2,10 @@ import { IROP } from "./config.mjs";
 import { DICE, DICE_ORDER, DIFFICULTY, BANK_CAP } from "./rules/dynosrs.mjs";
 import { rangesWithMods } from "./rules/mods.mjs";
 import { weaponTypeOf } from "./rules/weapon-types.mjs";
-import { perkOptions, perkResult, perkRule, perkUses, abilityAsUpgraded, perkBlast, attackAccuracy, chemPerks, dieUp, weaponPerkSummary } from "./rules/perks.mjs";
+import { perkOptions, perkResult, perkRule, perkUses, abilityAsUpgraded, perkBlast, attackAccuracy, chemPerks, dieUp, weaponPerkSummary, gearCharges, requiredAbility } from "./rules/perks.mjs";
+import { perkKey } from "./rules/skill-trees.mjs";
+import { powerAccuracy, powerSaveDm, needsConcentration, trackText, powerTotals } from "./rules/paraphysics.mjs";
+import { isFocus } from "./rules/concealment.mjs";
 import { COVER, MODIFIERS, ENGAGED_BY_HANDLING, SCATTER, collectModifiers } from "./rules/combat.mjs";
 import { DynosrsRoll } from "./dice/dynosrs-roll.mjs";
 import { D100Roll, DamageRoll } from "./dice/d100-roll.mjs";
@@ -259,10 +262,15 @@ export function attackProfile(item, { projectile = 0 } = {}) {
   }
   if ( (item.type === "ability") && s.paraphysics.attack ) {
     const p = s.paraphysics;
+    // What its ranks, choice and evolution add (2026-10-19): damage parts, a new damage type, an area.
+    const t = powerTotals(p);
+    const formula = [p.damage.formula, ...t.damage].filter(f => String(f ?? "").trim()).join(" + ");
+    const area = (Number(s.area) || 0) + t.area;
     return {
       kind: "paraphysics",
       category: "paraphysics",
-      attribute: "cha",
+      // The species' casting attribute: Charisma, Intelligence for a Reticulon (2026-10-19).
+      attribute: item.actor?.system?.casting?.attribute ?? "cha",
       accuracy: p.accuracy,
       handling: "light",
       ranged: true,
@@ -270,9 +278,10 @@ export function attackProfile(item, { projectile = 0 } = {}) {
       paraphysical: true,
       ranges: null,
       critChance: 0,
-      damage: p.damage.formula ? { formula: p.damage.formula, type: p.damage.type, critDamage: 0, shred: 0, penetration: 0 } : null,
+      damage: formula ? { formula, type: t.damageType || p.damage.type, critDamage: 0, shred: 0, penetration: 0 } : null,
       scatter: null,
-      blast: 0
+      blast: area,
+      template: "circle"
     };
   }
   return null;
@@ -296,6 +305,25 @@ export function perkContext(actor) {
       armor: items.filter(i => (i.type === "armor") && i.system.equipped && !i.system.stowed).map(i => ({ armorClass: i.system.armorClass, tier: i.system.tier })),
       equipped: items.filter(i => (i.type === "weapon") && i.system.equipped && !i.system.stowed).map(i => i.system.weaponType)
     }
+  };
+}
+
+/**
+ * What a power brings to its attack roll (Paraphysics Framework Draft 0.6, 2026-10-19): its rank's
+ * Accuracy, a focus (-20 under the shared -25 ceiling, if one is carried) and the In Optimal Range
+ * bonus, twice the casting modifier. The Out of Optimal Range penalty is not set yet.
+ */
+export function powerAttack(actor, item) {
+  const p = item.system.paraphysics;
+  const hasFocus = !!actor?.items?.some?.(i => isFocus(i) && !i.system.stowed);
+  const mod = actor?.system?.casting?.mod ?? actor?.system?.attributes?.cha?.mod ?? 0;
+  const track = powerAccuracy(p).track;
+  const focusValue = powerAccuracy(p, { focus: true }).focus;
+  const optimal = -(IROP.paraphysics.optimalRangeTimes * mod);
+  return {
+    rank: p.rank, track, trackText: signed(track), hasFocus, focusValue, focusText: signed(focusValue),
+    optimal, optimalText: signed(optimal), range: (Number(item.system.range) || 0) + powerTotals(p).range,
+    concentration: needsConcentration(p)
   };
 }
 
@@ -382,8 +410,9 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
     return ui.notifications.warn(`${through.name} needs ${through.ammo} ammo; ${item.name} has ${s.ammo.value}.`);
   }
 
+  const power = profile.paraphysical ? powerAttack(actor, item) : null;
   const data = await formDialog(`Attack: ${through ? `${through.name}, ` : ""}${label}`, "attack.hbs", {
-    perks, through,
+    perks, through, power,
     itemName: label,
     img: item.img,
     targetLabel: `${attr.label} ${attr.value}`,
@@ -420,12 +449,20 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
   if ( profile.ammo?.accuracy ) modifiers.push({ label: profile.ammo.name, value: profile.ammo.accuracy });
   // The perks chosen, and the active it was made through.
   const pick = (group, key) => data[`${group}.${key}`] ?? data[group]?.[key];
+  // A power's own lines (2026-10-19): its rank, the focus, optimal range. Its damage skips the Armor
+  // HP pool: barrier first, then HP (Framework PSI-07).
+  if ( power ) {
+    if ( power.track ) modifiers.push({ label: `${item.name} rank ${power.rank}`, value: power.track });
+    if ( power.focusValue && pick("psi", "focus") ) modifiers.push({ label: "Paraphysical focus", value: power.focusValue });
+    if ( power.optimal && pick("psi", "optimal") ) modifiers.push({ label: "In optimal range", value: power.optimal });
+  }
   const perk = perkResult(perks, {
     band, melee: s.category === "melee",
     ticked: perks.situations.filter(t => pick("perk", t.key)).map(t => t.key),
     counts: Object.fromEntries(perks.scales.map(t => [t.key, Number(pick("perkCount", t.key)) || 0]))
   });
   modifiers.push(...perk.attack);
+  if ( power ) perk.notes.push("Paraphysical: skips Armor HP; barrier first, then HP");
   if ( through?.accuracy ) modifiers.push({ label: through.name, value: through.accuracy });
   if ( through?.autoHit ) modifiers.push({ label: `${through.name}: cannot miss`, value: -200 });
   if ( through?.critical ) perk.critical.push({ label: through.name, value: through.critical });
@@ -881,7 +918,7 @@ export async function useAbility(actor, item) {
     return message ?? null;
   }
   await spend();
-  return postItemCard(actor, item, { spent: cost, upgrades: upgraded.upgrades });
+  return postItemCard(actor, item, { spent: cost, upgrades: upgraded.upgrades, ...powerCard(actor, item) });
 }
 
 /**
@@ -928,17 +965,53 @@ function lastAttackOn(actor) {
 export async function useGear(actor, item) {
   const s = item.system;
   if ( s.quantity <= 0 ) return ui.notifications.warn(`${actor.name} has no ${item.name} left.`);
+  // Gear that names an ability it needs (the Field Medikit: "Requires : Field Medic"), checked when that
+  // ability exists in the world (2026-10-18).
+  const needs = requiredAbility(s.description);
+  if ( needs ) {
+    const key = perkKey(needs);
+    const known = (game.items?.some?.(i => (i.type === "ability") && (perkKey(i.name) === key))) ?? false;
+    const has = actor.items?.some?.(i => (i.type === "ability") && (perkKey(i.name) === key));
+    if ( known && !has ) return ui.notifications.warn(`${item.name} requires ${needs}; ${actor.name} does not have it.`);
+  }
   if ( s.formula ) {
     const roll = new foundry.dice.Roll(s.formula, actor.getRollData());
     await roll.evaluate();
     await roll.toMessage({ speaker: speakerFor(actor), flavor: `${item.name}` });
   }
   else await postItemCard(actor, item);
-  if ( s.consumable ) await consumeOne(item);
+  if ( s.consumable ) {
+    // Field Medic: a medikit gives two more uses before it is spent.
+    const per = 1 + gearCharges((actor.items?.filter?.(i => i.type === "ability") ?? []), item);
+    const used = (Number(s.used) || 0) + 1;
+    if ( used < per ) await item.update({ "system.used": used });
+    else {
+      if ( s.used ) await item.update({ "system.used": 0 });
+      await consumeOne(item);
+    }
+  }
   return null;
 }
 
 /** Post an item's card to chat. */
+/**
+ * A power's lines on its card (2026-10-19): its rank and tracks, the D.M. a save power puts on its
+ * target, Concentration, the modification taken and its evolution.
+ */
+export function powerCard(actor, item) {
+  const p = item.system?.paraphysics;
+  if ( !p?.discipline ) return {};
+  const tracks = trackText(p);
+  const totals = powerTotals(p);
+  const lines = [`Rank ${p.rank} of 5${tracks ? `: ${tracks}` : ""}`, ...totals.lines];
+  if ( p.save ) {
+    const attr = IROP.attributes[p.save]?.label ?? p.save;
+    lines.push(`Target saves on ${attr} at ${signed(powerSaveDm(p, actor?.system?.casting?.mod ?? 0))}`);
+  }
+  if ( totals.concentration ) lines.push("Concentration: Disorientated breaks it");
+  return { powerLines: lines };
+}
+
 export async function postItemCard(actor, item, extra = {}) {
   // A weapon's card lists what the poster's perks do with it (2026-10-18).
   const perkLines = ((item.type === "weapon") && actor) ? weaponPerkSummary((actor.items?.filter?.(i => i.type === "ability") ?? []), item, perkContext(actor)).lines : [];

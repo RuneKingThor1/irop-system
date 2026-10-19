@@ -1,5 +1,6 @@
 import { IROP } from "../config.mjs";
 import { slotPerks } from "../rules/perks.mjs";
+import { optionFromArchetype } from "../rules/paraphysics.mjs";
 
 const fields = foundry.data.fields;
 
@@ -63,6 +64,30 @@ export function migratePrices(source) {
 }
 
 /** A damage roll: a formula and a damage type. */
+/** What a rank, a choice or an evolution changes: numbers added, and damage added ("1d4", "+2"). */
+function changeFields() {
+  return {
+    accuracy: int(0), potency: int(0), damage: text(""), energy: int(0),
+    range: int(0), duration: int(0), area: int(0)
+  };
+}
+
+/** A Rank 2 or Rank 4 step: its text, and its numbers. Accuracy and Potency left blank take the track's default. */
+function powerStep() {
+  const nullable = () => new fields.NumberField({ required: true, nullable: true, integer: true, initial: null });
+  return new fields.SchemaField({
+    text: text(""),
+    ...changeFields(),
+    accuracy: nullable(),
+    potency: nullable()
+  });
+}
+
+/** The power tracks, for a choice field. */
+function trackChoices() {
+  return Object.fromEntries(Object.entries(IROP.powerTracks).map(([k, t]) => [k, t.label]));
+}
+
 function damage(type = "ballistic") {
   return new fields.SchemaField({
     formula: text(""),
@@ -269,6 +294,8 @@ export class GearData extends foundry.abstract.TypeDataModel {
       // A roll the item makes when used, such as a Medkit's "1d4 + @int.mod".
       formula: text(""),
       consumable: new fields.BooleanField({ initial: false }),
+      // Uses spent from the one in hand, for a consumable a perk gives more uses (Field Medic's medikits, 2026-10-18).
+      used: int(0, { min: 0 }),
       // Special ammunition loaded into a ranged weapon: that weapon's item id, blank if
       // not loaded (Johnald, 2026-10-08). Loaded ammo sits in the weapon's ammo slot.
       loadedIn: text(""),
@@ -335,6 +362,23 @@ export class ModData extends foundry.abstract.TypeDataModel {
 /* -------------------------------------------- */
 
 export class AbilityData extends foundry.abstract.TypeDataModel {
+  /** The Sandbox era "Energy" discipline is Astrokinesis now (2026-10-18). @override */
+  static migrateData(source) {
+    const p = source.paraphysics;
+    if ( p && (typeof p === "object") ) {
+      const moved = { energy: "astrokinesis", form: "vitakinesis", cosmic: "astrokinesis" }[p.discipline];
+      if ( moved ) p.discipline = moved;
+      // Rank 3 offered as library keys, and the evolution as plain text, before each rank was the
+      // GM's to write (2026-10-19): the keys become editable copies, the text the evolution's text.
+      if ( Array.isArray(p.choices) && !Array.isArray(p.options) ) {
+        p.options = p.choices.map(key => optionFromArchetype(key, key)).filter(Boolean);
+      }
+      delete p.choices;
+      if ( typeof p.evolution === "string" ) p.evolution = { text: p.evolution };
+    }
+    return super.migrateData(source);
+  }
+
   /** @override */
   static defineSchema() {
     return {
@@ -354,7 +398,45 @@ export class AbilityData extends foundry.abstract.TypeDataModel {
         discipline: new fields.StringField({ required: true, blank: true, initial: "", choices: () => IROP.disciplines }),
         attack: new fields.BooleanField({ initial: false }),
         accuracy: int(0),
-        damage: damage("psychic")
+        damage: damage("psychic"),
+        // As a power (Paraphysics Framework Draft 0.6, 2026-10-19): its tier (the discipline rank it
+        // needs), its own rank 1 to 5, the two tracks it advances, the archetypes it offers at Rank 3
+        // and the one taken, its Rank 5 evolution, and whether it needs Concentration. Energy is the
+        // ability's Energy cost, its base at the rank that unlocks it.
+        tier: int(1, { min: 1, max: 5 }),
+        rank: int(1, { min: 0, max: 5 }),
+        // The tracks are defaults only (2026-10-19): they fill Rank 2 and 4 where the GM leaves a field blank.
+        trackA: new fields.StringField({ required: true, blank: true, initial: "", choices: () => trackChoices() }),
+        trackB: new fields.StringField({ required: true, blank: true, initial: "", choices: () => trackChoices() }),
+        // Rank 1 is the power itself: its Energy cost, range and area, damage, and this many rounds.
+        duration: int(0, { min: 0 }),
+        // Each rank the GM's to write (Johnald, 2026-10-19): Ranks 2 and 4 are steps, Rank 3 the options
+        // the player picks one of (copied from the library or custom), Rank 5 the power's own evolution.
+        rank2: powerStep(),
+        rank4: powerStep(),
+        options: new fields.ArrayField(new fields.SchemaField({
+          id: new fields.StringField({ required: true, blank: false, initial: () => foundry.utils.randomID() }),
+          archetype: text(""),
+          label: text(""),
+          text: text(""),
+          ...changeFields(),
+          anchored: new fields.BooleanField({ initial: false })
+        })),
+        // The option taken, by its id.
+        choice: text(""),
+        evolution: new fields.SchemaField({
+          name: text(""),
+          text: new fields.HTMLField({ required: true, blank: true }),
+          ...changeFields(),
+          damageType: new fields.StringField({ required: true, blank: true, initial: "",
+            choices: () => ({ "": "Unchanged", ...Object.fromEntries(Object.entries(IROP.damageTypes).map(([k, t]) => [k, t.label])) }) }),
+          concentration: new fields.StringField({ required: true, blank: true, initial: "",
+            choices: () => ({ "": "Unchanged", remove: "No longer needs it", add: "Now needs it" }) })
+        }),
+        concentration: new fields.BooleanField({ initial: false }),
+        // The attribute a save power's target rolls under; blank for none.
+        save: new fields.StringField({ required: true, blank: true, initial: "",
+          choices: () => Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label])) })
       })
     };
   }
@@ -381,7 +463,16 @@ export class SpeciesData extends foundry.abstract.TypeDataModel {
       mutations: new fields.BooleanField({ initial: false }),
       boons: new fields.BooleanField({ initial: false }),
       // RULED 2026-10-08: grants the Paraphysical tag, which shows the Paraphysics panel.
-      paraphysical: new fields.BooleanField({ initial: false })
+      paraphysical: new fields.BooleanField({ initial: false }),
+      // Paraphysics (2026-10-19): the attribute it casts on (Humans and Telestoi Charisma,
+      // Reticulons Intelligence), how many disciplines one of them can hold (Humans 5, Reticulons
+      // 4, Telestoi 3), and ranks it grants in a discipline, which also raise that discipline's cap.
+      paraphysics: new fields.SchemaField({
+        attribute: new fields.StringField({ required: true, initial: "cha",
+          choices: () => Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label])) }),
+        schools: int(5, { min: 0, max: 12 }),
+        bonus: new fields.SchemaField(Object.fromEntries(Object.keys(IROP.disciplines).map(k => [k, int(0, { min: 0, max: 5 })])))
+      })
     };
   }
 }

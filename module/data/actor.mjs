@@ -6,6 +6,7 @@ import { IROP } from "../config.mjs";
 import { attributeModifier, buildPool } from "../rules/dynosrs.mjs";
 import { houseRules } from "../settings.mjs";
 import { concealmentLoad } from "../rules/concealment.mjs";
+import { speciesParaphysics, disciplineStates, schoolsHeld } from "../rules/paraphysics.mjs";
 
 const fields = foundry.data.fields;
 
@@ -130,8 +131,35 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
       }),
       // Damage reduction a character carries outside its armor, per type.
       dr: new fields.SchemaField(dr),
-      paraphysics: new fields.SchemaField(disciplines)
+      // Discipline ranks bought; a species' granted ranks are added in derived data (psi).
+      paraphysics: new fields.SchemaField(disciplines),
+      // Paraphysics Framework Draft 0.6 (2026-10-19): psycrystals held (the GM hands them out),
+      // whether the character was awakened in play, and whether the awakening's free power is
+      // still to be learned.
+      psi: new fields.SchemaField({
+        crystals: int(0, { min: 0 }),
+        awakened: new fields.BooleanField({ initial: false }),
+        freePower: new fields.BooleanField({ initial: false })
+      })
     };
+  }
+
+  /**
+   * The Sandbox era "Energy" discipline is Astrokinesis now (2026-10-18), and Form's old key
+   * would be Vitakinesis; ranks move across.
+   * @override
+   */
+  static migrateData(source) {
+    const p = source.paraphysics;
+    if ( p && (typeof p === "object") ) {
+      for ( const [from, to] of [["energy", "astrokinesis"], ["form", "vitakinesis"], ["cosmic", "astrokinesis"]] ) {
+        if ( from in p ) {
+          p[to] = Math.max(Number(p[to]) || 0, Number(p[from]) || 0);
+          delete p[from];
+        }
+      }
+    }
+    return super.migrateData(source);
   }
 
   /* -------------------------------------------- */
@@ -168,6 +196,8 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     const items = this.parent?.items ?? [];
     if ( items.some(i => ["species", "background"].includes(i.type) && i.system.paraphysical) ) return true;
     if ( items.some(i => (i.type === "ability") && i.system.isParaphysical) ) return true;
+    // Awakened in play with psycrystals (2026-10-19).
+    if ( this.psi?.awakened ) return true;
     return Object.values(this.paraphysics ?? {}).some(rank => rank > 0);
   }
 
@@ -226,6 +256,14 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
       mods[key] = attr.mod;
     }
     this.mods = mods;
+
+    // Paraphysics (Framework Draft 0.6): the species' casting attribute and schools limit, and each
+    // discipline with the species' granted rank added (a Telestoi's Telepathy and Optics).
+    const psiSpecies = speciesParaphysics(this.species?.system ?? null);
+    const states = disciplineStates(this.paraphysics, psiSpecies);
+    this.disciplines = states;
+    this.casting = { attribute: psiSpecies.attribute, schools: psiSpecies.schools, held: schoolsHeld(states),
+      mod: mods[psiSpecies.attribute] ?? 0, value: this.attributes[psiSpecies.attribute]?.value ?? 0 };
 
     const species = this.species?.system ?? IROP.defaultSpecies;
     const d = IROP.derived;
@@ -324,7 +362,8 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     for ( const [key, attr] of Object.entries(this.attributes) ) data[key] = { value: attr.value, mod: attr.mod };
     data.critical = this.critical;
     data.initiativeBonus = this.initiativeBonus ?? 0;
-    data.paraphysics = { ...this.paraphysics };
+    // Discipline ranks as held, a species' granted rank included.
+    data.paraphysics = Object.fromEntries(Object.entries(this.disciplines ?? {}).map(([k, d]) => [k, d.rank]));
     data.hp = { value: this.vitals.hp.value, max: this.vitals.hp.max };
     data.energy = { value: this.vitals.energy.value, max: this.vitals.energy.max };
     return data;

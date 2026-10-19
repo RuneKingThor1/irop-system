@@ -31,7 +31,7 @@ export function checkpointHTML({ place, results }) {
       : `<div class="card-buttons"><button type="button" data-irop-action="checkpointSurrender" data-actor-uuid="${escape(r.actorUuid)}" data-tooltip="Hand over items of your choice until you are under the limit, and carry on; they are gone"><i class="fa-solid fa-hand-holding"></i> Surrender items</button></div>`;
     return `<li class="checkpoint-row ${r.pass ? "pass" : "caught"}">
       <div class="checkpoint-line"><strong>${escape(r.name)}</strong>${verdict}</div>
-      <span class="checkpoint-load">Showing ${r.visible} of ${r.allowed} allowed${((r.limit ?? r.base) !== r.base) ? ` (${r.limit}% for them)` : ""}${r.pass ? "" : `: ${r.over} over`}</span>${handed}${button}</li>`;
+      <span class="checkpoint-load">Showing ${r.visible} of ${r.allowed} allowed${((r.limit ?? r.base) !== r.base) ? ` (${r.limit}% for them)` : ""}${r.pass ? "" : (r.over ? `: ${r.over} over` : "")}</span>${r.exposed?.length ? `<p class="checkpoint-handed">Carrying ${r.exposed.map(escape).join(", ")}: a paraphysical focus cannot be hidden.</p>` : ""}${handed}${button}</li>`;
   }).join("");
   return `<div class="irop-card checkpoint-card">
     <header class="card-head"><h3><i class="fa-solid fa-eye"></i> Checkpoint</h3><span class="card-sub">${escape(p.label)}: ${p.limit}% of capacity</span></header>
@@ -94,7 +94,7 @@ export async function surrenderAtCheckpoint(message, actorUuid) {
         : `<input type="checkbox" name="give.${o.id}">`}
     </label>`).join("");
   const content = `<div class="irop-dialog surrender-dialog" data-over="${now.over}">
-    <p class="lede">${escape(actor.name)} shows ${now.visible} where ${now.allowed} is allowed: <strong>${now.over} over</strong>. Hand over enough to get under, and carry on. What is handed over is gone.</p>
+    <p class="lede">${escape(actor.name)} shows ${now.visible} where ${now.allowed} is allowed: <strong>${now.over} over</strong>.${now.exposed?.length ? ` And ${escape(now.exposed.join(", "))}, a paraphysical focus, cannot be hidden: it has to go.` : ""} Hand over enough to get under, and carry on. What is handed over is gone.</p>
     <div class="surrender-list">${rows}</div>
     <p class="surrender-sum">Handing over 0. Still caught.</p>
   </div>`;

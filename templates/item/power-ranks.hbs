@@ -1,0 +1,77 @@
+<section class="tab ranks {{tab.cssClass}}" data-group="primary" data-tab="ranks">
+  {{!-- A power's five ranks, each the GM's to write (Johnald, 2026-10-19). Rank 1 is the power itself;
+        Ranks 2 and 4 steps (blank Accuracy and Potency take the tracks' defaults); Rank 3 the options a
+        player picks one of; Rank 5 its own evolution. --}}
+  {{#with powerRanks as |r|}}
+  <div class="rank-card">
+    <h4 class="rank-head">Rank 1 <span class="stat-chip crystal-chip">1 psycrystal</span><span class="stat-chip">Base</span></h4>
+    <p class="hint">The power as its Description tab says. Its numbers:</p>
+    <div class="rank-fields">
+      <label data-tooltip="Its base cost, at the discipline rank that unlocks it"><span>Energy</span><input type="number" name="system.energyCost" value="{{@root.system.energyCost}}"></label>
+      <label data-tooltip="Optimal range, in tiles"><span>Range</span><input type="number" name="system.range" value="{{@root.system.range}}"></label>
+      <label data-tooltip="Radius in tiles; 0 for a single target"><span>Area</span><input type="number" name="system.area" value="{{@root.system.area}}"></label>
+      <label data-tooltip="Rounds it lasts; 0 for instant"><span>Duration</span><input type="number" name="system.paraphysics.duration" value="{{@root.system.paraphysics.duration}}"></label>
+      <label><span>Damage</span><input type="text" name="system.paraphysics.damage.formula" value="{{@root.system.paraphysics.damage.formula}}" placeholder="2d4 + @cha.mod"></label>
+      <label><span>Damage type</span><select name="system.paraphysics.damage.type">{{selectOptions r.damageTypes selected=@root.system.paraphysics.damage.type}}</select></label>
+    </div>
+  </div>
+
+  {{#each r.steps as |s|}}
+  <div class="rank-card">
+    <h4 class="rank-head">Rank {{s.n}} <span class="stat-chip">{{s.cost}}</span></h4>
+    <input type="text" class="rank-text" name="{{s.textName}}" value="{{s.text}}" placeholder="What this rank changes, in a line">
+    <div class="rank-fields">
+      {{#each s.fields as |f|}}
+      <label data-tooltip="{{f.tip}}"><span>{{f.label}}</span><input type="{{#if f.number}}number{{else}}text{{/if}}" name="{{f.name}}" value="{{f.value}}" placeholder="{{f.placeholder}}"></label>
+      {{/each}}
+    </div>
+  </div>
+  {{/each}}
+
+  <div class="rank-card">
+    <h4 class="rank-head">Rank 3 <span class="stat-chip">40 XP</span><span class="stat-chip">Choose one</span></h4>
+    {{#each r.options as |o|}}
+    <div class="rank-option {{#if o.taken}}taken{{/if}}" data-option-id="{{o.id}}">
+      <input type="hidden" name="system.paraphysics.options.{{o.i}}.id" value="{{o.id}}">
+      <input type="hidden" name="system.paraphysics.options.{{o.i}}.archetype" value="{{o.archetype}}">
+      <div class="rank-option-head">
+        <input type="text" name="system.paraphysics.options.{{o.i}}.label" value="{{o.label}}" placeholder="Option name">
+        <span class="hint">{{o.from}}{{#if o.taken}} · taken on this copy{{/if}}</span>
+        {{#if @root.editable}}<button type="button" class="icon" data-action="removePowerOption" data-tooltip="Remove this option"><i class="fa-solid fa-trash"></i></button>{{/if}}
+      </div>
+      <input type="text" class="rank-text" name="system.paraphysics.options.{{o.i}}.text" value="{{o.text}}" placeholder="What it does">
+      <div class="rank-fields">
+        {{#each o.fields as |f|}}
+        <label data-tooltip="{{f.tip}}"><span>{{f.label}}</span><input type="{{#if f.number}}number{{else}}text{{/if}}" name="{{f.name}}" value="{{f.value}}" placeholder="{{f.placeholder}}"></label>
+        {{/each}}
+        <label class="check" data-tooltip="Taking it ends the power's need for Concentration"><input type="checkbox" name="system.paraphysics.options.{{o.i}}.anchored" {{checked o.anchored}}><span>Anchored</span></label>
+      </div>
+    </div>
+    {{else}}
+    <p class="hint">No options yet. Offer two or three.</p>
+    {{/each}}
+    {{#if @root.editable}}
+    <div class="rank-add">
+      {{#if r.library.length}}
+      <select class="power-library-pick">{{#each r.library as |a|}}<option value="{{a.key}}">{{a.label}}</option>{{/each}}</select>
+      <button type="button" class="ghost" data-action="addPowerOption" data-kind="library"><i class="fa-solid fa-book"></i> Add from the library</button>
+      {{/if}}
+      <button type="button" class="ghost" data-action="addPowerOption" data-kind="custom"><i class="fa-solid fa-plus"></i> Add a custom option</button>
+    </div>
+    {{/if}}
+  </div>
+
+  <div class="rank-card">
+    <h4 class="rank-head">Rank 5 <span class="stat-chip crystal-chip">1 psycrystal</span><span class="stat-chip">Evolution</span></h4>
+    <input type="text" class="rank-text" name="system.paraphysics.evolution.name" value="{{r.evolution.name}}" placeholder="Its evolved name (blank keeps the name)">
+    <prose-mirror name="system.paraphysics.evolution.text" value="{{r.evolution.text}}" toggled>{{{r.evolution.text}}}</prose-mirror>
+    <div class="rank-fields">
+      {{#each r.evolution.fields as |f|}}
+      <label data-tooltip="{{f.tip}}"><span>{{f.label}}</span><input type="{{#if f.number}}number{{else}}text{{/if}}" name="{{f.name}}" value="{{f.value}}" placeholder="{{f.placeholder}}"></label>
+      {{/each}}
+      <label><span>Damage type</span><select name="system.paraphysics.evolution.damageType">{{selectOptions r.damageTypes selected=r.evolution.damageType blank="Unchanged"}}</select></label>
+      <label><span>Concentration</span><select name="system.paraphysics.evolution.concentration">{{selectOptions r.concentrationChoices selected=r.evolution.concentration}}</select></label>
+    </div>
+  </div>
+  {{/with}}
+</section>

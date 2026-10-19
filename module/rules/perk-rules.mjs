@@ -35,6 +35,7 @@
  *             critical: [attribute mods added to Critical]}
  *   slots     extra mod slots: [{types | classes | armorClass, value}]
  *   chem      chemthrowers: {fuelCost, dieUp, statusUp, saveDm, drBypass, damageTypes}
+ *   gear      consumables: {charges (extra uses before one is spent), match (a pattern in the gear's name)}
  *   aka       older names the perk still answers to (a world renamed later)
  *   roles     the same name in another doctrine with other numbers: {roleKey: entry}, by the perk's Source
  *   (a mod's byWeaponTier: [values by the weapon's Tier] is read off the weapon attacking)
@@ -141,6 +142,8 @@ export const PERK_RULES = {
 
   /* ================= Specialist ================= */
   /* ---- Primary ---- */
+  // Medical gear is one use (Johnald, 2026-10-18), the Doctor's Bag aside; Field Medic gives each medikit two more.
+  "Field Medic": { gear: { charges: 2, match: "medi-?kit|med ?kit" } },
   "Focus": { mods: [{ stat: "enemyDodge", value: 20, situation: OUT_OF_TURN }, { stat: "attack", value: -20, situation: "Focus: 5 Energy spent on this reaction shot" }] },
   "Opportunist": { mods: [{ stat: "attack", value: -15, situation: "Reaction fire (no +15 penalty)" }] },
   "Pistol Specialist I": { mods: [{ stat: "attack", value: -5, types: ["pistol"], bands: ["short", "medium"] }, { stat: "critDamage", value: 1, types: ["pistol"] }] },

@@ -10,6 +10,20 @@
     <label class="check" data-tooltip="Grants the Paraphysical tag: the Abilities tab shows the Paraphysics panel">
       <input type="checkbox" name="system.paraphysical" {{checked system.paraphysical}}><span>Paraphysical</span></label>
   </div>
+  {{#if system.paraphysical}}
+  {{!-- Paraphysics (2026-10-19): what it casts on, how many disciplines, and granted ranks. --}}
+  <h4 class="section-title">Paraphysics</h4>
+  <div class="form-grid">
+    <label data-tooltip="Humans and Telestoi: Charisma. Reticulons: Intelligence"><span>Casts on</span><select name="system.paraphysics.attribute">{{selectOptions attributeOptions selected=system.paraphysics.attribute}}</select></label>
+    <label data-tooltip="Humans 5, Reticulons 4, Telestoi 3"><span>Disciplines held, at most</span><input type="number" name="system.paraphysics.schools" value="{{system.paraphysics.schools}}" min="0" max="12"></label>
+  </div>
+  <p class="hint">Ranks granted in a discipline: free, and each raises that discipline's cap by one.</p>
+  <div class="attr-block psi-bonus">
+    {{#each speciesBonuses as |b|}}
+    <label data-tooltip="{{b.label}}"><span class="mono-label">{{b.label}}</span><input type="number" name="system.paraphysics.bonus.{{b.key}}" value="{{b.value}}" min="0" max="5"></label>
+    {{/each}}
+  </div>
+  {{/if}}
   <h4 class="section-title">Starting attributes</h4>
   <div class="attr-block">
     {{#each speciesAttributes as |a|}}

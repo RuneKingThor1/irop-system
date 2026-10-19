@@ -16,6 +16,7 @@ import * as ev from "../module/rules/events.mjs";
 import * as lg from "../module/rules/losing-ground.mjs";
 import * as wx from "../module/rules/weather.mjs";
 import { IROP } from "../module/config.mjs";
+import * as psi from "../module/rules/paraphysics.mjs";
 
 let pass = 0;
 let fail = 0;
@@ -1420,6 +1421,14 @@ check("disorientated both ways",
     (chem.dieUp === 1) && (chem.fuelCost === -5) && (chem.statusUp === 1) && (chem.saveDm === 10) && (chem.drBypass === 3) && !chem.notes.includes("Toxic Avenger")
       && (pk.dieUp("1d4 + 2", 1) === "1d6 + 2") && (pk.dieUp("2d12", 1) === "2d20"));
   check("perks: uses read from an attribute: Ghost Stepping is half the AGI mod", pk.perkUses("Ghost Stepping", { agi: 6 }).max === 3);
+  // Field Medic (2026-10-18): medical gear is one use, the Doctor's Bag aside; medikits get two more.
+  const kit = { type: "gear", name: "Field Medikit", system: { consumable: true } };
+  check("perks: Field Medic gives a medikit two more uses; not a stim, not a Doctor's Bag, not without the perk",
+    (pk.gearCharges(ab(["Field Medic"]), kit) === 2) && (pk.gearCharges(ab(["Field Medic"]), { type: "gear", name: "Combat Stim", system: { consumable: true } }) === 0)
+      && (pk.gearCharges(ab(["Field Medic"]), { type: "gear", name: "Doctor's Bag", system: { consumable: false } }) === 0) && (pk.gearCharges([], kit) === 0));
+  check("gear: the ability a Requires line names",
+    (pk.requiredAbility("<p>Heals 1d4.</p><p>&nbsp;</p><p><strong>Requires </strong>: Field Medic</p><p>&nbsp;</p><p><strong>Cost: </strong>15 Credits</p>") === "Field Medic")
+      && (pk.requiredAbility("<p>Durable rope.</p>") === ""));
   // Bug, 2026-10-18: a weapon with no Type set still counts, by its name (the Warmachine's T1 LMG).
   const lmg = { name: "T1 LMG", system: { weaponType: "", weaponClass: "saturation", category: "ranged" } };
   const lmgPerks = pk.perkOptions(ab(["LMG Specialist I", "Javelin Rockets"], "warmachine"), { weapon: lmg });
@@ -1606,6 +1615,98 @@ check("disorientated both ways",
     eq(mutated.items.slice(4).map(i => i.name), ["Twin Hearts", "Frayed Focus"]) && !("_id" in mutated.items[4]) && !humanData.items.some(i => i.type === "mutation"));
   const bare = en.operativeData({ ...full, perk: "" }, { species, role, background, perkAbility: null }, {});
   check("enlistment: with no perk, owner or date, none is invented", bare.items.length === 3 && eq(bare.ownership, { default: 0 }) && bare.system.details.record.timeline.length === 0);
+}
+
+// Paraphysics, Framework Draft 0.6 (2026-10-18 and 19).
+{
+  check("psi: twelve disciplines, six open, Telekinesis first",
+    Object.keys(IROP.disciplines).length === 12 && Object.keys(IROP.disciplines).filter(psi.disciplineOpen).length === 6
+      && Object.keys(IROP.disciplines)[0] === "telekinesis" && !psi.disciplineOpen("divining") && psi.disciplineOpen("astrokinesis") && !("energy" in IROP.disciplines));
+  check("psi: discipline ranks cost 50, 75, 100, 125, 150",
+    [1, 2, 3, 4, 5].map(psi.disciplineRankCost).join() === "50,75,100,125,150" && psi.disciplineRankCost(6) === null);
+  const human = psi.speciesParaphysics(null);
+  const telestoi = psi.speciesParaphysics({ paraphysics: { attribute: "cha", schools: 3, bonus: { telepathy: 1, optics: 1 } } });
+  const reticulon = psi.speciesParaphysics({ paraphysics: { attribute: "int", schools: 4, bonus: {} } });
+  check("psi: species decide the casting attribute and how many schools",
+    human.attribute === "cha" && human.schools === 5 && telestoi.schools === 3 && reticulon.attribute === "int" && reticulon.schools === 4);
+  const tStates = psi.disciplineStates({ telepathy: 2 }, telestoi);
+  check("psi: a species' granted rank adds to the bought ranks and raises the cap",
+    tStates.telepathy.rank === 3 && tStates.telepathy.cap === 6 && tStates.optics.rank === 1 && tStates.telekinesis.cap === 5 && psi.schoolsHeld(tStates) === 2);
+  const buy = (key, states, o = {}) => psi.checkDisciplinePurchase({ key, state: states[key], n: states[key].rank + 1, unspent: 999, held: psi.schoolsHeld(states), schools: 5, enabled: true, ...o });
+  const hStates = psi.disciplineStates({ astrokinesis: 1 }, human);
+  check("psi: the next discipline rank is priced by ranks bought, a granted rank not counted",
+    buy("astrokinesis", hStates).cost === 75 && buy("telepathy", tStates).cost === 100 && buy("optics", tStates).cost === 50);
+  check("psi: refused when not enabled, not open, over the schools limit, or short of XP",
+    /Awaken first/.test(buy("astrokinesis", hStates, { enabled: false }).reason)
+      && /not open yet/.test(buy("cryokinesis", hStates).reason)
+      && /2 disciplines at most/.test(buy("pyrokinesis", tStates, { schools: 2 }).reason) && buy("pyrokinesis", tStates, { schools: 3 }).ok
+      && buy("telepathy", tStates, { schools: 2 }).ok
+      && /costs 75 XP; 74 unspent/.test(buy("astrokinesis", hStates, { unspent: 74 }).reason)
+      && /one at a time/.test(psi.checkDisciplinePurchase({ key: "astrokinesis", state: hStates.astrokinesis, n: 3, unspent: 999, held: 1, schools: 5, enabled: true }).reason));
+  const g = r => ({ trackA: "accuracy", trackB: "damage", rank: r });
+  check("psi: Accuracy steps -10 at Rank 2 and -15 more at Rank 4",
+    [1, 2, 3, 4, 5].map(r => psi.powerAccuracy(g(r)).total).join() === "0,-10,-10,-25,-25");
+  check("psi: a focus gives -20 under the shared -25 ceiling, nothing at Rank 4",
+    [1, 2, 4].map(r => psi.powerAccuracy(g(r), { focus: true }).total).join() === "-20,-25,-25"
+      && psi.powerAccuracy(g(4), { focus: true }).focus === 0 && psi.powerAccuracy(g(2), { focus: true }).focus === -15
+      && psi.powerAccuracy({ trackA: "potency", trackB: "duration", rank: 4 }, { focus: true }).total === -20);
+  check("psi: Potency mirrors Accuracy: save D.M. is the casting modifier, +4 at Rank 2, +10 at Rank 4",
+    [1, 2, 4].map(r => psi.powerSaveDm({ trackA: "potency", rank: r }, 6)).join() === "6,10,16" && psi.powerSaveDm({ trackA: "accuracy", rank: 4 }, 6) === 6);
+  // The power at Rank 3 with the archetype taken, copied from the library as a GM would (2026-10-19).
+  const e = (energy, tier, rank, choice = "") => psi.powerEnergy({ energy, tier, rank: choice ? 3 : 1, choice,
+    options: choice ? [psi.optionFromArchetype(choice, choice)] : [] }, rank).cost;
+  check("psi: Energy: -1 per discipline rank above the tier, base 4 or more, never under half",
+    e(10, 5, 5) === 10 && e(5, 3, 5) === 3 && e(4, 2, 5) === 2 && e(3, 1, 5) === 3 && e(7, 4, 5) === 6 && e(10, 4, 5) === 9 && e(5, 3, 3) === 5);
+  check("psi: Efficient takes 1 more, still under the floor",
+    e(6, 4, 5, "efficient") === 4 && e(4, 3, 5, "efficient") === 2 && e(3, 1, 1, "efficient") === 2 && e(2, 1, 1, "efficient") === 1);
+  check("psi: tracks with OPEN values give nothing; the summary reads what the ranks add",
+    psi.trackValue("damage", 4) === 0 && psi.trackText(g(2)) === "Accuracy -10" && psi.trackText(g(1)) === "");
+  check("psi: Concentration unless an Anchored option is taken, or the evolution changes it",
+    psi.needsConcentration({ concentration: true }) && !psi.needsConcentration({ concentration: true, rank: 3, choice: "a", options: [{ id: "a", anchored: true }] })
+      && psi.needsConcentration({ concentration: true, rank: 2, choice: "a", options: [{ id: "a", anchored: true }] })
+      && psi.needsConcentration({ rank: 5, evolution: { concentration: "add" } }) && !psi.needsConcentration({ concentration: true, rank: 5, evolution: { concentration: "remove" } }));
+  check("psi: power ranks: crystals at 1 and 5, 20, 40, 60 XP between",
+    psi.powerRankCost(1).crystals === 1 && psi.powerRankCost(5).crystals === 1 && [2, 3, 4].map(n => psi.powerRankCost(n).xp).join() === "20,40,60" && psi.powerRankCost(6) === null);
+  const unlock = o => psi.checkPowerUnlock({ name: "Gravbolt", tier: 1, discipline: "astrokinesis", state: hStates.astrokinesis, inDiscipline: 0, crystals: 1, enabled: true, ...o });
+  check("psi: learning a power needs the tier, a free slot and a crystal (or the awakening's free one)",
+    unlock().ok && unlock().crystals === 1 && /needs Astrokinesis rank 2/.test(unlock({ tier: 2 }).reason)
+      && unlock({ inDiscipline: 1 }).ok && /holds 2 powers, and all are taken/.test(unlock({ inDiscipline: 2 }).reason) && psi.powerSlots(5) === 10 && /takes a psycrystal/.test(unlock({ crystals: 0 }).reason)
+      && unlock({ crystals: 0, free: true }).ok && unlock({ crystals: 0, free: true }).crystals === 0
+      && /Awaken first/.test(unlock({ enabled: false }).reason) && /not open yet/.test(unlock({ discipline: "divining", state: hStates.divining }).reason));
+  const rank = o => psi.checkPowerRank({ name: "Gravbolt", current: 1, n: 2, unspent: 999, crystals: 0, choice: "", ...o });
+  check("psi: raising a power: one at a time, XP at 2 to 4, the choice before Rank 4, a crystal at 5",
+    rank().ok && rank().xp === 20 && /costs 20 XP; 19 unspent/.test(rank({ unspent: 19 }).reason)
+      && /Choose Gravbolt's Rank 3 modification first/.test(rank({ current: 3, n: 4 }).reason) && rank({ current: 3, n: 4, choice: "chain" }).xp === 60
+      && /evolution takes a psycrystal/.test(rank({ current: 4, n: 5, choice: "chain" }).reason) && rank({ current: 4, n: 5, choice: "chain", crystals: 1 }).crystals === 1
+      && /final form/.test(rank({ current: 5, n: 6 }).reason) && /one at a time/.test(rank({ n: 3 }).reason));
+  check("psi: awakening costs 2 crystals, once",
+    psi.checkAwaken({ enabled: false, crystals: 2 }).ok && /takes 2 psycrystals; you have 1/.test(psi.checkAwaken({ enabled: false, crystals: 1 }).reason)
+      && /Already/.test(psi.checkAwaken({ enabled: true, crystals: 5 }).reason));
+  check("psi: a power's choices are its own options; a library archetype comes in as an editable copy",
+    eq(psi.powerChoices({ options: [{ id: "x", label: "Crushweight", text: "Pinned" }] }), [{ key: "x", label: "Crushweight", text: "Pinned" }])
+      && psi.optionFromArchetype("efficient", "e1").energy === -1 && psi.optionFromArchetype("anchored", "a1").anchored
+      && psi.optionFromArchetype("chain", "c1").label === "Chain" && psi.optionFromArchetype("nope", "n") === null);
+  // Each rank the GM's to write (2026-10-19): tracks are only defaults.
+  const custom = { trackA: "accuracy", trackB: "potency", rank: 5,
+    rank2: { accuracy: null, potency: null, damage: "+1", text: "Tighter" },
+    rank4: { accuracy: -5, potency: 2, damage: "1d4", range: 4, text: "Holds at range" },
+    options: [{ id: "cw", label: "Crushweight", text: "Pinned on a hit", potency: 4, energy: 1, duration: 1 }], choice: "cw",
+    evolution: { name: "Singularity Bolt", text: "<p>It collapses.</p>", area: 1, energy: 1, damageType: "cosmic" } };
+  check("psi: a blank Rank 2 or 4 field takes the track default; a typed one replaces it",
+    psi.stepValue(custom, 2, "accuracy") === -10 && psi.stepValue(custom, 2, "potency") === 4 && psi.stepValue(custom, 4, "accuracy") === -5
+      && psi.stepValue(custom, 4, "potency") === 2 && psi.stepValue(custom, 4, "range") === 4 && psi.stepValue(custom, 2, "range") === 0 && psi.stepValue({ rank2: {} }, 2, "accuracy") === 0);
+  const tot = psi.powerTotals(custom);
+  check("psi: the ranks, the option taken and the evolution add up",
+    tot.accuracy === -15 && tot.potency === 10 && tot.energy === 2 && tot.range === 4 && tot.area === 1 && tot.duration === 1
+      && eq(tot.damage, ["1", "1d4"]) && tot.damageType === "cosmic" && tot.evolvedName === "Singularity Bolt"
+      && tot.lines.some(l => l === "Crushweight: Pinned on a hit") && tot.lines.some(l => l === "Evolved, Singularity Bolt: It collapses."));
+  check("psi: below Rank 3 no option counts, below Rank 5 no evolution",
+    psi.powerTotals({ ...custom, rank: 2 }).potency === 4 && !psi.powerTotals({ ...custom, rank: 4 }).evolvedName && psi.powerTotals({ ...custom, rank: 4 }).energy === 1);
+  check("psi: whatever a GM writes, accuracy stops at -25",
+    psi.powerAccuracy({ rank: 4, rank2: { accuracy: -20 }, rank4: { accuracy: -30 } }).track === -25
+      && psi.powerAccuracy({ rank: 4, rank2: { accuracy: -20 }, rank4: { accuracy: -30 } }, { focus: true }).focus === 0);
+  check("psi: Energy adds what the ranks add, still under the floor",
+    psi.powerEnergy({ ...custom, energy: 5, tier: 1 }, 1).cost === 7 && psi.powerEnergy({ energy: 6, tier: 1, rank: 2, rank2: { energy: -5 } }, 1).cost === 3);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

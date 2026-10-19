@@ -3,7 +3,7 @@ import { DICE, DICE_ORDER } from "../rules/dynosrs.mjs";
 import * as rolls from "../rolls.mjs";
 import { rankCost, checkRankPurchase, xpLine } from "../rules/xp.mjs";
 import { rankList, serviceRank } from "../rules/ranks.mjs";
-import { automationText, perkUses, abilityAsUpgraded, weaponPerkSummary } from "../rules/perks.mjs";
+import { automationText, perkUses, abilityAsUpgraded, weaponPerkSummary, gearCharges } from "../rules/perks.mjs";
 import { perkContext } from "../rolls.mjs";
 import { startingSkillPlan, startingSkillRanks } from "../rules/starting-skills.mjs";
 import { ownedPerks, nodeStates, treesFor, specializationLock, canCrossTrain, ordinal } from "../rules/skill-trees.mjs";
@@ -17,6 +17,7 @@ import { isLinked, linkActor, syncActor, unlinkActor } from "../artemis/link.mjs
 import { askStatusValue, setStatus, statusLabel, statusValue } from "../statuses.mjs";
 import { liveBackground, perkCopy, perkMeta, takenPerk } from "../rules/backgrounds.mjs";
 import { placeCheck } from "../rules/concealment.mjs";
+import { psiContext, onSelectDiscipline, onBuyDiscipline, onBuyPowerRank, onChoosePower, onAwaken, learnPower, refundPsi, crystalAmount } from "./paraphysics-tab.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -244,6 +245,11 @@ function undoTip(entry) {
     case "perk": return "Undo: refund the XP and remove the perk";
     case "refund": return "Remove this refund";
     case "adjust": return "Remove this line";
+    case "discipline": return "Undo: refund the XP and take the discipline rank off";
+    case "power": return "Undo: refund the XP and take the power rank off";
+    case "crystal": return "Undo: give the psycrystal back and take the power, or its evolution, off";
+    case "awaken": return "Undo the awakening: give the psycrystals back";
+    case "awakenPower": return "Undo: remove the power and give the free pick back";
     default: return "Undo: refund the XP and remove the rank";
   }
 }
@@ -301,7 +307,7 @@ export function concealmentLine(load) {
   const why = place => [load.speciesBonus ? `+${load.speciesBonus}% as a ${load.species}` : "",
     ((load.bonus ?? 0) - (load.speciesBonus ?? 0)) ? `${signedText((load.bonus ?? 0) - (load.speciesBonus ?? 0))}% from effects` : "",
     load.bonusAt?.[place] ? `${signedText(load.bonusAt[place])}% here from effects` : ""].filter(Boolean).join(", ");
-  const lines = checks.map(c => `${c.label} allow ${c.allowed} (${c.limit}%${why(c.place) ? `: ${c.base}% ${why(c.place)}` : ""}): ${c.pass ? "passes" : `caught, ${c.over} over`}.`);
+  const lines = checks.map(c => `${c.label} allow ${c.allowed} (${c.limit}%${why(c.place) ? `: ${c.base}% ${why(c.place)}` : ""}): ${c.pass ? "passes" : `caught${c.over ? `, ${c.over} over` : ""}${c.exposed?.length ? ", a focus cannot be hidden" : ""}`}.`);
   const tip = [`Showing ${load.visible} of what is carried${load.hidden ? `, ${load.hidden} more hidden` : ""}, against a capacity of ${load.capacity}.`,
     ...lines, "Concealable items, and those with a mod that conceals them, do not count."].join(" ");
   // Each place's line on its own chip (Johnald, 2026-10-16); the whole on the Concealment label.
@@ -363,7 +369,13 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       createEffect: IropActorSheet.#onCreateEffect,
       editEffect: IropActorSheet.#onEditEffect,
       deleteEffect: IropActorSheet.#onDeleteEffect,
-      toggleEffect: IropActorSheet.#onToggleEffect
+      toggleEffect: IropActorSheet.#onToggleEffect,
+      // Paraphysics (Framework Draft 0.6, 2026-10-19).
+      selectDiscipline: onSelectDiscipline,
+      buyDiscipline: onBuyDiscipline,
+      buyPowerRank: onBuyPowerRank,
+      choosePower: onChoosePower,
+      awaken: onAwaken
     }
   };
 
@@ -396,7 +408,9 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * Edit mode, so the first ranks can be set.
    */
   get showsParaphysics() {
-    return !!this.actor.system.isParaphysical || (this.isEditMode && !!game.user?.isGM);
+    // Also for anyone holding the psycrystals to be awakened (2026-10-19).
+    return !!this.actor.system.isParaphysical || (this.isEditMode && !!game.user?.isGM)
+      || ((this.actor.system.psi?.crystals ?? 0) >= IROP.paraphysics.awakenCost);
   }
 
   /** Leave the Effects and Paraphysics tabs out where they are hidden. @inheritDoc */
@@ -540,8 +554,13 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       showParaphysics: system.isParaphysical || this.isEditMode,
       // The operative sheet gives Paraphysics a tab of its own (2026-10-16); the NPC sheet keeps the panel.
       paraphysicsTab: "paraphysics" in this.constructor.PARTS,
+      // The Paraphysics tab: crystals, disciplines and powers (Framework Draft 0.6, 2026-10-19).
+      psi: ("paraphysics" in this.constructor.PARTS) ? psiContext(this) : null,
       // The XP ledger, newest first; only a GM can award or undo (2026-10-08).
-      xpLog: (system.xp?.log ?? []).map((e, index) => ({ ...xpLine(e), index, undoTip: undoTip(e) })).reverse(),
+      xpLog: (system.xp?.log ?? []).map((e, index) => ({ ...xpLine(e),
+        // Psycrystal lines show the crystals, not XP (2026-10-19).
+        ...(["crystal", "awaken", "awakenPower"].includes(e.kind) ? { amount: crystalAmount(e), award: false } : {}),
+        index, undoTip: undoTip(e) })).reverse(),
       // The ledger folds away, each user's choice (2026-10-08).
       ledgerOpen: isLedgerOpen(),
       ledgerCount: `${system.xp?.log?.length ?? 0} ${(system.xp?.log?.length === 1) ? "entry" : "entries"}`,
@@ -918,7 +937,9 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           ((s.kind === "deployable") ? out.deployables : out.gear).push({
             item, id: item.id, name: item.name, img: item.img, system: s, kindLabel: IROP.gearKinds[s.kind],
             formulaText: shownFormula(s.formula, rollData), formulaWords: formulaInWords(s.formula),
-            ammoText: s.kind === "ammunition" ? ammoSummary(s.ammo) : "" });
+            ammoText: s.kind === "ammunition" ? ammoSummary(s.ammo) : "",
+            // Uses left in the one in hand, when a perk gives it more (Field Medic, 2026-10-18).
+            ...((charges => (charges ? { usesLeft: 1 + charges - (Number(s.used) || 0), usesPer: 1 + charges } : {}))(gearCharges(abilities, item))) });
           break;
         case "mod":
           if ( !s.host ) out.looseMods.push({ item, id: item.id, name: item.name, img: item.img, system: s,
@@ -1103,6 +1124,11 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     if ( (item.type === "mod") && host ) return this.#fitMod(item, host.dataset.modHost, own);
     if ( own ) return super._onDropItem(event, item);
+
+    // A power dropped in Play mode is learned, for a psycrystal (Framework Draft 0.6, 2026-10-19).
+    if ( (item.type === "ability") && item.system.paraphysics?.discipline && (this.actor.type === "operative") && !this.isEditMode ) {
+      return learnPower(this, item, () => super._onDropItem(event, item));
+    }
 
     // Only Mutants carry mutations.
     if ( (item.type === "mutation") && !this.actor.system.canMutate ) {
@@ -1697,6 +1723,10 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if ( (entry.kind === "attribute") && (this.actor.system.attributes[entry.ref]?.advances === entry.rank) ) {
       update[`system.attributes.${entry.ref}.advances`] = entry.rank - 1;
     }
+    // Paraphysics lines (2026-10-19): XP or crystals back, the rank or the power off.
+    const psi = refundPsi(this.actor, entry, update);
+    for ( const { item, change } of psi.items ) await item.update(change);
+    if ( psi.remove.length ) await this.actor.deleteEmbeddedDocuments("Item", psi.remove);
     return this.actor.update(update);
   }
 
@@ -2632,7 +2662,7 @@ export function abilityCost(item, abilities) {
   const ammo = up.attack ? up.attack.ammo : (up.ammoOnly || 0);
   return {
     energy: up.energy,
-    energyTip: changed ? `Energy cost: ${up.energy}, from ${base}, changed by your perks` : "Energy cost",
+    energyTip: changed ? `Energy cost: ${up.energy}, from ${base}, changed by your ${item.system.paraphysics?.discipline ? "discipline rank and the power's modification" : "perks"}` : "Energy cost",
     energyChanged: changed,
     ammoCost: (ammo > 1) ? ammo : 0
   };

@@ -24,6 +24,8 @@
   --irop-orange: #ec8f33;
   --irop-sky: #42abf2;
   --irop-good: #5fb85f;
+  /* Paraphysics: teal blue (Johnald, 2026-10-19), as the framework document uses. */
+  --irop-psi: #4fd6ef;
   --irop-bad: #d64f4f;
   --irop-warn: #d9b234;
   --irop-grid: rgba(58, 92, 133, 0.12);
@@ -3254,3 +3256,38 @@
 /* What perks change, on the sheet (2026-10-18). */
 .irop .item-stat.from-perks .value, .irop .stat-chip.from-perks { color: var(--irop-good); }
 .irop .stat-chip.perk-chip { color: var(--irop-good); border-color: color-mix(in srgb, var(--irop-good) 55%, transparent); cursor: help; white-space: pre-line; }
+
+/* The Paraphysics tab (Paraphysics Framework Draft 0.6, 2026-10-19). Layout B with A's chip strip
+   (Johnald, 2026-10-19): a slim strip of stats, disciplines down the left, the picked one's powers. */
+.irop .psi-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.irop .psi-crystals { display: inline-flex; align-items: center; gap: 6px; color: var(--irop-psi); border-color: color-mix(in srgb, var(--irop-psi) 55%, transparent); }
+.irop .psi-crystals .step { width: 22px; height: 22px; padding: 0; }
+.irop .psi-free { color: var(--irop-good); }
+.irop .psi-awaken { margin-left: auto; }
+.irop .psi-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 10px; align-items: start; }
+.irop .psi-sidebar { list-style: none; margin: 0; padding: 6px; }
+.irop .psi-discipline { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 3px; cursor: pointer; font-size: 16px; }
+.irop .psi-discipline:hover { background: var(--irop-sunk); }
+.irop .psi-discipline.selected { background: color-mix(in srgb, var(--irop-accent) 18%, transparent); color: var(--irop-accent); }
+.irop .psi-discipline.unranked .psi-dname { color: var(--irop-faint); }
+.irop .psi-discipline.selected .psi-dname { color: var(--irop-accent); }
+.irop .psi-discipline .wave-tag { font-size: 14px; color: var(--irop-faint); }
+.irop .pip.granted { outline: 1px solid var(--irop-good); outline-offset: 1px; }
+.irop .pip.crystal { border-color: var(--irop-psi); }
+.irop .pip.crystal.filled { background: var(--irop-psi); border-color: var(--irop-psi); }
+.irop .power-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0 2px 46px; }
+.irop .power-note { margin: 2px 0 0 46px; font-size: 15px; }
+
+/* A power's Ranks tab (Johnald, 2026-10-19): one card a rank. */
+.irop .rank-card { border: 1px solid var(--irop-line); border-radius: 3px; padding: 8px 10px; margin-bottom: 8px; background: var(--irop-sunk); }
+.irop .rank-head { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 16px; }
+.irop .crystal-chip { color: var(--irop-psi); border-color: color-mix(in srgb, var(--irop-psi) 55%, transparent); }
+.irop .rank-text { width: 100%; margin-bottom: 6px; }
+.irop .rank-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+.irop .rank-fields label { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.irop .rank-fields label.check { flex-direction: row; align-items: center; }
+.irop .rank-option { border: 1px dashed var(--irop-line); border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; }
+.irop .rank-option.taken { border-style: solid; border-color: var(--irop-accent); }
+.irop .rank-option-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.irop .rank-option-head input { flex: 1; }
+.irop .rank-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

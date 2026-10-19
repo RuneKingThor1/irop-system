@@ -13,6 +13,7 @@ import { itemStats, typeLine } from "./store-sheet.mjs";
 import { formulaInWords } from "./actor-sheet.mjs";
 import { weaponPerkSummary } from "../rules/perks.mjs";
 import { perkContext } from "../rolls.mjs";
+import { stepValue, optionFromArchetype } from "../rules/paraphysics.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -68,7 +69,10 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       openTreePerk: IropItemSheet.#onOpenTreePerk,
       openTree: IropItemSheet.#onOpenTree,
       deletePerk: IropItemSheet.#onDeletePerk,
-      newPerk: IropItemSheet.#onNewPerk
+      newPerk: IropItemSheet.#onNewPerk,
+      // A power's Rank 3 options (2026-10-19).
+      addPowerOption: IropItemSheet.#onAddPowerOption,
+      removePowerOption: IropItemSheet.#onRemovePowerOption
     }
   };
 
@@ -85,6 +89,8 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     tabs: { template: "systems/irop/templates/actor/tabs.hbs" },
     description: { template: `${T}/description.hbs`, scrollable: [""] },
     details: { template: `${T}/details-weapon.hbs`, scrollable: [""] },
+    // A power's five ranks, each the GM's to write (Johnald, 2026-10-19).
+    ranks: { template: `${T}/power-ranks.hbs`, scrollable: [""] },
     // A role's perk trees, to read (Johnald, 2026-10-17).
     trees: { template: `${T}/role-trees.hbs`, scrollable: [""] },
     effects: { template: `${T}/effects.hbs`, scrollable: [""] }
@@ -96,6 +102,7 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       tabs: [
         { id: "description", label: "Description", icon: "fa-solid fa-align-left" },
         { id: "details", label: "Details", icon: "fa-solid fa-sliders" },
+        { id: "ranks", label: "Ranks", icon: "fa-solid fa-layer-group" },
         { id: "trees", label: "Perk trees", icon: "fa-solid fa-sitemap" },
         { id: "effects", label: "Effects", icon: "fa-solid fa-wand-sparkles" }
       ],
@@ -122,6 +129,26 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /** Whether Foundry's own rules let this user change the item: they own it, it is not in a locked compendium. */
   get #permitted() {
     return super.isEditable;
+  }
+
+  /** A paraphysical power: an ability with a discipline. */
+  get isPower() {
+    return (this.item?.type === "ability") && !!this.item.system?.paraphysics?.discipline;
+  }
+
+  /**
+   * A power's Rank 3 options come back from the form keyed by their place in the list; they go back
+   * to the item as the list (2026-10-19).
+   * @inheritDoc
+   */
+  _processFormData(event, form, formData) {
+    const data = super._processFormData(event, form, formData);
+    const options = foundry.utils.getProperty(data, "system.paraphysics.options");
+    if ( options && !Array.isArray(options) ) {
+      foundry.utils.setProperty(data, "system.paraphysics.options",
+        Object.keys(options).sort((a, b) => Number(a) - Number(b)).map(k => options[k]));
+    }
+    return data;
   }
 
   /** Gear a player made on their own sheet, from the Gear tab: a trinket of their own. */
@@ -159,6 +186,8 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if ( (group !== "primary") || !config ) return config;
     // Perk trees only on a role (2026-10-17).
     if ( this.item.type !== "role" ) config = { ...config, tabs: config.tabs.filter(t => t.id !== "trees") };
+    // Ranks only on a power: an ability with a discipline (2026-10-19).
+    if ( !this.isPower ) config = { ...config, tabs: config.tabs.filter(t => t.id !== "ranks") };
     if ( this.showsDetails ) return config;
     return { ...config, tabs: config.tabs.filter(t => t.id !== "details"), initial: "description" };
   }
@@ -185,6 +214,7 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if ( !this.showsDetails ) delete parts.details;
     if ( !this.showsEffects ) delete parts.effects;
     if ( this.item.type !== "role" ) delete parts.trees;
+    if ( !this.isPower ) delete parts.ranks;
     return parts;
   }
 
@@ -217,6 +247,14 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         relativeTo: item, rollData: item.getRollData(), secrets: item.isOwner
       }),
       damageTypes: Object.fromEntries(Object.entries(IROP.damageTypes).map(([k, t]) => [k, t.label])),
+      // Paraphysics (Framework Draft 0.6, 2026-10-19): a power's tracks and Rank 3 archetypes, a species' casting.
+      powerTrackOptions: Object.fromEntries(Object.entries(IROP.powerTracks).map(([k, t]) => [k, t.label])),
+      // A power's Ranks tab (2026-10-19).
+      powerRanks: this.isPower ? powerRanksContext(system.paraphysics) : null,
+      attributeOptions: Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label])),
+
+      speciesBonuses: (item.type === "species") ? Object.entries(IROP.disciplines).map(([key, label]) => ({ key, label,
+        value: item.system.paraphysics?.bonus?.[key] ?? 0 })) : [],
       // Special ammo effects, on ammunition gear only (Johnald, 2026-10-08).
       isAmmo: (item.type === "gear") && (system.kind === "ammunition"),
       // Chemthrower fuel and burn settings, on fuel fed weapons only (2026-10-08).
@@ -529,6 +567,29 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * A new perk, written from here: a passive ability in the Items sidebar's Background Perks
    * folder, put on the list and opened to be filled in.
    */
+  /** Add a Rank 3 option: a copy of a library archetype (picked beside the button), or a blank custom one. */
+  static async #onAddPowerOption(event, target) {
+    const p = this.item.system.paraphysics;
+    const options = foundry.utils.deepClone(this.item.system._source.paraphysics.options ?? []);
+    const id = foundry.utils.randomID();
+    if ( target.dataset.kind === "library" ) {
+      const key = this.element.querySelector("select.power-library-pick")?.value;
+      const option = optionFromArchetype(key, id);
+      if ( !option ) return null;
+      options.push(option);
+    }
+    else options.push({ id, archetype: "", label: "New option", text: "" });
+    return this.item.update({ "system.paraphysics.options": options, ...(p.choice && !options.some(o => o.id === p.choice) ? { "system.paraphysics.choice": "" } : {}) });
+  }
+
+  /** Remove a Rank 3 option; if it was the one taken, the choice opens again. */
+  static async #onRemovePowerOption(event, target) {
+    const p = this.item.system.paraphysics;
+    const id = target.closest("[data-option-id]")?.dataset.optionId;
+    const options = (this.item.system._source.paraphysics.options ?? []).filter(o => o.id !== id);
+    return this.item.update({ "system.paraphysics.options": options, ...((p.choice === id) ? { "system.paraphysics.choice": "" } : {}) });
+  }
+
   static async #onNewPerk() {
     if ( !game.user.isGM ) return null;
     const folderName = "Background Perks";
@@ -1026,4 +1087,38 @@ export function roleTreesContext(item, active = "", items = game.items) {
       tiers
     };
   });
+}
+
+/**
+ * A power's Ranks tab (Johnald, 2026-10-19): Rank 1 is the power's own fields; Ranks 2 and 4 each a
+ * line and their numbers, a blank Accuracy or Potency showing the track's default; Rank 3 the options
+ * a player picks one of; Rank 5 its evolution.
+ */
+export function powerRanksContext(p) {
+  const NUMBERS = [["accuracy", "Accuracy D.M.", "Minus makes it easier to hit"], ["potency", "Potency", "Added to a save power's D.M. on its target"],
+    ["energy", "Energy", "Added to its cost"], ["range", "Range", "Tiles added"], ["area", "Area", "Tiles of radius added"],
+    ["duration", "Duration", "Rounds added"]];
+  const fields = (path, src, defaults = {}) => [
+    ...NUMBERS.map(([key, label, tip]) => ({ name: `${path}.${key}`, label, tip, value: src?.[key] ?? "", placeholder: defaults[key] ?? 0, number: true })),
+    { name: `${path}.damage`, label: "Damage", tip: "Added to its damage: 1d4, +2", value: src?.damage ?? "", placeholder: "none" }
+  ];
+  const step = n => {
+    const src = p[`rank${n}`] ?? {};
+    const defaults = { accuracy: stepValue({ ...p, [`rank${n}`]: {} }, n, "accuracy"), potency: stepValue({ ...p, [`rank${n}`]: {} }, n, "potency") };
+    const xp = IROP.paraphysics.powerXp[n];
+    return { n, cost: `${xp} XP`, textName: `system.paraphysics.rank${n}.text`, text: src.text ?? "", fields: fields(`system.paraphysics.rank${n}`, src, defaults) };
+  };
+  const taken = new Set((p.options ?? []).map(o => o.archetype).filter(Boolean));
+  return {
+    steps: [step(2), step(4)],
+    options: (p.options ?? []).map((o, i) => ({
+      i, id: o.id, archetype: o.archetype, label: o.label, text: o.text, anchored: o.anchored, taken: o.id === p.choice,
+      from: o.archetype ? `From the library: ${IROP.powerArchetypes[o.archetype]?.label ?? o.archetype}` : "Custom",
+      fields: fields(`system.paraphysics.options.${i}`, o)
+    })),
+    library: Object.entries(IROP.powerArchetypes).filter(([k]) => !taken.has(k)).map(([key, a]) => ({ key, label: a.label })),
+    evolution: { ...(p.evolution ?? {}), fields: fields("system.paraphysics.evolution", p.evolution ?? {}) },
+    damageTypes: Object.fromEntries(Object.entries(IROP.damageTypes).map(([k, t]) => [k, t.label])),
+    concentrationChoices: { "": "Unchanged", remove: "No longer needs it", add: "Now needs it" }
+  };
 }

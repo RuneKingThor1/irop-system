@@ -46,6 +46,20 @@
     {{/each}}
   </fieldset>
 
+  {{#if power}}
+  {{!-- A power's own lines (Paraphysics Framework Draft 0.6, 2026-10-19). --}}
+  <fieldset class="toggle-list psi-list">
+    <legend>Paraphysics</legend>
+    {{#if power.track}}<p class="perk-auto"><i class="fa-solid fa-check"></i> Power rank {{power.rank}}: Accuracy {{power.trackText}}</p>{{/if}}
+    <label data-tooltip="Twice your casting modifier. Out of optimal range there is no bonus (its penalty is not set yet).">
+      <input type="checkbox" name="psi.optimal" checked><span>In optimal range{{#if power.range}} ({{power.range}} tiles){{/if}}</span><em>{{power.optimalText}}</em></label>
+    {{#if power.focusValue}}
+    <label data-tooltip="A focus and the power's Accuracy share a -25 ceiling.">
+      <input type="checkbox" name="psi.focus" {{checked power.hasFocus}}><span>Paraphysical focus{{#unless power.hasFocus}} (none carried){{/unless}}</span><em>{{power.focusText}}</em></label>
+    {{/if}}
+    {{#if power.concentration}}<p class="hint">Concentration: Disorientated breaks it.</p>{{/if}}
+  </fieldset>
+  {{/if}}
   {{#if perks.any}}
   {{!-- Role perks (2026-10-18): applied on their own, ticked for what the system cannot see, counted. --}}
   <fieldset class="toggle-list perk-list">

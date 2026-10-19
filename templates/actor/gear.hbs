@@ -29,6 +29,7 @@
             <span class="item-sub" {{#if g.system.formula}}data-tooltip="{{g.formulaWords}}"{{/if}}>{{g.kindLabel}}{{#if g.system.formula}} · {{g.formulaText}}{{/if}}{{#if g.ammoText}} · {{g.ammoText}}{{/if}}</span>
           </div>
           <label class="qty" data-tooltip="Quantity">x <input type="number" data-item-field="system.quantity" value="{{g.system.quantity}}"></label>
+          {{#if g.usesPer}}<span class="stat-chip uses from-perks" data-tooltip="Uses left in the one in hand ({{g.usesPer}} each, with your perks)">{{g.usesLeft}}/{{g.usesPer}}</span>{{/if}}
           <span class="stat-chip" data-tooltip="Weight each">{{g.system.weight}} wt</span>
           <div class="row-controls">
             {{#if g.system.formula}}<button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-hand-holding-medical"></i> Use</button>

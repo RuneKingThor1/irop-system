@@ -558,7 +558,10 @@ IROP.gearKinds = {
   consumable: "Consumable",
   deployable: "Deployable",
   plating: "Armor Plating",
-  ammunition: "Ammunition"
+  ammunition: "Ammunition",
+  // A paraphysical focus (2026-10-19): -20 on paraphysical attacks under the -25 ceiling. It weighs
+  // against carry capacity and can never be concealed.
+  focus: "Paraphysical Focus"
 };
 
 /* -------------------------------------------- */
@@ -576,12 +579,92 @@ IROP.actionTypes = {
   none: "None"
 };
 
-/** LIVE: the four paraphysics disciplines, each ranked. */
+/**
+ * The twelve paraphysics disciplines, GENESIS taxonomy (Paraphysics Framework Draft 0.6, Johnald,
+ * 2026-10-18 and 19). Form is Vitakinesis, Cosmic is Astrokinesis, Divining is the twelfth. The
+ * Sandbox era "Energy" school migrates to Astrokinesis.
+ */
 IROP.disciplines = {
-  energy: "Energy",
-  spatial: "Spatial",
   telekinesis: "Telekinesis",
-  telepathy: "Telepathy"
+  telepathy: "Telepathy",
+  pyrokinesis: "Pyrokinesis",
+  astrokinesis: "Astrokinesis",
+  vitakinesis: "Vitakinesis",
+  optics: "Optics",
+  cryokinesis: "Cryokinesis",
+  electrokinesis: "Electrokinesis",
+  spatial: "Spatial",
+  hemokinesis: "Hemokinesis",
+  entropy: "Entropy",
+  divining: "Divining"
+};
+
+/** Each discipline's wave and what it owns. Wave two is hidden from players for now. */
+IROP.disciplineInfo = {
+  telekinesis: { wave: 1, owns: "Forced movement, Pinned, object weaponization" },
+  telepathy: { wave: 1, owns: "Mind Control, Panicked, silent communication, memory. Fails on mind immune creatures" },
+  pyrokinesis: { wave: 1, owns: "Ignited, area denial, persistent burning ground" },
+  astrokinesis: { wave: 1, owns: "Cover in both directions, Cosmic damage" },
+  vitakinesis: { wave: 1, owns: "All healing, augmentation, barriers on allies" },
+  optics: { wave: 1, owns: "Disorientated, Concealment, detection, decoys. Works on mind immune creatures" },
+  cryokinesis: { wave: 2, owns: "Frostbite, Brittle, static destructible cover" },
+  electrokinesis: { wave: 2, owns: "Electrified, crits, chains, machines" },
+  spatial: { wave: 2, owns: "Teleportation and position swapping" },
+  hemokinesis: { wave: 2, owns: "HP as a casting cost, blood curses" },
+  entropy: { wave: 2, owns: "Shred, Acidized, cover destruction" },
+  divining: { wave: 2, owns: "Precognition: deja vu and premonition" }
+};
+
+/** The framework's numbers (Draft 0.6). Values marked OPEN in the framework are not here. */
+IROP.paraphysics = {
+  // Waves open to players: 1 until wave two is written.
+  openWave: 1,
+  // Humans: Charisma, up to five schools (a species may say otherwise).
+  attribute: "cha",
+  schools: 5,
+  rankMax: 5,
+  creationMax: 2,
+  // Powers a discipline holds per rank (Johnald, 2026-10-19: two, for more options in the field).
+  slotsPerRank: 2,
+  // Discipline ranks 1 to 5, by which rank is bought.
+  disciplineXp: [50, 75, 100, 125, 150],
+  powerMax: 5,
+  // Power Ranks 2 to 4 cost XP; 1 (learning it) and 5 (its evolution) a psycrystal.
+  powerXp: { 2: 20, 3: 40, 4: 60 },
+  crystalRanks: [1, 5],
+  awakenCost: 2,
+  // A focus: -20, sharing the -25 ceiling with the Accuracy track.
+  focus: -20,
+  accuracyCeiling: -25,
+  // In Optimal Range: twice the casting modifier, as a bonus.
+  optimalRangeTimes: 2,
+  // The discipline discount touches powers of base cost 4 or more.
+  discountFrom: 4
+};
+
+/**
+ * The five profile tracks a power advances two of, by what Rank 2 and Rank 4 add (2026-10-19).
+ * Accuracy is a D.M. (minus is better); Potency goes on the target's save. null is OPEN.
+ */
+IROP.powerTracks = {
+  accuracy: { label: "Accuracy", rank2: -10, rank4: -15 },
+  potency: { label: "Potency", rank2: 4, rank4: 6 },
+  damage: { label: "Damage", rank2: null, rank4: null },
+  duration: { label: "Duration", rank2: null, rank4: null },
+  range: { label: "Range", rank2: null, rank4: null }
+};
+
+/** The Rank 3 choice node library (proposed in the framework, not final). Each power offers two or three. */
+IROP.powerArchetypes = {
+  lingering: { label: "Lingering", text: "Effect duration extended." },
+  chain: { label: "Chain", text: "Jumps to a second target at reduced effect." },
+  piercing: { label: "Piercing", text: "Ignores a defense it normally respects." },
+  overload: { label: "Overload", text: "Spend additional Energy for scaled effect." },
+  reflexive: { label: "Reflexive", text: "Usable as a reaction." },
+  wide: { label: "Wide", text: "Single target becomes a small area." },
+  // What an archetype does to the numbers when it is copied onto a power; the GM edits it per power.
+  efficient: { label: "Efficient", text: "Energy cost 1 less, never below half its base.", changes: { energy: -1 } },
+  anchored: { label: "Anchored", text: "No longer requires Concentration.", changes: { anchored: true } }
 };
 
 IROP.mutationPolarity = {

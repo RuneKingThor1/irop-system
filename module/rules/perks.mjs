@@ -2,6 +2,7 @@ import { IROP } from "../config.mjs";
 import { PERK_RULES } from "./perk-rules.mjs";
 import { perkKey } from "./skill-trees.mjs";
 import { weaponTypeOf } from "./weapon-types.mjs";
+import { powerEnergy } from "./paraphysics.mjs";
 
 /**
  * The perk engine (Johnald, 2026-10-18): what a character's role perks do to their rolls and their
@@ -255,6 +256,14 @@ export function abilityAsUpgraded(ability, abilities = [], plain = h => String(h
   }
   // "Now made at +0", "-10 instead": the best of what the upgrades set it to, then what they add.
   if ( attack && setTo.length ) attack.accuracy = Math.min(...setTo) + (attack.accuracy - (rule.attack.accuracy ?? 0));
+  // A paraphysical power (2026-10-19): the discipline discount, Efficient and the half cost floor,
+  // with whatever the perks changed applied before the floor.
+  const p = ability.system?.paraphysics;
+  if ( p?.discipline ) {
+    const base = Number(ability.system?.energyCost) || 0;
+    const rank = ability.actor?.system?.disciplines?.[p.discipline]?.rank ?? 0;
+    energy = powerEnergy({ ...p, energy: base }, rank, energy - base).cost;
+  }
   return { attack, energy: Math.max(0, energy), ammoOnly, upgrades };
 }
 
@@ -397,6 +406,7 @@ export function automationText(name) {
   if ( rule.actor?.attributes ) parts.push(Object.entries(rule.actor.attributes).map(([k, n]) => `${signed(n)} ${k.toUpperCase()}`).join(", "));
   if ( rule.actor?.critical ) parts.push(`${rule.actor.critical.map(k => k.toUpperCase()).join(", ")} mod added again to Critical`);
   if ( rule.slots ) parts.push(rule.slots.map(s => `+${s.value} mod slot on ${s.armorClass ? `${s.armorClass} armor` : [...(s.types ?? []), ...(s.classes ?? [])].join(", ")}`).join(", "));
+  if ( rule.gear ) parts.push(`each ${rule.gear.match ? "medikit" : "consumable"} gives ${rule.gear.charges} more use${rule.gear.charges === 1 ? "" : "s"} before it is spent`);
   if ( rule.chem ) {
     const c = rule.chem;
     parts.push([c.fuelCost ? `${signed(c.fuelCost)} fuel per burn` : "", c.dieUp ? "damage die one size up" : "", c.statusUp ? `status ${signed(c.statusUp)}` : "",
@@ -423,4 +433,22 @@ export function weaponPerkSummary(abilities, weapon, context = {}) {
   ];
   return { damage: always.damage, critDamage: always.critDamage, shred: always.shred, penetration: always.penetration,
     attack: sum(always.attack), critical: sum(always.critical), blast: always.blast, lines };
+}
+
+/** Extra uses a character's perks give a consumable before it is spent: Field Medic's medikits, two more. */
+export function gearCharges(abilities = [], item) {
+  if ( (item?.type !== "gear") || !item.system?.consumable ) return 0;
+  let n = 0;
+  for ( const { rule } of perksOf(abilities) ) {
+    const g = rule.gear;
+    if ( g && (!g.match || new RegExp(g.match, "i").test(item.name ?? "")) ) n += Number(g.charges) || 0;
+  }
+  return n;
+}
+
+/** The ability an item's text says it needs ("Requires : Field Medic"), or "". */
+export function requiredAbility(description) {
+  const text = String(description ?? "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ");
+  const m = text.match(/Requires?\s*:\s*([^\n.;]+?)(?:\s{2,}|\s+Cost\b|$|\n)/i);
+  return m ? m[1].trim() : "";
 }

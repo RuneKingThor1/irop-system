@@ -16,6 +16,11 @@ import { IROP } from "../config.mjs";
 
 const round = n => Math.round((Number(n) || 0) * 10) / 10;
 
+/** A paraphysical focus (2026-10-19): it can never be concealed. */
+export function isFocus(item) {
+  return (item?.type === "gear") && (item.system?.kind === "focus");
+}
+
 /** An item's own carried weight: weight times how many, and anything loaded in it. */
 function ownWeight(item) {
   const s = item.system ?? {};
@@ -42,7 +47,8 @@ export function hiddenItems(items) {
   const byId = new Map(list.map(i => [i.id, i]));
   // Hosts a fitted mod conceals.
   const veiled = new Set(list.filter(i => (i.type === "mod") && i.system?.concealsHost && i.system?.installedOn).map(i => i.system.installedOn));
-  const hiddenItself = item => !!item?.system?.concealable || veiled.has(item?.id);
+  // A paraphysical focus is never hidden, whatever is ticked or fitted (2026-10-19).
+  const hiddenItself = item => !isFocus(item) && (!!item?.system?.concealable || veiled.has(item?.id));
   const hidden = new Set();
   for ( const item of list ) {
     const host = hostOf(item, byId);
@@ -68,7 +74,9 @@ export function concealmentLoad(items, capacity) {
     else shown += ownWeight(item);
   }
   const cap = Math.max(0, Number(capacity) || 0);
-  return { visible: round(shown), hidden: round(veiled), capacity: cap, pct: cap ? Math.round((shown / cap) * 100) : (shown ? Infinity : 0) };
+  // A carried focus is seen at any checkpoint, however light the load (2026-10-19).
+  const exposed = (items ?? []).filter(i => isFocus(i) && !i.system?.stowed).map(i => i.name);
+  return { visible: round(shown), hidden: round(veiled), capacity: cap, pct: cap ? Math.round((shown / cap) * 100) : (shown ? Infinity : 0), exposed };
 }
 
 /**
@@ -84,7 +92,8 @@ export function placeCheck(load, place) {
   const limit = Math.max(0, base + (Number(load.bonus) || 0) + (Number(load.bonusAt?.[place]) || 0));
   const allowed = round(((Number(load.capacity) || 0) * limit) / 100);
   const visible = round(load.visible);
-  return { place, label: p?.label ?? place, base, limit, allowed, visible, pass: visible <= allowed, over: round(Math.max(0, visible - allowed)) };
+  const exposed = load.exposed ?? [];
+  return { place, label: p?.label ?? place, base, limit, allowed, visible, pass: (visible <= allowed) && !exposed.length, over: round(Math.max(0, visible - allowed)), exposed };
 }
 
 /**
@@ -107,7 +116,7 @@ export function surrenderables(items) {
     const stack = quantity > 1;
     const extra = attached.reduce((w, i) => w + ownWeight(i), 0);
     const unitWeight = stack ? (Number(s.weight) || 0) : round(ownWeight(item) + extra);
-    if ( !unitWeight ) continue;
+    if ( !unitWeight && !isFocus(item) ) continue;
     out.push({ id: item.id, name: item.name, img: item.img, quantity, stack, unitWeight: round(unitWeight), attached: stack ? [] : attached.map(i => i.id) });
   }
   return out;
