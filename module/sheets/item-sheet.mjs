@@ -225,7 +225,7 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const system = item.system;
     // A background's Description tab (Johnald, 2026-10-10): its starting skills, then its perks as banners.
     const skillChoices = (item.type === "background") ? backgroundSkillChoices(item) : null;
-    const perkBanners = (item.type === "background") ? await backgroundPerkBanners(item) : null;
+    const perkBanners = ["background", "species"].includes(item.type) ? await backgroundPerkBanners(item) : null;
     // What the hidden Details tab held, read only, under the description (2026-10-10).
     const itemFacts = itemFactsFor(item);
     const attributes = Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label]));
@@ -279,17 +279,17 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       // A role's perk trees, to read (2026-10-17).
       roleTrees: item.type === "role" ? roleTreesContext(item, this.#roleTree) : null,
       // Background perks (2026-10-10): the list, which only a GM changes.
-      backgroundPerks: item.type === "background" ? backgroundPerkRows(system) : null,
+      backgroundPerks: ["background", "species"].includes(item.type) ? backgroundPerkRows(system) : null,
       // The same perks as banners under the description, for everyone, below the starting skills.
       skillChoices,
-      perkBanners,
+      perkBanners, perkBannersTitle: (item.type === "species") ? "Species perks" : "Background perks",
       itemFacts,
       // Anything under it: the description is as tall as its text.
       hasExtras: !!(skillChoices?.skills.length || perkBanners?.length || itemFacts?.stats.length),
       // Descriptions are the GM's to write: players read them, with no editor at all, even on their
       // own character's copy (Johnald, 2026-10-10).
       readOnlyDescription: !this.isEditable,
-      canEditPerks: (item.type === "background") && this.isEditable && !!game.user?.isGM,
+      canEditPerks: ["background", "species"].includes(item.type) && this.isEditable && !!game.user?.isGM,
       // The territory sheet (2026-10-08).
       territory: item.type === "territory" ? territoryContext(item) : null,
       // The project sheet (step 5, 2026-10-08).
@@ -316,7 +316,7 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if ( context.accent ) this.element.style.setProperty("--irop-accent", context.accent);
     if ( this.canRename ) this.#activateRename();
     if ( this.item.type === "skillTree" ) this.#activateTreeEditor();
-    if ( this.item.type === "background" ) this.#activatePerkDrop();
+    if ( ["background", "species"].includes(this.item.type) ) this.#activatePerkDrop();
     if ( this.item.type === "territory" ) {
       this.#activateNeighbors();
       this.#activateJournal();
@@ -514,7 +514,7 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       catch(err) { return; }
       if ( data?.type !== "Item" ) return;
       const ability = await foundry.utils.fromUuid(data.uuid);
-      if ( ability?.type !== "ability" ) return ui.notifications.warn("Only abilities can be a background's perks.");
+      if ( ability?.type !== "ability" ) return ui.notifications.warn(`Only abilities can be a ${this.item.type}'s perks.`);
       if ( ability.parent ) return ui.notifications.warn("Drag the ability from the Items sidebar or a compendium, not from a character.");
       return this.#addPerk(ability);
     });
@@ -592,12 +592,14 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   static async #onNewPerk() {
     if ( !game.user.isGM ) return null;
-    const folderName = "Background Perks";
+    // A species' perks go in their own folder, filed as Species abilities (2026-10-20).
+    const species = this.item.type === "species";
+    const folderName = species ? "Species Perks" : "Background Perks";
     const folder = game.folders?.find(f => (f.type === "Item") && (f.name === folderName))
       ?? await CONFIG.Folder.documentClass.create({ name: folderName, type: "Item" });
     const ability = await CONFIG.Item.documentClass.create({
       name: "New Perk", type: "ability", folder: folder?.id ?? null,
-      system: { kind: "passive", source: "background", tree: this.item.name }
+      system: { kind: "passive", source: species ? "species" : "background", tree: this.item.name }
     });
     if ( !ability ) return null;
     await this.#addPerk(ability);
@@ -879,9 +881,12 @@ export function backgroundSkillChoices(item) {
  * background, the perk they took is marked.
  */
 export async function backgroundPerkBanners(item) {
-  const taken = item.actor ? takenPerk(item.actor.items, item.name) : null;
+  // A species grants all its perks, so none is "taken"; its list is the world's species of that name (2026-10-20).
+  const species = item.type === "species";
+  const taken = (item.actor && !species) ? takenPerk(item.actor.items, item.name) : null;
+  const live = species ? (globalThis.game?.items?.find?.(i => (i.type === "species") && (i.name === item.name)) ?? item) : liveBackground(item);
   const banners = [];
-  for ( const perk of liveBackground(item).system?.perks ?? [] ) {
+  for ( const perk of live.system?.perks ?? [] ) {
     const source = perk.uuid ? await foundry.utils.fromUuid(perk.uuid) : null;
     if ( source?.type !== "ability" ) continue;
     banners.push({

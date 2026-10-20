@@ -31,4 +31,22 @@
     {{/each}}
   </div>
   <p class="hint">Dropping this species on an operative offers to set its base attributes to this block.</p>
+  {{!-- Species perks (Johnald, 2026-10-20): every character of the species gets all of them. --}}
+  <fieldset class="background-perks">
+    <legend>Species perks</legend>
+    <p class="hint">Every character of this species gets all of these, at enlistment and when the species is dropped on a sheet.{{#if canEditPerks}} Drag abilities here from the Items sidebar, or make a new one; click a perk to edit it.{{/if}}</p>
+    <ol class="perk-list" {{#if canEditPerks}}data-perk-drop{{/if}}>
+      {{#each backgroundPerks as |p|}}
+      <li class="perk-entry {{#if p.missing}}missing{{/if}}" data-perk-id="{{p.id}}">
+        <img src="{{p.img}}" alt="">
+        <a class="perk-name" data-action="openPerk" data-tooltip="Open the perk">{{p.name}}</a>
+        {{#if p.missing}}<span class="perk-missing">Missing from the world</span>{{/if}}
+        {{#if @root.canEditPerks}}<button type="button" class="icon" data-action="deletePerk" data-tooltip="Take it off the list (the ability itself stays)"><i class="fa-solid fa-xmark"></i></button>{{/if}}
+      </li>
+      {{else}}
+      <li class="empty-row">No perks yet.</li>
+      {{/each}}
+    </ol>
+    {{#if canEditPerks}}<button type="button" class="ghost" data-action="newPerk"><i class="fa-solid fa-plus"></i> New perk</button>{{/if}}
+  </fieldset>
 </section>

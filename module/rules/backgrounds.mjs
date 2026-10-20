@@ -55,6 +55,23 @@ export function takenPerk(items, backgroundName) {
  * @param {string} background  The background's name
  * @param {object} perk        The background's entry for it
  */
+/**
+ * A species perk's copy for a character (2026-10-20): the ability, filed under its species, and
+ * marked so a new species can take the old one's perks away.
+ */
+export function speciesPerkCopy(data, species, perk) {
+  const copy = structuredClone(data);
+  for ( const key of ["_id", "folder", "sort", "ownership", "_stats"] ) delete copy[key];
+  copy.system = { ...(copy.system ?? {}), source: "species", tree: species };
+  copy.flags = { ...(copy.flags ?? {}), irop: { ...(copy.flags?.irop ?? {}), speciesPerk: { species, perk: perk.id, uuid: perk.uuid } } };
+  return copy;
+}
+
+/** Whether an item is a perk a species granted. */
+export function isSpeciesPerk(item) {
+  return !!item?.flags?.irop?.speciesPerk;
+}
+
 export function perkCopy(data, background, perk) {
   const copy = structuredClone(data);
   for ( const key of ["_id", "folder", "sort", "ownership"] ) delete copy[key];

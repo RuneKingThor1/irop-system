@@ -1,6 +1,6 @@
 import { IROP, rankLocked } from "../config.mjs";
 import { startingSkillPlan, startingSkillRanks } from "./starting-skills.mjs";
-import { perkCopy } from "./backgrounds.mjs";
+import { perkCopy, speciesPerkCopy } from "./backgrounds.mjs";
 import { treeNodes, nodeStates } from "./skill-trees.mjs";
 import { disciplineOpen, disciplineStates, disciplineRankCost, schoolsHeld } from "./paraphysics.mjs";
 
@@ -220,7 +220,7 @@ export function stepIssues(choices, { species = null, role = null, background = 
  * @param {{owner?: string, date?: string, request?: string}} [options]
  * @returns {object}   Actor creation data
  */
-export function operativeData(choices, { species, role, background, perkAbility = null, mutations = [], boons = [], training = null, trainingPerks = [], trainingPower = null }, { owner = "", date = "", request = "" } = {}) {
+export function operativeData(choices, { species, role, background, perkAbility = null, mutations = [], boons = [], training = null, trainingPerks = [], trainingPower = null, speciesPerks = [] }, { owner = "", date = "", request = "" } = {}) {
   const strip = data => {
     const copy = structuredClone(data);
     for ( const key of ["_id", "folder", "sort", "ownership", "_stats"] ) delete copy[key];
@@ -240,6 +240,8 @@ export function operativeData(choices, { species, role, background, perkAbility 
   for ( const s of training?.skills ?? [] ) if ( s.pips ) skills[s.key] = { rank: s.rank };
   const log = (training?.entries ?? []).map(({ kind, label, xp, ref, rank }) => ({ kind, label, xp, ref, rank, date }));
   const items = [strip(species), strip(role), strip(background)];
+  // Every perk the species grants (2026-10-20): {data, perk} each, the ability and its list entry.
+  for ( const sp of speciesPerks ) items.push(speciesPerkCopy(strip(sp.data), species.name, sp.perk));
   const entry = (background.system?.perks ?? []).find(p => p.id === choices.perk);
   if ( entry && perkAbility ) items.push(perkCopy(strip(perkAbility), background.name, entry));
   // The mutations rolled, for a species that carries them.

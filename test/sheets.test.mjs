@@ -7451,7 +7451,9 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   // A paraphysical recruit (2026-10-20): rank 1 free, a second from training XP, one power free.
   {
     const extra = [
-      mk("rt", "Reticulon", "species", { paraphysical: true, paraphysics: { attribute: "int", schools: 4 } }),
+      mk("rt", "Reticulon", "species", { paraphysical: true, paraphysics: { attribute: "int", schools: 4 },
+        perks: [{ id: "sp1", uuid: "Item.fg", name: "Freshwater Gills" }, { id: "sp2", uuid: "Item.gone2", name: "Lost" }] }),
+      mk("fg", "Freshwater Gills", "ability", { kind: "passive", source: "species", description: "<p>Breathe fresh water.</p>" }),
       mk("pl", "Psi-Lance", "ability", { kind: "active", energyCost: 3, paraphysics: { discipline: "telekinesis", attack: true, tier: 1, trackA: "accuracy" } }),
       mk("sf", "Starfall", "ability", { kind: "active", energyCost: 4, paraphysics: { discipline: "astrokinesis", tier: 1 } }),
       mk("ms", "Mind Spike", "ability", { kind: "active", energyCost: 6, paraphysics: { discipline: "telekinesis", tier: 3 } })
@@ -7483,6 +7485,10 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     const filed = made.at(-1);
     const lance = filed.items.find(i => i.name === "Psi-Lance");
     const log = filed.system.xp.log;
+    const gills = filed.items.find(i => i.name === "Freshwater Gills");
+    check("enlistment: the species' perks come along, filed under it and marked; one missing from the world is left out",
+      gills?.system.source === "species" && gills.system.tree === "Reticulon" && gills.flags.irop.speciesPerk?.perk === "sp1" && !("_id" in gills)
+        && !filed.items.some(i => i.name === "Lost"));
     check("enlistment psi: the operative has Telekinesis 2, Psi-Lance at Rank 1, and the ledger: rank 1 free, rank 2 for 75, the power free",
       filed.system.paraphysics?.telekinesis === 2 && lance?.system.paraphysics.rank === 1 && (filed.system.xp.earned === 100)
         && log.some(e => (e.kind === "discipline") && (e.xp === 0) && (e.rank === 1)) && log.some(e => (e.kind === "discipline") && (e.xp === 75) && (e.rank === 2))
@@ -7997,6 +8003,27 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   const plain = makeActor("npc", NpcData, {}, []);
   check("npc psi: a player sees no Paraphysics tab on an NPC who has none", !new NpcSheet(plain)._getTabsConfig("primary").tabs.some(t => t.id === "paraphysics"));
   game.user = savedUser;
+}
+
+// Species perks (2026-10-20): the species' sheet lists them; every character of it gets all of them.
+{
+  const { speciesPerkCopy, isSpeciesPerk } = await import("../module/rules/backgrounds.mjs");
+  const copy = speciesPerkCopy({ _id: "x", name: "Four Eyes", type: "ability", folder: "f", system: { source: "generalist" }, flags: {} }, "Reticulon", { id: "s1", uuid: "Item.fe" });
+  check("species perks: the copy is filed under the species and marked", !("_id" in copy) && !("folder" in copy) && copy.system.source === "species"
+    && copy.system.tree === "Reticulon" && isSpeciesPerk(copy) && copy.flags.irop.speciesPerk.uuid === "Item.fe" && !isSpeciesPerk({ flags: {} }));
+  const model = new itemModels.SpeciesData({ perks: [{ uuid: "Item.fe", name: "Four Eyes" }] });
+  check("species perks: a species keeps a list, each with an id", model.perks.length === 1 && model.perks[0].id.length === 16 && new itemModels.SpeciesData({}).perks.length === 0);
+  const savedUser = game.user, savedUtils = foundry.utils;
+  game.user = { isGM: true, name: "GM" };
+  foundry.utils = { ...savedUtils, fromUuid: async () => null, fromUuidSync: () => null };
+  const sp = Object.assign(new FakeDoc({}), { id: "sx", type: "species", name: "Reticulon", img: "x.svg", uuid: "Item.sx", isOwner: true, effects: [], actor: null, getRollData: () => ({}) });
+  sp.system = new itemModels.SpeciesData({ paraphysical: true, perks: [{ id: "a", uuid: "Item.none", name: "Four Eyes", img: "e.svg" }] }, { parent: sp });
+  const ctx = await new IropItemSheet(sp)._prepareContext({});
+  const det = new JSDOM(tpl("templates/item/details-species.hbs")({ ...ctx, tab: {} })).window.document;
+  check("species perks: the species' Details tab lists them for the GM, with the drop zone and New perk",
+    det.querySelector(".perk-list[data-perk-drop] .perk-entry .perk-name")?.textContent === "Four Eyes" && !!det.querySelector('[data-action="newPerk"]') && /Every character of this species/.test(det.body.textContent));
+  game.user = savedUser;
+  foundry.utils = savedUtils;
 }
 
 console.log(`${pass} passed, ${fail} failed`);

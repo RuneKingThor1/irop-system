@@ -477,7 +477,15 @@ export class SpeciesData extends foundry.abstract.TypeDataModel {
           choices: () => Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label])) }),
         schools: int(5, { min: 0, max: 12 }),
         bonus: new fields.SchemaField(Object.fromEntries(Object.keys(IROP.disciplines).map(k => [k, int(0, { min: 0, max: 5 })])))
-      })
+      }),
+      // Species perks (Johnald, 2026-10-20): every character of the species gets all of them, at
+      // enlistment and when the species is dropped on a sheet. Each points at its ability.
+      perks: new fields.ArrayField(new fields.SchemaField({
+        id: new fields.StringField({ required: true, blank: false, initial: () => foundry.utils.randomID() }),
+        uuid: text(""),
+        name: text(""),
+        img: text("")
+      }))
     };
   }
 }

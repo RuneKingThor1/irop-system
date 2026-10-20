@@ -15,7 +15,7 @@ import { canReset, confirmReset } from "../reset.mjs";
 import { isCountedWeapon, stackFor } from "../rules/stacks.mjs";
 import { isLinked, linkActor, syncActor, unlinkActor } from "../artemis/link.mjs";
 import { askStatusValue, setStatus, statusLabel, statusValue } from "../statuses.mjs";
-import { liveBackground, perkCopy, perkMeta, takenPerk } from "../rules/backgrounds.mjs";
+import { liveBackground, perkCopy, perkMeta, takenPerk, speciesPerkCopy, isSpeciesPerk } from "../rules/backgrounds.mjs";
 import { placeCheck } from "../rules/concealment.mjs";
 import { psiContext, onEndConcentration, onSelectDiscipline, onBuyDiscipline, onBuyPowerRank, onChoosePower, onAwaken, learnPower, refundPsi, crystalAmount } from "./paraphysics-tab.mjs";
 
@@ -1164,10 +1164,28 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const created = await super._onDropItem(event, item);
     if ( created && (item.type === "species") ) await this.#offerSpeciesAttributes(created);
+    if ( created && (item.type === "species") ) await this.#grantSpeciesPerks(Array.isArray(created) ? created[0] : created);
     // The first role and background bring free starting skills (2026-10-08).
     if ( created && ["role", "background"].includes(item.type) ) await this.#offerStartingSkills(created);
     if ( created?.type === "background" ) await this.#offerBackgroundPerk(created);
     return created;
+  }
+
+  /**
+   * A species' perks onto the character (2026-10-20): every one it lists, from the world's ability;
+   * the perks a species granted before go first, so a new species replaces them.
+   */
+  async #grantSpeciesPerks(species) {
+    if ( !species ) return null;
+    const old = this.actor.items.filter(i => isSpeciesPerk(i)).map(i => i.id);
+    if ( old.length ) await this.actor.deleteEmbeddedDocuments("Item", old);
+    const copies = [];
+    for ( const perk of species.system.perks ?? [] ) {
+      const ability = perk.uuid ? await foundry.utils.fromUuid(perk.uuid) : null;
+      if ( ability?.type === "ability" ) copies.push(speciesPerkCopy(ability.toObject(), species.name, perk));
+    }
+    if ( copies.length ) await this.actor.createEmbeddedDocuments("Item", copies);
+    return copies;
   }
 
   /** Ask whether a new species should set the base attributes. */

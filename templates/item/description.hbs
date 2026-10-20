@@ -28,7 +28,7 @@
   {{!-- A background's perks as banners (Johnald, 2026-10-10). --}}
   {{#if perkBanners.length}}
   <div class="perk-banners">
-    <h3 class="description-section-title">Background perks</h3>
+    <h3 class="description-section-title">{{perkBannersTitle}}</h3>
     {{#each perkBanners as |p|}}
     <article class="perk-banner {{#if p.taken}}taken{{/if}}">
       <img class="perk-banner-icon" src="{{p.img}}" alt="">

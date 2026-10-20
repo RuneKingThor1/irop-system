@@ -215,6 +215,12 @@ export async function createOperative(choices = {}, user = game.user, request = 
     if ( ability?.type !== "ability" ) return { error: `${e.label} is missing its ability in this world. Ask the GM to fix the tree.` };
     trainingPerks.push({ data: ability.toObject(), tree: e.tree, node: e.ref, xp: e.xp });
   }
+  // The species' perks, from this world (2026-10-20); one missing is left out, not fatal.
+  const speciesPerks = [];
+  for ( const perk of species.system.perks ?? [] ) {
+    const ability = perk.uuid ? await foundry.utils.fromUuid(perk.uuid) : null;
+    if ( ability?.type === "ability" ) speciesPerks.push({ data: ability.toObject(), perk });
+  }
   // The free power, from this world (2026-10-20).
   let trainingPower = null;
   if ( plan.psi?.power ) {
@@ -229,7 +235,7 @@ export async function createOperative(choices = {}, user = game.user, request = 
   const owner = user.isGM ? (game.users.get(choices.owner)?.id ?? user.id) : user.id;
   const data = operativeData(choices, {
     species: species.toObject(), role: role.toObject(), background: live.toObject?.() ?? background.toObject(),
-    perkAbility: (ability?.type === "ability") ? ability.toObject() : null, mutations, boons, training: plan, trainingPerks, trainingPower
+    perkAbility: (ability?.type === "ability") ? ability.toObject() : null, mutations, boons, training: plan, trainingPerks, trainingPower, speciesPerks
   }, { owner, date: await today(), request });
   const actor = await Actor.implementation.create(data);
   if ( !actor ) return { error: "The operative could not be made." };
