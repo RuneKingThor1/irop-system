@@ -17,7 +17,7 @@ import { isLinked, linkActor, syncActor, unlinkActor } from "../artemis/link.mjs
 import { askStatusValue, setStatus, statusLabel, statusValue } from "../statuses.mjs";
 import { liveBackground, perkCopy, perkMeta, takenPerk } from "../rules/backgrounds.mjs";
 import { placeCheck } from "../rules/concealment.mjs";
-import { psiContext, onSelectDiscipline, onBuyDiscipline, onBuyPowerRank, onChoosePower, onAwaken, learnPower, refundPsi, crystalAmount } from "./paraphysics-tab.mjs";
+import { psiContext, onEndConcentration, onSelectDiscipline, onBuyDiscipline, onBuyPowerRank, onChoosePower, onAwaken, learnPower, refundPsi, crystalAmount } from "./paraphysics-tab.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -370,8 +370,10 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       editEffect: IropActorSheet.#onEditEffect,
       deleteEffect: IropActorSheet.#onDeleteEffect,
       toggleEffect: IropActorSheet.#onToggleEffect,
+      effectRounds: IropActorSheet.#onEffectRounds,
       // Paraphysics (Framework Draft 0.6, 2026-10-19).
       selectDiscipline: onSelectDiscipline,
+      endConcentration: onEndConcentration,
       buyDiscipline: onBuyDiscipline,
       buyPowerRank: onBuyPowerRank,
       choosePower: onChoosePower,
@@ -409,8 +411,10 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   get showsParaphysics() {
     // Also for anyone holding the psycrystals to be awakened (2026-10-19).
+    // An NPC's is always there for a GM, to make any of them a caster (2026-10-20).
     return !!this.actor.system.isParaphysical || (this.isEditMode && !!game.user?.isGM)
-      || ((this.actor.system.psi?.crystals ?? 0) >= IROP.paraphysics.awakenCost);
+      || ((this.actor.type === "npc") && !!game.user?.isGM)
+      || ((this.actor.system.crystals?.total ?? 0) >= IROP.paraphysics.awakenCost);
   }
 
   /** Leave the Effects and Paraphysics tabs out where they are hidden. @inheritDoc */
@@ -946,6 +950,8 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             targetLabel: IROP.modTargets[s.target] });
           break;
         case "ability": {
+          // Powers live on the Paraphysics tab alone (Johnald, 2026-10-20), on any sheet that has one.
+          if ( s.paraphysics?.discipline && ("paraphysics" in this.constructor.PARTS) ) break;
           const row = {
             item, id: item.id, name: item.name, img: item.img, system: s,
             sourceLabel: IROP.abilitySources[s.source], accent: IROP.roles[s.source]?.color ?? null,
@@ -1002,7 +1008,10 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // An item's effect is part of the item, and items are the GM's to change (Johnald,
         // 2026-10-10: "I dont want players editing any items"): players read it, no more.
         locked: (effect.parent !== this.actor) && !game.user?.isGM,
-        changes: changes.map(describeChange).join("; ")
+        changes: changes.map(describeChange).join("; "),
+        // Rounds left, counting down at the start of each turn (2026-10-20).
+        rounds: Number(effect.flags?.irop?.rounds) || 0,
+        canTime: (effect.parent === this.actor) && !!game.user?.isGM
       });
     }
     return list;
@@ -1728,6 +1737,21 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     for ( const { item, change } of psi.items ) await item.update(change);
     if ( psi.remove.length ) await this.actor.deleteEmbeddedDocuments("Item", psi.remove);
     return this.actor.update(update);
+  }
+
+  /**
+   * GM: give an effect on this character a round more or less (2026-10-20). It counts down at the
+   * start of each of the character's turns and ends at 0; taken to 0 here, it stops counting.
+   */
+  static async #onEffectRounds(event, target) {
+    if ( !game.user.isGM ) return null;
+    const effect = this.actor.effects.get(target.closest("[data-effect-id]")?.dataset.effectId);
+    if ( !effect ) return null;
+    const base = effect.flags?.irop?.timedName || effect.name.replace(/\s*\(\d+ rounds?\)$/, "");
+    const n = Math.max(0, (Number(effect.flags?.irop?.rounds) || 0) + Number(target.dataset.delta));
+    const named = !effect.statuses?.size;
+    return effect.update({ "flags.irop.rounds": n || null, "flags.irop.timedName": base,
+      ...(named ? { name: n ? `${base} (${n} ${n === 1 ? "round" : "rounds"})` : base } : {}) });
   }
 
   /** Generic pip track: data-path names the field, data-value the pip. */
@@ -2547,6 +2571,8 @@ export class NpcSheet extends IropActorSheet {
     main: PART("main"),
     combat: PART("combat"),
     abilities: PART("abilities"),
+    // The same Paraphysics tab as an operative's (2026-10-20), the GM's to set: no XP, no crystals.
+    paraphysics: PART("paraphysics"),
     bio: PART("npc-notes"),
     effects: PART("effects")
   };
@@ -2558,6 +2584,7 @@ export class NpcSheet extends IropActorSheet {
         { id: "main", label: "Stats", icon: "fa-solid fa-user" },
         { id: "combat", label: "Combat", icon: "fa-solid fa-crosshairs" },
         { id: "abilities", label: "Abilities", icon: "fa-solid fa-bolt" },
+        { id: "paraphysics", label: "Paraphysics", icon: "fa-solid fa-atom" },
         { id: "bio", label: "Notes", icon: "fa-solid fa-note-sticky" },
         { id: "effects", label: "Effects", icon: "fa-solid fa-wand-sparkles" }
       ],

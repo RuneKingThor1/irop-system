@@ -109,7 +109,7 @@ export function trackValue(track, rank) {
 }
 
 /** The number fields a rank, a choice or an evolution can change (Johnald, 2026-10-19). */
-export const POWER_FIELDS = ["accuracy", "potency", "energy", "range", "duration", "area"];
+export const POWER_FIELDS = ["accuracy", "potency", "energy", "range", "duration", "area", "barrier"];
 
 /**
  * A Rank 2 or Rank 4 step's value for one field: what the GM typed, or, left blank, the default
@@ -137,7 +137,7 @@ function damagePart(text) {
  */
 export function powerTotals(p) {
   const rank = Number(p?.rank) || 0;
-  const out = { accuracy: 0, potency: 0, energy: 0, range: 0, duration: 0, area: 0, damage: [], damageType: "",
+  const out = { accuracy: 0, potency: 0, energy: 0, range: 0, duration: 0, area: 0, barrier: Number(p?.barrier) || 0, damage: [], damageType: "",
     concentration: !!p?.concentration, evolvedName: "", option: null, lines: [] };
   const add = (src, label) => {
     for ( const f of POWER_FIELDS ) out[f] += Number(src[f]) || 0;
@@ -222,8 +222,10 @@ export function powerRankCost(n) {
  * free one.
  * @returns {{ok: boolean, crystals?: number, reason?: string}}
  */
-export function checkPowerUnlock({ name, tier, discipline, state, inDiscipline, crystals, free = false, enabled }) {
+export function checkPowerUnlock({ name, tier, discipline, state, inDiscipline, crystals, free = false, enabled, learnable = true }) {
   const label = IROP.disciplines[discipline] ?? discipline;
+  // A power only NPCs have (2026-10-20).
+  if ( learnable === false ) return { ok: false, reason: `${name} is not a power players can learn.` };
   if ( !enabled ) return { ok: false, reason: "Only a paraphysical character can learn powers. Awaken first." };
   if ( !discipline || !state ) return { ok: false, reason: `${name} has no discipline.` };
   if ( !disciplineOpen(discipline) ) return { ok: false, reason: `${label} is not open yet.` };
@@ -281,6 +283,19 @@ export function trackText(p) {
     t.damage.length ? `Damage + ${t.damage.join(" + ")}` : "",
     t.range ? `Range ${sign(t.range)}` : "",
     t.area ? `Area ${sign(t.area)}` : "",
-    t.duration ? `Duration ${sign(t.duration)}` : ""
+    t.duration ? `Duration ${sign(t.duration)}` : "",
+    t.barrier ? `Barrier ${t.barrier}` : ""
   ].filter(Boolean).join(", ");
+}
+
+/**
+ * A paraphysical barrier on a character (2026-10-20): like temporary HP, it lifts the Barrier pool to
+ * that much and never adds to it. Returns the pool's new value and granted, or null if it already
+ * holds that much or more.
+ */
+export function barrierGrant(pool, amount) {
+  const n = Math.max(0, Number(amount) || 0);
+  const now = Math.max(0, Number(pool?.value) || 0);
+  if ( !n || (now >= n) ) return null;
+  return { value: n, granted: n };
 }

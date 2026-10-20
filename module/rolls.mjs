@@ -4,8 +4,10 @@ import { rangesWithMods } from "./rules/mods.mjs";
 import { weaponTypeOf } from "./rules/weapon-types.mjs";
 import { perkOptions, perkResult, perkRule, perkUses, abilityAsUpgraded, perkBlast, attackAccuracy, chemPerks, dieUp, weaponPerkSummary, gearCharges, requiredAbility } from "./rules/perks.mjs";
 import { perkKey } from "./rules/skill-trees.mjs";
-import { powerAccuracy, powerSaveDm, needsConcentration, trackText, powerTotals } from "./rules/paraphysics.mjs";
+import { powerAccuracy, powerSaveDm, needsConcentration, trackText, powerTotals, barrierGrant } from "./rules/paraphysics.mjs";
 import { isFocus } from "./rules/concealment.mjs";
+import { startConcentration, concentrationOn } from "./concentration.mjs";
+import { startTimed } from "./durations.mjs";
 import { COVER, MODIFIERS, ENGAGED_BY_HANDLING, SCATTER, collectModifiers } from "./rules/combat.mjs";
 import { DynosrsRoll } from "./dice/dynosrs-roll.mjs";
 import { D100Roll, DamageRoll } from "./dice/d100-roll.mjs";
@@ -311,7 +313,7 @@ export function perkContext(actor) {
 /**
  * What a power brings to its attack roll (Paraphysics Framework Draft 0.6, 2026-10-19): its rank's
  * Accuracy, a focus (-20 under the shared -25 ceiling, if one is carried) and the In Optimal Range
- * bonus, twice the casting modifier. The Out of Optimal Range penalty is not set yet.
+ * bonus, twice the casting modifier; out of it, +15 (2026-10-20).
  */
 export function powerAttack(actor, item) {
   const p = item.system.paraphysics;
@@ -323,6 +325,7 @@ export function powerAttack(actor, item) {
   return {
     rank: p.rank, track, trackText: signed(track), hasFocus, focusValue, focusText: signed(focusValue),
     optimal, optimalText: signed(optimal), range: (Number(item.system.range) || 0) + powerTotals(p).range,
+    outOfRange: IROP.paraphysics.outOfRange, outOfRangeText: signed(IROP.paraphysics.outOfRange),
     concentration: needsConcentration(p)
   };
 }
@@ -454,7 +457,9 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
   if ( power ) {
     if ( power.track ) modifiers.push({ label: `${item.name} rank ${power.rank}`, value: power.track });
     if ( power.focusValue && pick("psi", "focus") ) modifiers.push({ label: "Paraphysical focus", value: power.focusValue });
-    if ( power.optimal && pick("psi", "optimal") ) modifiers.push({ label: "In optimal range", value: power.optimal });
+    const band = data["psi.range"] ?? data.psi?.range ?? "in";
+    if ( (band === "in") && power.optimal ) modifiers.push({ label: "In optimal range", value: power.optimal });
+    if ( band === "out" ) modifiers.push({ label: "Out of optimal range", value: power.outOfRange });
   }
   const perk = perkResult(perks, {
     band, melee: s.category === "melee",
@@ -490,6 +495,8 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
     // What the perks add to the critical and the damage, and what they do to the target's dodge (2026-10-18).
     perk,
     scatter: profile.scatter,
+    // An attack power that also forces a save (Collapse: save or Pinned): its damage card rolls it (2026-10-20).
+    powerSave: power ? (powerCard(actor, item).powerSave ?? null) : null,
     // Where the blast was set down, for Scatter to move.
     blast: marker ? { uuid: marker.uuid, radius: profile.blast } : null
   };
@@ -738,7 +745,8 @@ export async function rollDamage(attack, { critical = false } = {}) {
     targetUuid: attack.targetUuid ?? null,
     targetName: attack.targetName ?? null,
     // The blast marker on the map, for the card's Clear marker button (2026-10-09).
-    blastUuid: attack.blast?.uuid ?? null
+    blastUuid: attack.blast?.uuid ?? null,
+    powerSave: attack.powerSave ?? null
   });
   return toChat(roll, actor);
 }
@@ -912,12 +920,26 @@ export async function useAbility(actor, item) {
 
   // A paraphysical attack spends only once the attack is actually rolled, so
   // cancelling the attack dialog costs nothing. The attack card is the record.
+  // A power that needs Concentration starts it once it is cast (2026-10-20).
+  // And one that lasts counts down from then (2026-10-20): on its Concentration, or on its own.
+  const concentrate = async () => {
+    if ( !s.paraphysics?.discipline ) return;
+    const name = powerTotals(s.paraphysics).evolvedName || item.name;
+    const held = needsConcentration(s.paraphysics);
+    if ( held ) await startConcentration(actor, item, name);
+    const rounds = (Number(s.paraphysics.duration) || 0) + powerTotals(s.paraphysics).duration;
+    if ( rounds > 0 ) await startTimed(actor, { name, img: item.img, rounds, effect: held ? (concentrationOn(actor)?.effect ?? null) : null });
+  };
   if ( s.paraphysics.attack ) {
     const message = await rollAttack(actor, item);
-    if ( message ) await spend();
+    if ( message ) {
+      await spend();
+      await concentrate();
+    }
     return message ?? null;
   }
   await spend();
+  await concentrate();
   return postItemCard(actor, item, { spent: cost, upgrades: upgraded.upgrades, ...powerCard(actor, item) });
 }
 
@@ -1004,12 +1026,19 @@ export function powerCard(actor, item) {
   const tracks = trackText(p);
   const totals = powerTotals(p);
   const lines = [`Rank ${p.rank} of 5${tracks ? `: ${tracks}` : ""}`, ...totals.lines];
+  let powerSave = null;
   if ( p.save ) {
-    const attr = IROP.attributes[p.save]?.label ?? p.save;
-    lines.push(`Target saves on ${attr} at ${signed(powerSaveDm(p, actor?.system?.casting?.mod ?? 0))}`);
+    const attr = IROP.attributes[p.save];
+    const dm = powerSaveDm(p, actor?.system?.casting?.mod ?? 0);
+    lines.push(`Target saves on ${attr?.label ?? p.save} at ${signed(dm)}`);
+    // The Roll save button's numbers (2026-10-20), fixed when the power is used.
+    powerSave = { save: p.save, saveLabel: attr?.label ?? p.save, dm, dmText: signed(dm), label: totals.evolvedName || item.name };
   }
   if ( totals.concentration ) lines.push("Concentration: Disorientated breaks it");
-  return { powerLines: lines };
+  // A barrier it grants (2026-10-20): lifted to, never added on.
+  const powerBarrier = totals.barrier ? { amount: totals.barrier, label: totals.evolvedName || item.name } : null;
+  if ( powerBarrier ) lines.push(`Barrier ${powerBarrier.amount}: lifts a barrier to at least that, never on top`);
+  return { powerLines: lines, ...(powerSave ? { powerSave } : {}), ...(powerBarrier ? { powerBarrier } : {}) };
 }
 
 export async function postItemCard(actor, item, extra = {}) {
@@ -1028,7 +1057,73 @@ export async function postItemCard(actor, item, extra = {}) {
     discipline: IROP.disciplines[item.system.paraphysics?.discipline],
     ...extra
   });
-  return ChatMessage.implementation.create({ speaker: speakerFor(actor), content });
+  // A save power's card carries its save, for the Roll save button (2026-10-20).
+  return ChatMessage.implementation.create({ speaker: speakerFor(actor), content,
+    ...((extra.powerSave || extra.powerBarrier) ? { flags: { irop: { powerSave: extra.powerSave ?? null, powerBarrier: extra.powerBarrier ?? null,
+      casterUuid: actor?.uuid ?? null } } } : {}) });
+}
+
+/**
+ * The Grant barrier button on a power's card (2026-10-20): each targeted token the presser owns, or
+ * the caster when none is targeted, has its barrier lifted to the power's amount. Never stacks.
+ */
+export async function grantPowerBarrier(message) {
+  const pb = message?.flags?.irop?.powerBarrier;
+  if ( !pb?.amount ) return null;
+  let picked = Array.from(game.user.targets ?? []).map(t => t.actor).filter(Boolean);
+  if ( !picked.length ) {
+    const caster = message.flags.irop.casterUuid ? foundry.utils.fromUuidSync(message.flags.irop.casterUuid) : null;
+    if ( caster ) picked = [caster];
+  }
+  if ( !picked.length ) return ui.notifications.warn("Target the token, or tokens, the barrier is for, then press the button again.");
+  const lines = [];
+  for ( const actor of picked ) {
+    if ( !actor.isOwner ) {
+      ui.notifications.warn(`Only ${actor.name}'s owner or the GM can give it a barrier.`);
+      continue;
+    }
+    const grant = barrierGrant(actor.system.vitals?.barrier, pb.amount);
+    if ( !grant ) {
+      lines.push(`<strong>${actor.name}</strong> already holds ${actor.system.vitals?.barrier?.value ?? 0} barrier: no change.`);
+      continue;
+    }
+    await actor.update({ "system.vitals.barrier.value": grant.value, "system.vitals.barrier.granted": grant.granted });
+    lines.push(`<strong>${actor.name}</strong>'s barrier rises to <strong>${grant.value}</strong>.`);
+  }
+  if ( !lines.length ) return null;
+  return ChatMessage.implementation.create({
+    speaker: message.speaker ?? {},
+    content: `<div class="irop-card barrier-card"><header class="card-head"><h3>${pb.label}</h3><span class="card-sub">Barrier ${pb.amount}</span></header>${lines.map(l => `<p>${l}</p>`).join("")}</div>`
+  });
+}
+
+/**
+ * The Roll save button on a save power's card (2026-10-20): each token the presser has targeted, and
+ * owns, rolls under the attribute the power tests, with the caster's D.M. on the roll.
+ */
+export async function rollPowerSave(message) {
+  // From a save power's card, or from an attack power's damage card.
+  const ps = message?.flags?.irop?.powerSave ?? message?.rolls?.[0]?.options?.powerSave;
+  if ( !ps ) return null;
+  const picked = Array.from(game.user.targets ?? []).map(t => t.actor).filter(Boolean);
+  if ( !picked.length ) return ui.notifications.warn("Target the token, or tokens, that must save, then press the button again.");
+  const rolled = [];
+  for ( const target of picked ) {
+    if ( !target.isOwner ) {
+      ui.notifications.warn(`Only ${target.name}'s owner or the GM can roll its save.`);
+      continue;
+    }
+    const attr = target.system.attributes?.[ps.save];
+    if ( !attr ) continue;
+    const save = D100Roll.create({
+      kind: "check", label: `${ps.saveLabel} save`, subtitle: `against ${ps.label}`,
+      target: attr.value, targetLabel: `${attr.abbr} ${attr.value}`,
+      modifiers: ps.dm ? [{ label: `${ps.label}, the caster's D.M.`, value: ps.dm }] : [], actorUuid: target.uuid
+    });
+    await toChat(save, target);
+    rolled.push(save);
+  }
+  return rolled;
 }
 
 /* -------------------------------------------- */

@@ -68,7 +68,7 @@ export function migratePrices(source) {
 function changeFields() {
   return {
     accuracy: int(0), potency: int(0), damage: text(""), energy: int(0),
-    range: int(0), duration: int(0), area: int(0)
+    range: int(0), duration: int(0), area: int(0), barrier: int(0)
   };
 }
 
@@ -408,8 +408,10 @@ export class AbilityData extends foundry.abstract.TypeDataModel {
         // The tracks are defaults only (2026-10-19): they fill Rank 2 and 4 where the GM leaves a field blank.
         trackA: new fields.StringField({ required: true, blank: true, initial: "", choices: () => trackChoices() }),
         trackB: new fields.StringField({ required: true, blank: true, initial: "", choices: () => trackChoices() }),
-        // Rank 1 is the power itself: its Energy cost, range and area, damage, and this many rounds.
+        // Rank 1 is the power itself: its Energy cost, range and area, damage, this many rounds, and
+        // the Barrier it grants (2026-10-20).
         duration: int(0, { min: 0 }),
+        barrier: int(0, { min: 0 }),
         // Each rank the GM's to write (Johnald, 2026-10-19): Ranks 2 and 4 are steps, Rank 3 the options
         // the player picks one of (copied from the library or custom), Rank 5 the power's own evolution.
         rank2: powerStep(),
@@ -434,6 +436,9 @@ export class AbilityData extends foundry.abstract.TypeDataModel {
             choices: () => ({ "": "Unchanged", remove: "No longer needs it", add: "Now needs it" }) })
         }),
         concentration: new fields.BooleanField({ initial: false }),
+        // Players can learn it (Johnald, 2026-10-20). Untick for a power only NPCs have, such as the
+        // Reticulons': kept out of enlistment and refused when dropped on an operative in play.
+        learnable: new fields.BooleanField({ initial: true }),
         // The attribute a save power's target rolls under; blank for none.
         save: new fields.StringField({ required: true, blank: true, initial: "",
           choices: () => Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label])) })
@@ -510,6 +515,9 @@ export class BackgroundData extends foundry.abstract.TypeDataModel {
       paraphysical: new fields.BooleanField({ initial: false }),
       // Offered in the enlistment terminal (Johnald, 2026-10-16): untick to keep it out of character creation.
       enlist: new fields.BooleanField({ initial: true }),
+      // The species it is open to, by name, comma separated; blank for any (Johnald, 2026-10-20:
+      // Awakened only for Humans and Mutants, the species not born to paraphysics).
+      species: text(""),
       // Background perks (Johnald, 2026-10-10): a new character takes one. Each points at its
       // ability, with the name and picture as last seen (rules/backgrounds.mjs).
       perks: new fields.ArrayField(new fields.SchemaField({

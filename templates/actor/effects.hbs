@@ -10,8 +10,12 @@
       <li class="item-row effect-row {{#if e.disabled}}disabled{{/if}}" data-effect-id="{{e.id}}" data-parent-id="{{e.itemId}}">
         <div class="row-main">
           <img class="item-img" src="{{e.img}}" alt="">
-          <div class="item-name">{{#if e.locked}}<span class="effect-name">{{e.name}}</span>{{else}}<a data-action="editEffect">{{e.name}}</a>{{/if}}<span class="item-sub">{{e.source}}{{#if e.suppressed}} · inactive: not fitted, worn or carried{{/if}}{{#if e.changes}} · {{e.changes}}{{/if}}</span></div>
+          <div class="item-name">{{#if e.locked}}<span class="effect-name">{{e.name}}</span>{{else}}<a data-action="editEffect">{{e.name}}</a>{{/if}}<span class="item-sub">{{e.source}}{{#if e.suppressed}} · inactive: not fitted, worn or carried{{/if}}{{#if e.changes}} · {{e.changes}}{{/if}}{{#if e.rounds}} · {{e.rounds}} {{#if (eq e.rounds 1)}}round{{else}}rounds{{/if}} left{{/if}}</span></div>
           <div class="row-controls">
+            {{#if e.canTime}}
+            <button type="button" class="icon" data-action="effectRounds" data-delta="-1" data-tooltip="One round less"><i class="fa-solid fa-hourglass-end"></i></button>
+            <button type="button" class="icon" data-action="effectRounds" data-delta="1" data-tooltip="One round more: it counts down at the start of each turn"><i class="fa-solid fa-hourglass-start"></i></button>
+            {{/if}}
             {{#unless e.locked}}<button type="button" class="icon {{#unless e.disabled}}on{{/unless}}" data-action="toggleEffect" data-tooltip="Enabled"><i class="fa-solid fa-power-off"></i></button>{{/unless}}
             {{#if e.owned}}<button type="button" class="icon" data-action="deleteEffect" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
           </div>

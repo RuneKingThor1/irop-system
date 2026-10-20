@@ -33,6 +33,11 @@
     {{#if burn.canSave}}<button type="button" data-irop-action="burnSave" {{#if burn.pickTarget}}data-tooltip="Target the token that must save, then press"{{/if}}><i class="fa-solid fa-shield-halved"></i> Roll {{burn.saveAbbr}} save</button>{{/if}}
   </div>
   {{/if}}
+  {{#if powerSave}}
+  {{!-- An attack power that also forces a save (2026-10-20). --}}
+  <div class="card-buttons"><button type="button" data-irop-action="powerSave" data-tooltip="Target the token or tokens that must save, then press">
+    <i class="fa-solid fa-shield-halved"></i> Roll {{powerSave.saveLabel}} save ({{powerSave.dmText}})</button></div>
+  {{/if}}
   {{#if blastUuid}}
   {{!-- Blast markers (Johnald, 2026-10-09): take it off the map once the damage is dealt. --}}
   <div class="card-buttons"><button type="button" data-irop-action="clearBlast" data-tooltip="Take the blast marker off the map"><i class="fa-solid fa-eraser"></i> Clear marker</button></div>

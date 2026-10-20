@@ -94,7 +94,9 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
         hp: pool(12),
         energy: pool(18),
         armor: pool(0),
-        barrier: pool(0),
+        // One Barrier pool, armor's and paraphysics' alike (Johnald, 2026-10-20). `granted` is the last
+        // paraphysical barrier: like temporary HP, it lifts the pool to that much, never adds to it.
+        barrier: new fields.SchemaField({ value: int(0), max: int(0), bonus: int(0), granted: int(0, { min: 0 }) }),
         luck: new fields.SchemaField({ value: int(3, { min: 0 }), max: int(3) }),
         dodges: new fields.SchemaField({ value: int(1, { min: 0 }), max: int(1), bonus: int(0) })
       }),
@@ -264,6 +266,12 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     this.disciplines = states;
     this.casting = { attribute: psiSpecies.attribute, schools: psiSpecies.schools, held: schoolsHeld(states),
       mod: mods[psiSpecies.attribute] ?? 0, value: this.attributes[psiSpecies.attribute]?.value ?? 0 };
+    // Psycrystals to spend (2026-10-20): the Psycrystal items carried, and any held back on the
+    // character by a refund or the GM's own count.
+    const crystalItems = (this.parent?.items ?? []).filter(i => (i.type === "gear") && (i.system?.kind === "psycrystal"))
+      .reduce((n, i) => n + Math.max(0, Number(i.system.quantity) || 0), 0);
+    const crystalsBanked = Math.max(0, Number(this.psi?.crystals) || 0);
+    this.crystals = { carried: crystalItems, banked: crystalsBanked, total: crystalItems + crystalsBanked };
 
     const species = this.species?.system ?? IROP.defaultSpecies;
     const d = IROP.derived;
@@ -296,7 +304,10 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     v.hp.max = d.health(mods, species) + v.hp.bonus;
     v.energy.max = d.energy(mods, species) + v.energy.bonus;
     v.armor.max = armor.points + v.armor.bonus;
-    v.barrier.max = armor.barrier + v.barrier.bonus;
+    // A paraphysical barrier needs no armor to hold it: while any of it is left, the pool's top is
+    // whichever is higher, armor's or the barrier granted (2026-10-20).
+    v.barrier.armor = armor.barrier + v.barrier.bonus;
+    v.barrier.max = (v.barrier.value > 0) ? Math.max(v.barrier.armor, Number(v.barrier.granted) || 0) : v.barrier.armor;
     v.luck.max = d.luck(mods);
     v.dodges.max = d.dodges(mods) + armor.dodges + v.dodges.bonus;
 

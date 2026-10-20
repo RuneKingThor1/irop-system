@@ -1,6 +1,6 @@
 import { BANK_CAP } from "./rules/dynosrs.mjs";
 import { adjustGmBanks } from "./settings.mjs";
-import { rollCritical, rollDamage, rollScatter, rollBurnSave } from "./rolls.mjs";
+import { rollCritical, rollDamage, rollScatter, rollBurnSave, rollPowerSave, grantPowerBarrier } from "./rolls.mjs";
 import { approveSupport, declineSupport, fireMortar, mortarDamage } from "./apps/resources.mjs";
 import { clearBlast } from "./canvas/blast.mjs";
 import { askStatusValue, setStatus, statusDef, statusValue } from "./statuses.mjs";
@@ -65,6 +65,8 @@ function canUse(message, action, button) {
     const target = uuid ? foundry.utils.fromUuidSync(uuid) : null;
     return !!target?.isOwner;
   }
+  // A save power's save: anyone may press; it rolls only for the targeted tokens they own (2026-10-20).
+  if ( (action === "powerSave") || (action === "powerBarrier") ) return true;
   if ( (action === "bank") && ["DANGER", "DEFEAT"].includes(button.dataset.symbol) ) return false;
   const roll = message.rolls[0];
   const uuid = roll?.options?.actorUuid ?? roll?.options?.attack?.actorUuid;
@@ -83,6 +85,8 @@ async function handle(message, action, button) {
     case "applyDefeat": return applyDefeat(message);
     case "applyStatus": return applyStatus(message, roll);
     case "burnSave": return rollBurnSave(message, roll);
+    case "powerSave": return rollPowerSave(message);
+    case "powerBarrier": return grantPowerBarrier(message);
     case "supportApprove": return approveSupport(message);
     case "supportDecline": return declineSupport(message);
     case "mortarFire": return fireMortar(message);

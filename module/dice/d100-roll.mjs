@@ -131,7 +131,9 @@ export class DamageRoll extends foundry.dice.Roll {
         canApply: !!o.targetUuid
       } : null,
       // A blast marker on the map: the card clears it (Johnald, 2026-10-09).
-      blastUuid: o.blastUuid ?? ""
+      blastUuid: o.blastUuid ?? "",
+      // An attack power's save (2026-10-20): a button rolls it for the targeted tokens.
+      powerSave: o.powerSave ?? null
     };
   }
 }

@@ -220,7 +220,7 @@
       {{#if is.training}}
       {{!-- Training (2026-10-16): the first XP, planned here and spent at Enlist. --}}
       <h3>Training</h3>
-      <p class="en-sub">You start with {{training.budget}} XP. Spend it on attribute ranks (+{{training.perRank}} each), skill ranks and perks, at the Training tab's prices. Nothing is spent until you enlist, and what you leave stays unspent for later.</p>
+      <p class="en-sub">You start with {{training.budget}} XP. Spend it on attribute ranks (+{{training.perRank}} each), skill ranks and perks{{#if training.psi}}, and a second discipline rank{{/if}}, at the Training tab's prices. Nothing is spent until you enlist, and what you leave stays unspent for later.</p>
       {{#with training}}
       <div class="en-xp">
         <span class="en-label">Training XP</span>
@@ -254,6 +254,38 @@
           </div>
         </div>
       </div>
+      {{#if psi}}
+      {{!-- A paraphysical recruit (2026-10-20), as awakening starts a caster: rank 1 free, a second from the
+            training XP if wanted (rank 2 is the most at enlistment), and one power free. --}}
+      <div class="en-block en-train-psi">
+        <span class="en-label">Paraphysics</span>
+        <p class="hint">Rank 1 in one discipline is free, and so is one power in it. A second rank costs training XP.</p>
+        <div class="en-psi-disciplines">
+          {{#each psi.disciplines as |d|}}<button type="button" class="en-tree-tab {{#if d.on}}on{{/if}}" data-action="trainDiscipline" data-key="{{d.key}}" data-tooltip="{{d.owns}}{{#if d.granted}}. {{d.granted}}{{/if}}" aria-pressed="{{#if d.on}}true{{else}}false{{/if}}">{{d.label}}</button>{{/each}}
+        </div>
+        {{#if psi.chosen}}
+        <div class="en-train-row bought">
+          <span class="en-tr-name">{{psi.chosen}}</span><b class="en-tr-value">{{psi.rank}}</b>
+          <button type="button" class="en-tr-btn" data-action="trainDisciplineRank" data-delta="-1" {{#unless psi.canDrop}}disabled{{/unless}} aria-label="{{psi.chosen}}, one rank less"><i class="fa-solid fa-minus"></i></button>
+          <button type="button" class="en-tr-btn" data-action="trainDisciplineRank" data-delta="1" {{#unless psi.canAdd}}disabled{{/unless}} aria-label="{{psi.chosen}}, one rank more"><i class="fa-solid fa-plus"></i></button>
+          <span class="en-tr-cost">{{#if psi.next}}{{psi.next}} XP{{else}}Top{{/if}}</span>
+        </div>
+        <span class="en-label">Your first power{{#if psi.picked}}: {{psi.picked}}{{/if}}</span>
+        <div class="en-tperks">
+          {{#each psi.powers as |w|}}
+          <div role="button" tabindex="0" class="en-tperk {{#if w.on}}on{{/if}} can" data-action="trainPower" data-id="{{w.id}}" aria-pressed="{{#if w.on}}true{{else}}false{{/if}}">
+            <img src="{{w.img}}" alt="">
+            <span class="en-perk-body"><span class="en-perk-name">{{w.name}}</span>
+              <span class="en-perk-meta">{{w.discipline}}, tier {{w.tier}}{{#if w.energy}}, {{w.energy}} EN{{/if}}</span>
+              {{#if w.blurb}}<span class="en-tperk-text">{{w.blurb}}</span>{{/if}}</span>
+          </div>
+          {{else}}
+          <p class="en-empty">No powers for this discipline in this world yet. The GM can add one later.</p>
+          {{/each}}
+        </div>
+        {{/if}}
+      </div>
+      {{/if}}
       {{#if active}}
       {{!-- Each tree on its own tab (2026-10-16); a role's own tree offers its first tiers here. --}}
       <div class="en-block en-train-tree">

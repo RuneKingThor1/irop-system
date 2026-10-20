@@ -3291,3 +3291,9 @@
 .irop .rank-option-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .irop .rank-option-head input { flex: 1; }
 .irop .rank-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.irop .psi-concentrating { display: inline-flex; align-items: center; gap: 6px; color: var(--irop-psi); border-color: color-mix(in srgb, var(--irop-psi) 55%, transparent); }
+.irop .psi-concentrating .step { width: 22px; height: 22px; padding: 0; }
+
+/* A paraphysical recruit's training (2026-10-20). */
+.irop .en-train-psi { display: flex; flex-direction: column; gap: 8px; }
+.irop .en-psi-disciplines { display: flex; flex-wrap: wrap; gap: 6px; }

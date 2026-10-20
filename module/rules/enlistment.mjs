@@ -2,6 +2,7 @@ import { IROP, rankLocked } from "../config.mjs";
 import { startingSkillPlan, startingSkillRanks } from "./starting-skills.mjs";
 import { perkCopy } from "./backgrounds.mjs";
 import { treeNodes, nodeStates } from "./skill-trees.mjs";
+import { disciplineOpen, disciplineStates, disciplineRankCost, schoolsHeld } from "./paraphysics.mjs";
 
 /**
  * Enlistment (Johnald, 2026-10-12: mockup A, the enlistment terminal): a new operative made in
@@ -169,6 +170,18 @@ export function operativeName(choices) {
  * @param {{species?: object, role?: object, background?: object}} items   The chosen items
  * @returns {Record<string, string>}   By step key
  */
+/** The species a background is open to, folded for matching: [] for any. */
+export function backgroundSpecies(background) {
+  return String(background?.system?.species ?? "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
+/** Is this background open to this species? Any background, before a species is picked. */
+export function backgroundFits(background, species) {
+  const list = backgroundSpecies(background);
+  if ( !list.length || !species ) return true;
+  return list.includes(String(species.name ?? "").trim().toLowerCase());
+}
+
 export function stepIssues(choices, { species = null, role = null, background = null, mutationsReady = true, mutationChoices = [] } = {}) {
   const rp = rolePlan(role);
   const bp = backgroundPlan(background);
@@ -184,7 +197,8 @@ export function stepIssues(choices, { species = null, role = null, background = 
   const out = {
     species: species ? "" : "Choose a species.",
     role: role ? "" : "Choose a role.",
-    background: background ? "" : "Choose a background.",
+    background: !background ? "Choose a background."
+      : (backgroundFits(background, species) ? "" : `${background.name} is not open to ${species.name}. Choose another background.`),
     skills: skills.join(" "),
     boons: (species?.system?.boons && (boonPicks(choices).length < BOON_PICKS)) ? `Pick ${BOON_PICKS} attributes for your boons (${boonPicks(choices).length} picked).` : "",
     // A species that carries mutations rolls them, once the world has the tables to roll on.
@@ -206,7 +220,7 @@ export function stepIssues(choices, { species = null, role = null, background = 
  * @param {{owner?: string, date?: string, request?: string}} [options]
  * @returns {object}   Actor creation data
  */
-export function operativeData(choices, { species, role, background, perkAbility = null, mutations = [], boons = [], training = null, trainingPerks = [] }, { owner = "", date = "", request = "" } = {}) {
+export function operativeData(choices, { species, role, background, perkAbility = null, mutations = [], boons = [], training = null, trainingPerks = [], trainingPower = null }, { owner = "", date = "", request = "" } = {}) {
   const strip = data => {
     const copy = structuredClone(data);
     for ( const key of ["_id", "folder", "sort", "ownership", "_stats"] ) delete copy[key];
@@ -243,6 +257,14 @@ export function operativeData(choices, { species, role, background, perkAbility 
     copy.flags = { ...(copy.flags ?? {}), irop: { ...(copy.flags?.irop ?? {}), perk: { tree: p.tree, node: p.node, xp: p.xp } } };
     items.push(copy);
   }
+  // A paraphysical recruit's discipline and free power (2026-10-20), at Rank 1, nothing chosen yet.
+  const psi = training?.psi;
+  const paraphysics = (psi?.discipline) ? { [psi.discipline]: 1 + (psi.extra || 0) } : null;
+  if ( psi?.power && trainingPower ) {
+    const copy = strip(trainingPower);
+    copy.system = { ...copy.system, paraphysics: { ...(copy.system?.paraphysics ?? {}), rank: 1, choice: "" } };
+    items.push(copy);
+  }
   const record = {
     firstName: String(choices.firstName ?? "").trim(),
     lastName: String(choices.lastName ?? "").trim(),
@@ -255,6 +277,7 @@ export function operativeData(choices, { species, role, background, perkAbility 
     prototypeToken: { name, texture: { src: img } },
     system: {
       attributes, skills,
+      ...(paraphysics ? { paraphysics } : {}),
       ...(log.length ? { xp: { earned: training.budget, log } } : {}),
       details: { callsign: String(choices.callsign ?? "").trim(), startingSkills: { role: role.name, background: background.name }, record }
     },
@@ -278,7 +301,63 @@ export function operativeData(choices, { species, role, background, perkAbility 
 
 /** A plan with nothing bought. */
 export function emptyTraining() {
-  return { attributes: {}, skills: {}, perks: [] };
+  return { attributes: {}, skills: {}, perks: [], psi: emptyPsi() };
+}
+
+/** No paraphysics picked. */
+export function emptyPsi() {
+  return { discipline: "", extra: 0, power: "" };
+}
+
+/**
+ * A paraphysical recruit's paraphysics (Johnald, 2026-10-20), as awakening starts a caster: rank 1
+ * in a discipline of their choice, free; a second rank bought from the training XP if they like
+ * (rank 2 is the most at creation); and one power, free, from a discipline they hold at a tier
+ * they reach. A species' granted ranks count (a Telestoi's Telepathy).
+ * @param {object} psi            choices.training.psi
+ * @param {object} recruit
+ * @param {boolean} recruit.enabled   Species or background paraphysical
+ * @param {object} recruit.species    speciesParaphysics()
+ * @param {object[]} [recruit.powers] The world's powers: {id, name, system}
+ * @returns {{enabled, discipline, extra, power, cost, nextCost, rank, states, offered, entries, clean}}
+ */
+export function psiTraining(psi, { enabled = false, species, powers = [] } = {}) {
+  const none = { enabled, discipline: "", extra: 0, power: null, cost: 0, nextCost: null, rank: 0, states: disciplineStates({}, species), offered: [], entries: [], clean: emptyPsi() };
+  if ( !enabled ) return none;
+  const base = disciplineStates({}, species);
+  const held = schoolsHeld(base);
+  let key = String(psi?.discipline ?? "");
+  // A discipline still open, and one more school the species can hold (or one it already grants).
+  if ( key && (!(key in IROP.disciplines) || !disciplineOpen(key) || (!(base[key].rank > 0) && (held >= species.schools))) ) key = "";
+  if ( !key ) return { ...none, offered: [] };
+  const cap = IROP.paraphysics.creationMax;
+  // Rank 1 free; a second rank only while the creation cap allows it.
+  const room = Math.max(0, cap - (base[key].bonus + 1));
+  const extra = Math.max(0, Math.min(room, Math.floor(Number(psi?.extra) || 0)));
+  const bought = 1 + extra;
+  const states = disciplineStates({ [key]: bought }, species);
+  const cost = extra ? disciplineRankCost(2) : 0;
+  const nextCost = (extra < room) ? disciplineRankCost(bought + 1) : null;
+  // The power: any open discipline the recruit holds, at a tier its rank reaches. Each name once
+  // (Johnald, 2026-10-20: a world holding two copies of a power listed it twice).
+  const seen = new Set();
+  const offered = powers.filter(p => {
+    const d = p.system?.paraphysics?.discipline;
+    if ( !d || !disciplineOpen(d) || !(states[d]?.rank > 0) || ((Number(p.system.paraphysics.tier) || 1) > states[d].rank) ) return false;
+    // An NPC's power is never offered (2026-10-20).
+    if ( p.system.paraphysics.learnable === false ) return false;
+    const key = String(p.name ?? "").trim().toLowerCase();
+    if ( seen.has(key) ) return false;
+    seen.add(key);
+    return true;
+  });
+  const power = offered.find(p => p.id === psi?.power) ?? null;
+  const label = IROP.disciplines[key];
+  const entries = [{ kind: "discipline", label: `${label} rank ${base[key].bonus + 1}, free at enlistment`, xp: 0, ref: key, rank: base[key].bonus + 1 }];
+  if ( extra ) entries.push({ kind: "discipline", label: `${label} rank ${base[key].bonus + 2}`, xp: cost, ref: key, rank: base[key].bonus + 2 });
+  if ( power ) entries.push({ kind: "awakenPower", label: `${power.name} learned, free at enlistment`, xp: 0, ref: power.id, rank: 1 });
+  return { enabled, discipline: key, extra, power, cost, nextCost, rank: states[key].rank, states, offered, entries,
+    clean: { discipline: key, extra, power: power?.id ?? "" } };
 }
 
 /** What pips `from + 1` to `from + count` of an attribute or a skill cost together. */
@@ -304,7 +383,7 @@ export function pipsCost(kind, from, count) {
  * @param {(reqs: object[], system: object) => string[]} [recruit.unmet]   From rules/requirements.mjs
  * @param {number} [recruit.budget]   The XP to spend
  */
-export function trainingPlan(training, { attributes, ranks, trees = [], nameOf = n => n.name, requirementsOf = () => [], unmet = () => [], budget = IROP.startingXP } = {}) {
+export function trainingPlan(training, { attributes, ranks, trees = [], nameOf = n => n.name, requirementsOf = () => [], unmet = () => [], budget = IROP.startingXP, psi = null } = {}) {
   const t = training ?? emptyTraining();
   const perRank = IROP.attributeAdvance.perRank;
   const attr = Object.keys(IROP.attributes).map(key => {
@@ -344,7 +423,8 @@ export function trainingPlan(training, { attributes, ranks, trees = [], nameOf =
     }
   }
   const perkCost = [...owned].reduce((sum, id) => sum + Math.max(0, Number(nodes.get(id).node.xp) || 0), 0);
-  const spent = attr.reduce((s, a) => s + a.cost, 0) + skills.reduce((s, k) => s + k.cost, 0) + perkCost;
+  // A paraphysical recruit's second discipline rank (2026-10-20); rank 1 and the power are free.
+  const spent = attr.reduce((s, a) => s + a.cost, 0) + skills.reduce((s, k) => s + k.cost, 0) + perkCost + (psi?.cost ?? 0);
   const left = budget - spent;
 
   // Each tree's perks, as the plan leaves them.
@@ -365,8 +445,10 @@ export function trainingPlan(training, { attributes, ranks, trees = [], nameOf =
     const { tree, node } = nodes.get(id);
     entries.push({ kind: "perk", label: `${nameOf(node)} (${tree.system.tabLabel ?? tree.name})`, xp: Math.max(0, Number(node.xp) || 0), ref: id, rank: 0, tree: tree.id });
   }
+  // Then the paraphysics: the free rank, any bought, the free power.
+  for ( const e of psi?.entries ?? [] ) entries.push(e);
   return {
-    attributes: attr, skills, perks: [...owned], perkTrees, dropped, spent, left, budget, entries,
+    attributes: attr, skills, perks: [...owned], perkTrees, dropped, spent, left, budget, entries, psi,
     // What the next pip of each costs, and whether the plan can pay for it.
     nextAttribute: key => {
       const a = attr.find(x => x.key === key);
@@ -388,7 +470,8 @@ export function cleanTraining(training, plan) {
   return {
     attributes: Object.fromEntries(plan.attributes.filter(a => a.pips).map(a => [a.key, a.pips])),
     skills: Object.fromEntries(plan.skills.filter(s => s.pips).map(s => [s.key, s.pips])),
-    perks: [...plan.perks]
+    perks: [...plan.perks],
+    psi: plan.psi?.clean ?? emptyPsi()
   };
 }
 

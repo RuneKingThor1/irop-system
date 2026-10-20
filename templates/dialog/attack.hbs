@@ -51,8 +51,10 @@
   <fieldset class="toggle-list psi-list">
     <legend>Paraphysics</legend>
     {{#if power.track}}<p class="perk-auto"><i class="fa-solid fa-check"></i> Power rank {{power.rank}}: Accuracy {{power.trackText}}</p>{{/if}}
-    <label data-tooltip="Twice your casting modifier. Out of optimal range there is no bonus (its penalty is not set yet).">
-      <input type="checkbox" name="psi.optimal" checked><span>In optimal range{{#if power.range}} ({{power.range}} tiles){{/if}}</span><em>{{power.optimalText}}</em></label>
+    <div class="choice-row psi-range">
+      <label class="pill" data-tooltip="Twice your casting modifier"><input type="radio" name="psi.range" value="in" checked><span>In optimal range{{#if power.range}} ({{power.range}} tiles){{/if}} <em>{{power.optimalText}}</em></span></label>
+      <label class="pill"><input type="radio" name="psi.range" value="out"><span>Out of optimal range <em>{{power.outOfRangeText}}</em></span></label>
+    </div>
     {{#if power.focusValue}}
     <label data-tooltip="A focus and the power's Accuracy share a -25 ceiling.">
       <input type="checkbox" name="psi.focus" {{checked power.hasFocus}}><span>Paraphysical focus{{#unless power.hasFocus}} (none carried){{/unless}}</span><em>{{power.focusText}}</em></label>

@@ -2,8 +2,10 @@ import { IROP } from "../config.mjs";
 import {
   STEPS, DEFAULT_IMG, blurb, speciesAttributes, rolePlan, backgroundPlan, skillsTaken, startingRanks, operativeName, stepIssues, operativeData,
   stepsFor, rollMutations, rerollNegative, mutationsRolled, mutationIds, BOON_PICKS, boonPicks,
-  emptyTraining, trainingPlan, cleanTraining, recruitAttributes, mutationNeeds, mutationAdjust, withMutationRanks, CREATION_SKILL_CAP
+  emptyTraining, trainingPlan, cleanTraining, recruitAttributes, mutationNeeds, mutationAdjust, withMutationRanks, CREATION_SKILL_CAP,
+  psiTraining, emptyPsi, backgroundFits
 } from "../rules/enlistment.mjs";
+import { speciesParaphysics, disciplineOpen, trackText } from "../rules/paraphysics.mjs";
 import { perkMeta, liveBackground } from "../rules/backgrounds.mjs";
 import { treesFor } from "../rules/skill-trees.mjs";
 import { parseRequirements, unmetRequirements } from "../rules/requirements.mjs";
@@ -119,7 +121,12 @@ export function planFor(choices, { species, role, background }, items = game.ite
   const adjust = mutationsPicked(choices, { species, role, background }, items);
   const attributes = recruitAttributes(species, boons);
   for ( const [k, n] of Object.entries(adjust.attributes) ) attributes[k] += n;
+  // A paraphysical recruit (2026-10-20): species or background, a free rank and a free power.
+  const enabled = !!(species?.system?.paraphysical || background?.system?.paraphysical);
+  const powers = items?.filter?.(i => (i.type === "ability") && i.system?.paraphysics?.discipline) ?? [];
+  const psi = psiTraining(choices.training?.psi, { enabled, species: speciesParaphysics(species?.system ?? null), powers });
   return trainingPlan(choices.training, {
+    psi,
     attributes,
     ranks: withMutationRanks(startingRanks(skillsTaken(choices, role, background)), adjust),
     trees: role ? enlistmentTrees(role.system.role, items) : [],
@@ -208,6 +215,13 @@ export async function createOperative(choices = {}, user = game.user, request = 
     if ( ability?.type !== "ability" ) return { error: `${e.label} is missing its ability in this world. Ask the GM to fix the tree.` };
     trainingPerks.push({ data: ability.toObject(), tree: e.tree, node: e.ref, xp: e.xp });
   }
+  // The free power, from this world (2026-10-20).
+  let trainingPower = null;
+  if ( plan.psi?.power ) {
+    const power = game.items.get(plan.psi.power.id);
+    if ( power?.type !== "ability" ) return { error: `${plan.psi.power.name} is not in this world any more. Pick another power in the Training step.` };
+    trainingPower = power.toObject();
+  }
   const live = liveBackground(background);
   const entry = (live.system?.perks ?? []).find(p => p.id === choices.perk);
   const ability = entry?.uuid ? await foundry.utils.fromUuid(entry.uuid) : null;
@@ -215,7 +229,7 @@ export async function createOperative(choices = {}, user = game.user, request = 
   const owner = user.isGM ? (game.users.get(choices.owner)?.id ?? user.id) : user.id;
   const data = operativeData(choices, {
     species: species.toObject(), role: role.toObject(), background: live.toObject?.() ?? background.toObject(),
-    perkAbility: (ability?.type === "ability") ? ability.toObject() : null, mutations, boons, training: plan, trainingPerks
+    perkAbility: (ability?.type === "ability") ? ability.toObject() : null, mutations, boons, training: plan, trainingPerks, trainingPower
   }, { owner, date: await today(), request });
   const actor = await Actor.implementation.create(data);
   if ( !actor ) return { error: "The operative could not be made." };
@@ -247,6 +261,9 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       trainAttribute: EnlistmentApp.#onTrainAttribute,
       trainSkill: EnlistmentApp.#onTrainSkill,
       trainPerk: EnlistmentApp.#onTrainPerk,
+      trainDiscipline: EnlistmentApp.#onTrainDiscipline,
+      trainDisciplineRank: EnlistmentApp.#onTrainDisciplineRank,
+      trainPower: EnlistmentApp.#onTrainPower,
       perkTab: EnlistmentApp.#onPerkTab,
       resetTraining: EnlistmentApp.#onResetTraining,
       requisition: EnlistmentApp.#onRequisition,
@@ -353,7 +370,8 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
         free: plan.granted.map(skillLabel).join(", "), options: plan.options.map(skillLabel).join(" or "), weapons: r.system.weaponSpecialties
       };
     });
-    const backgroundCards = list.backgrounds.map(b => {
+    // Only the backgrounds open to the species picked (2026-10-20).
+    const backgroundCards = list.backgrounds.filter(b => backgroundFits(b, species)).map(b => {
       const plan = backgroundPlan(b);
       return {
         id: b.id, name: b.name, img: b.img, on: b.id === c.background, blurb: blurb(b.system.description, 110),
@@ -557,6 +575,15 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this.choices[kind] = id;
       if ( kind === "role" ) this.choices.roleSkill = "";
       if ( kind === "background" ) Object.assign(this.choices, { backgroundSkills: [], perk: "" });
+      // A new species closes a background not open to it (2026-10-20: Awakened is for Humans and Mutants).
+      if ( kind === "species" ) {
+        const bg = game.items?.get(this.choices.background);
+        const sp = game.items?.get(id);
+        if ( bg && !backgroundFits(bg, sp) ) {
+          Object.assign(this.choices, { background: "", backgroundSkills: [], perk: "" });
+          ui.notifications.info(`${bg.name} is not open to ${sp.name}, so it came off. Choose another background.`);
+        }
+      }
     }
     return this.render();
   }
@@ -652,6 +679,41 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !st ) return null;
     if ( !st.canBuy ) return ui.notifications.info(st.reason);
     t.perks = [...plan.perks, id];
+    return this.#settle(plan.perks);
+  }
+
+  /** Training: the paraphysical recruit's discipline, rank 1 free (2026-10-20). A new one starts over. */
+  static #onTrainDiscipline(event, target) {
+    const t = this.choices.training ??= emptyTraining();
+    const key = target.dataset.key;
+    const now = t.psi ?? emptyPsi();
+    t.psi = (now.discipline === key) ? now : { discipline: key, extra: 0, power: "" };
+    return this.#settle(this.#plan().perks);
+  }
+
+  /** Training: a second discipline rank on (data-delta 1) or off, from the training XP. */
+  static #onTrainDisciplineRank(event, target) {
+    const t = this.choices.training ??= emptyTraining();
+    const plan = this.#plan();
+    const psi = plan.psi;
+    if ( !psi?.discipline ) return null;
+    if ( Number(target.dataset.delta) > 0 ) {
+      if ( psi.nextCost === null ) return ui.notifications.info(`Rank ${psi.rank} is the most a recruit starts with.`);
+      if ( psi.nextCost > plan.left ) return ui.notifications.info(`The next ${IROP.disciplines[psi.discipline]} rank costs ${psi.nextCost} XP; ${plan.left} left.`);
+      t.psi = { ...psi.clean, extra: psi.extra + 1 };
+    }
+    else if ( psi.extra > 0 ) t.psi = { ...psi.clean, extra: psi.extra - 1 };
+    else return null;
+    return this.#settle(plan.perks);
+  }
+
+  /** Training: the free power, picked or put back. */
+  static #onTrainPower(event, target) {
+    const t = this.choices.training ??= emptyTraining();
+    const plan = this.#plan();
+    if ( !plan.psi?.discipline ) return null;
+    const id = target.dataset.id;
+    t.psi = { ...plan.psi.clean, power: (plan.psi.power?.id === id) ? "" : id };
     return this.#settle(plan.perks);
   }
 
@@ -841,7 +903,10 @@ function trainingText(plan) {
   const parts = [
     ...plan.attributes.filter(a => a.pips).map(a => `${IROP.attributes[a.key].label} +${a.pips}`),
     ...plan.skills.filter(s => s.pips).map(s => `${skillLabel(s.key)} ${s.rank}`),
-    ...plan.entries.filter(e => e.kind === "perk").map(e => e.label.replace(/\s*\([^)]*\)$/, ""))
+    ...plan.entries.filter(e => e.kind === "perk").map(e => e.label.replace(/\s*\([^)]*\)$/, "")),
+    // Paraphysics (2026-10-20): "Astrokinesis 1, Gravbolt".
+    ...(plan.psi?.discipline ? [`${IROP.disciplines[plan.psi.discipline]} ${plan.psi.rank}`] : []),
+    ...(plan.psi?.power ? [plan.psi.power.name] : [])
   ];
   return parts.join(", ");
 }
@@ -884,7 +949,23 @@ async function trainingContext(plan, tab = "") {
   // Each tree on its own tab (2026-10-16), the one picked shown, else the first.
   const active = trees.find(t => t.id === tab) ?? trees[0] ?? null;
   for ( const t of trees ) t.on = t === active;
+  // A paraphysical recruit's block (2026-10-20): the disciplines to start in, a second rank, the free power.
+  const p = plan.psi;
+  const psi = p?.enabled ? {
+    disciplines: Object.entries(IROP.disciplines).filter(([k]) => disciplineOpen(k)).map(([key, label]) => ({
+      key, label, on: p.discipline === key, owns: IROP.disciplineInfo[key]?.owns ?? "",
+      granted: p.states[key]?.bonus ? `+${p.states[key].bonus} from species` : ""
+    })),
+    chosen: p.discipline ? IROP.disciplines[p.discipline] : "",
+    rank: p.rank, extra: p.extra,
+    canAdd: (p.nextCost !== null) && (p.nextCost <= plan.left), canDrop: p.extra > 0, next: p.nextCost,
+    powers: p.offered.map(w => ({ id: w.id, name: w.name, img: w.img || "icons/svg/aura.svg", on: p.power?.id === w.id,
+      discipline: IROP.disciplines[w.system.paraphysics.discipline], tier: w.system.paraphysics.tier,
+      tracks: trackText({ ...w.system.paraphysics, rank: 1 }), energy: Number(w.system.energyCost) || 0, blurb: blurb(w.system.description, 120) })),
+    picked: p.power?.name ?? ""
+  } : null;
   return {
+    psi,
     budget: plan.budget, spent: plan.spent, left: plan.left, pct: plan.budget ? Math.round((plan.spent / plan.budget) * 100) : 0,
     attributes, skills, trees, active, tab: active?.id ?? "", roleTiers: ENLIST_ROLE_TIERS, perRank: IROP.attributeAdvance.perRank, any: plan.spent > 0
   };

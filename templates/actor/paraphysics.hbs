@@ -5,12 +5,17 @@
   {{#with psi as |p|}}
   <div class="psi-strip">
     <span class="stat-chip" data-tooltip="The attribute paraphysical attacks roll under; its modifier sets the optimal range bonus">Casts on {{p.casting}}</span>
-    <span class="stat-chip psi-crystals" data-tooltip="Psycrystals unlock a power (rank 1), evolve it (rank 5), and two awaken a person. The GM hands them out.">
-      {{#if p.gm}}<button type="button" class="step" data-action="adjust" data-path="system.psi.crystals" data-delta="-1" data-tooltip="One fewer"><i class="fa-solid fa-minus"></i></button>{{/if}}
+    {{#unless p.npc}}
+    <span class="stat-chip psi-crystals" data-tooltip="{{p.crystalsTip}}. Psycrystals unlock a power (rank 1), evolve it (rank 5), and two awaken a person. They are loot: carried in Gear, found, bought and sold.">
+      {{#if p.gm}}<button type="button" class="step" data-action="adjust" data-path="system.psi.crystals" data-delta="-1" data-tooltip="One fewer held back (carried ones are in Gear)"><i class="fa-solid fa-minus"></i></button>{{/if}}
       <i class="fa-solid fa-gem"></i> {{p.crystals}} psycrystal{{#unless (eq p.crystals 1)}}s{{/unless}}
-      {{#if p.gm}}<button type="button" class="step" data-action="adjust" data-path="system.psi.crystals" data-delta="1" data-tooltip="Give one"><i class="fa-solid fa-plus"></i></button>{{/if}}
+      {{#if p.gm}}<button type="button" class="step" data-action="adjust" data-path="system.psi.crystals" data-delta="1" data-tooltip="Give one, held back on the character (or drop a Psycrystal item on them)"><i class="fa-solid fa-plus"></i></button>{{/if}}
     </span>
+    {{/unless}}
     <span class="stat-chip" data-tooltip="Disciplines held, of how many the species can hold">Disciplines {{p.schools}}</span>
+    {{#if p.concentrating}}<span class="stat-chip psi-concentrating" data-tooltip="Disorientated breaks it">
+      <i class="fa-solid fa-brain"></i> Concentrating on {{p.concentrating}}
+      <button type="button" class="step" data-action="endConcentration" data-tooltip="Let it go"><i class="fa-solid fa-xmark"></i></button></span>{{/if}}
     {{#if p.freePower}}<span class="stat-chip psi-free" data-tooltip="Drop a power of your awakened discipline on the sheet to learn it without a crystal"><i class="fa-solid fa-gift"></i> One power free</span>{{/if}}
     {{#if p.canAwaken}}<button type="button" class="attack psi-awaken" data-action="awaken" data-tooltip="Spend {{p.awakenCost}} psycrystals to awaken"><i class="fa-solid fa-atom"></i> Awaken</button>{{/if}}
   </div>
@@ -24,7 +29,7 @@
         <span class="pips psi-pips">
           {{#each d.pips as |pip|}}<button type="button" class="pip {{#if pip.filled}}filled{{/if}} {{#if pip.granted}}granted{{/if}} {{#if pip.buyable}}buyable{{/if}}"
             data-action="buyDiscipline" data-discipline="{{d.key}}" data-rank="{{pip.n}}" {{#if pip.buyable}}data-tooltip="Buy rank {{pip.n}}: {{pip.cost}} XP"{{/if}}
-            {{#unless (or @root.editMode pip.buyable)}}disabled{{/unless}}></button>{{/each}}
+            {{#unless (or p.edit pip.buyable)}}disabled{{/unless}}></button>{{/each}}
         </span>
       </li>
       {{/each}}

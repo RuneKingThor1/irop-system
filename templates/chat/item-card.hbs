@@ -16,6 +16,16 @@
   {{/if}}
   <div class="card-description">{{{description}}}</div>
   {{#if powerLines.length}}<div class="card-upgrades power-lines">{{#each powerLines}}<p>{{this}}</p>{{/each}}</div>{{/if}}
+  {{#if powerBarrier}}
+  {{!-- A barrier it grants (2026-10-20): to the targeted tokens, or the caster. --}}
+  <div class="card-buttons"><button type="button" data-irop-action="powerBarrier" data-tooltip="Target who gets it, or none for the caster, then press. It lifts a barrier to {{powerBarrier.amount}}, never on top.">
+    <i class="fa-solid fa-shield"></i> Grant barrier {{powerBarrier.amount}}</button></div>
+  {{/if}}
+  {{#if powerSave}}
+  {{!-- A save power: the target's owner targets it and rolls (2026-10-20). --}}
+  <div class="card-buttons"><button type="button" data-irop-action="powerSave" data-tooltip="Target the token or tokens that must save, then press">
+    <i class="fa-solid fa-shield-halved"></i> Roll {{powerSave.saveLabel}} save ({{powerSave.dmText}})</button></div>
+  {{/if}}
   {{#if perkLines.length}}<div class="card-upgrades"><p><strong>Perks:</strong> {{#each perkLines}}{{this}}{{#unless @last}}; {{/unless}}{{/each}}</p></div>{{/if}}
   {{#if upgrades.length}}
   {{!-- What the character's upgrade perks add to it (2026-10-18). --}}

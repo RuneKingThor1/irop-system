@@ -4,6 +4,7 @@ import {
   powerRankCost, powerChoices, trackText, powerSlots, powerTotals
 } from "../rules/paraphysics.mjs";
 import { abilityCost } from "./actor-sheet.mjs";
+import { concentrationOn, endConcentration } from "../concentration.mjs";
 
 /**
  * The Paraphysics tab (Paraphysics Framework Draft 0.6, Johnald, 2026-10-18 and 19): psycrystals,
@@ -17,6 +18,31 @@ const esc = s => foundry.utils.escapeHTML(String(s ?? ""));
 const date = () => new Date().toISOString().slice(0, 10);
 const entry = (kind, label, xp, ref, rank) => ({ kind, label, xp, ref, rank, date: date() });
 
+/** Psycrystals a character can spend: the carried ones and any held back. */
+export function crystalsOf(actor) {
+  return actor?.system?.crystals?.total ?? (Number(actor?.system?.psi?.crystals) || 0);
+}
+
+/**
+ * Spend psycrystals (2026-10-20): any held back on the character first, then the Psycrystal items
+ * carried. Returns the actor update for the held back count; the items are changed here.
+ */
+export async function spendCrystals(actor, n) {
+  let left = n;
+  const banked = Math.max(0, Number(actor.system.psi?.crystals) || 0);
+  const fromBank = Math.min(banked, left);
+  left -= fromBank;
+  for ( const item of actor.items.filter(i => (i.type === "gear") && (i.system?.kind === "psycrystal")) ) {
+    if ( left <= 0 ) break;
+    const qty = Math.max(0, Number(item.system.quantity) || 0);
+    const take = Math.min(qty, left);
+    left -= take;
+    if ( take >= qty ) await item.delete();
+    else await item.update({ "system.quantity": qty - take });
+  }
+  return fromBank ? { "system.psi.crystals": banked - fromBank } : {};
+}
+
 /** The character's powers: abilities with a discipline. */
 export function powersOf(actor) {
   return actor.items.filter(i => (i.type === "ability") && i.system.paraphysics?.discipline);
@@ -27,8 +53,10 @@ export function psiContext(sheet) {
   const actor = sheet.actor;
   const system = actor.system;
   const states = system.disciplines ?? {};
-  const edit = sheet.isEditMode;
   const gm = !!game.user?.isGM;
+  // An NPC's ranks are the GM's to set straight from the pips, in either mode (2026-10-20).
+  const npc = actor.type !== "operative";
+  const edit = sheet.isEditMode || (npc && gm);
   const canBuy = (actor.type === "operative") && !edit && sheet.isEditable;
   const enabled = !!system.isParaphysical;
   const abilities = actor.items.filter(i => i.type === "ability");
@@ -62,12 +90,15 @@ export function psiContext(sheet) {
   const attr = system.casting?.attribute ?? IROP.paraphysics.attribute;
   return {
     selected: picked,
-    enabled, gm, edit,
+    enabled, gm, edit, npc,
     casting: `${IROP.attributes[attr]?.label ?? attr} ${system.casting?.value ?? 0}`,
     castingMod: system.casting?.mod ?? 0,
-    crystals: system.psi?.crystals ?? 0,
+    crystals: crystalsOf(actor),
+    crystalsTip: `${system.crystals?.carried ?? 0} carried${system.crystals?.banked ? `, ${system.crystals.banked} held back` : ""}`,
     schools: `${system.casting?.held ?? 0} of ${system.casting?.schools ?? IROP.paraphysics.schools}`,
     freePower: !!system.psi?.freePower,
+    // The power held in Concentration, if any (2026-10-20).
+    concentrating: concentrationOn(actor)?.name ?? "",
     canAwaken: !enabled && (actor.type === "operative"),
     awakenCost: IROP.paraphysics.awakenCost,
     disciplines,
@@ -114,8 +145,18 @@ function powerRow(item, abilities, { canBuy, edit }) {
 /*  Actions, called with the sheet as this      */
 /* -------------------------------------------- */
 
+/** A GM on an NPC sets ranks outright, no XP or crystals, as in Edit mode (2026-10-20). */
+function freeHand(actor) {
+  return (actor?.type !== "operative") && !!game.user?.isGM;
+}
+
 async function confirm(title, html) {
   return DialogV2().confirm({ window: { title }, content: html });
+}
+
+/** Let go of Concentration, from the tab. */
+export async function onEndConcentration() {
+  return endConcentration(this.actor);
 }
 
 /** Pick the discipline whose powers show on the right. */
@@ -133,7 +174,7 @@ export async function onBuyDiscipline(event, target) {
   const st = actor.system.disciplines?.[key];
   if ( !st ) return null;
   const label = IROP.disciplines[key] ?? key;
-  if ( this.isEditMode ) {
+  if ( this.isEditMode || freeHand(actor) ) {
     if ( n <= st.bonus ) return ui.notifications.info(`${label} rank ${n} is granted by the species.`);
     const bought = (n === st.rank) ? n - 1 - st.bonus : n - st.bonus;
     return actor.update({ [`system.paraphysics.${key}`]: Math.max(0, bought) });
@@ -154,13 +195,13 @@ export async function onBuyPowerRank(event, target) {
   if ( !item ) return null;
   const p = item.system.paraphysics;
   const n = Number(target.dataset.rank);
-  if ( this.isEditMode ) {
+  if ( this.isEditMode || freeHand(actor) ) {
     const rank = (n === p.rank) ? n - 1 : n;
     return item.update({ "system.paraphysics.rank": Math.max(1, rank), ...((rank < 3) ? { "system.paraphysics.choice": "" } : {}) });
   }
   if ( actor.type !== "operative" ) return null;
   const check = checkPowerRank({ name: item.name, current: p.rank, n, unspent: actor.system.xp.unspent,
-    crystals: actor.system.psi.crystals, choice: p.choice });
+    crystals: crystalsOf(actor), choice: p.choice });
   if ( !check.ok ) return (n === p.rank + 1) ? ui.notifications.warn(check.reason) : null;
   const price = check.crystals ? "<strong>1 psycrystal</strong>" : `<strong>${check.xp} XP</strong>`;
   const what = (n === 5) ? `evolve ${esc(item.name)} to its final form` : `raise ${esc(item.name)} to rank ${n}`;
@@ -168,7 +209,7 @@ export async function onBuyPowerRank(event, target) {
   const log = [...actor.system._source.xp.log, check.crystals
     ? entry("crystal", `${item.name} evolved (rank ${n})`, 0, item.id, n)
     : entry("power", `${item.name} rank ${n}`, check.xp, item.id, n)];
-  await actor.update({ "system.xp.log": log, ...(check.crystals ? { "system.psi.crystals": actor.system.psi.crystals - check.crystals } : {}) });
+  await actor.update({ "system.xp.log": log, ...(check.crystals ? await spendCrystals(actor, check.crystals) : {}) });
   return item.update({ "system.paraphysics.rank": n });
 }
 
@@ -185,7 +226,7 @@ export async function onChoosePower(event, target) {
 /** Awaken (2 psycrystals): paraphysical for good, rank 1 in a discipline, and one power free. */
 export async function onAwaken() {
   const actor = this.actor;
-  const check = checkAwaken({ enabled: actor.system.isParaphysical, crystals: actor.system.psi.crystals });
+  const check = checkAwaken({ enabled: actor.system.isParaphysical, crystals: crystalsOf(actor) });
   if ( !check.ok ) return ui.notifications.warn(check.reason);
   const open = Object.entries(IROP.disciplines).filter(([k]) => disciplineOpen(k));
   const data = await DialogV2().input({
@@ -201,7 +242,7 @@ export async function onAwaken() {
   const label = IROP.disciplines[key];
   const log = [...actor.system._source.xp.log, entry("awaken", `Awakened: ${label} rank 1`, 0, key, 1)];
   return actor.update({
-    "system.psi.crystals": actor.system.psi.crystals - check.crystals, "system.psi.awakened": true, "system.psi.freePower": true,
+    ...(await spendCrystals(actor, check.crystals)), "system.psi.awakened": true, "system.psi.freePower": true,
     [`system.paraphysics.${key}`]: Math.max(st.bought, 1), "system.xp.log": log
   });
 }
@@ -221,7 +262,7 @@ export async function learnPower(sheet, source, create) {
     return null;
   }
   const check = checkPowerUnlock({ name: source.name, tier: p.tier, discipline: p.discipline, state: states[p.discipline],
-    inDiscipline, crystals: actor.system.psi.crystals, free, enabled: actor.system.isParaphysical });
+    inDiscipline, crystals: crystalsOf(actor), free, enabled: actor.system.isParaphysical, learnable: p.learnable });
   if ( !check.ok ) {
     ui.notifications.warn(check.reason);
     return null;
@@ -236,7 +277,7 @@ export async function learnPower(sheet, source, create) {
     ? entry("crystal", `${item.name} learned`, 0, item.id, 1)
     : entry("awakenPower", `${item.name} learned, free from awakening`, 0, item.id, 1)];
   await actor.update({ "system.xp.log": log,
-    ...(check.crystals ? { "system.psi.crystals": actor.system.psi.crystals - 1 } : { "system.psi.freePower": false }) });
+    ...(check.crystals ? await spendCrystals(actor, 1) : { "system.psi.freePower": false }) });
   return item;
 }
 

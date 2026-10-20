@@ -561,7 +561,10 @@ IROP.gearKinds = {
   ammunition: "Ammunition",
   // A paraphysical focus (2026-10-19): -20 on paraphysical attacks under the -25 ceiling. It weighs
   // against carry capacity and can never be concealed.
-  focus: "Paraphysical Focus"
+  focus: "Paraphysical Focus",
+  // Psycrystals are loot (Johnald, 2026-10-20): found, bought and sold like any gear, never a
+  // currency. The ones a character carries are the ones they can spend.
+  psycrystal: "Psycrystal"
 };
 
 /* -------------------------------------------- */
@@ -636,8 +639,9 @@ IROP.paraphysics = {
   // A focus: -20, sharing the -25 ceiling with the Accuracy track.
   focus: -20,
   accuracyCeiling: -25,
-  // In Optimal Range: twice the casting modifier, as a bonus.
+  // In Optimal Range: twice the casting modifier, as a bonus. Out of it: +15 to hit (Johnald, 2026-10-20).
   optimalRangeTimes: 2,
+  outOfRange: 15,
   // The discipline discount touches powers of base cost 4 or more.
   discountFrom: 4
 };
@@ -702,7 +706,9 @@ IROP.npcThreats = {
  * turn except Stunned and Vulnerable.
  *
  * `counter`: the status carries an (X), asked for when it is put on from a sheet (statuses.mjs);
- * `counterHint` says what X counts.
+ * `counterHint` says what X counts. X ticks down by 1 at the start of each of the creature's turns
+ * (rules/durations.mjs, 2026-10-20), except where `ticks` is false; `onTurn` is what the turn's
+ * start does first, read out in chat with X in it.
  *
  * Added beyond those twelve: Disorientated and Suppressed, which Section 6
  * lists as battlefield modifiers, so a token can carry them and the attack
@@ -710,13 +716,13 @@ IROP.npcThreats = {
  * states Section 6 names. "dead" is also the id core Foundry uses for defeat.
  */
 IROP.statusEffects = [
-  { id: "ignited", name: "Ignited", img: "icons/svg/fire.svg", counter: true, counterHint: "fire damage each turn",
+  { id: "ignited", name: "Ignited", img: "icons/svg/fire.svg", counter: true, counterHint: "fire damage each turn", onTurn: "takes X fire damage",
     text: "Take fire damage equal to X at the start of each turn; X drops by 1 each turn until 0. Cured by Hunkering Down, or by a flat Agility check that costs 1 action." },
   { id: "poisoned", name: "Poisoned", img: "icons/svg/poison.svg", counter: true, counterHint: "+10 D.M. to all checks per point",
     text: "All checks take +10 D.M. per X: Poisoned (3) is +30 to all checks. Ticks down each turn. Cured by a Medkit or an Antidote." },
-  { id: "acidized", name: "Acidized", img: "icons/svg/acid.svg", counter: true, counterHint: "damage each turn, doubled against armor",
+  { id: "acidized", name: "Acidized", img: "icons/svg/acid.svg", counter: true, counterHint: "damage each turn, doubled against armor", onTurn: "takes X acid damage, doubled against armor",
     text: "Damage like Ignited, but X doubles against armor points. Overflow past destroyed armor carries into HP (minimum 1). Ticks down each turn. Cured by Base Paste." },
-  { id: "frostbite", name: "Frostbite", img: "icons/svg/frozen.svg", counter: true, counterHint: "damage each turn, and Run and Sprint each cut by it",
+  { id: "frostbite", name: "Frostbite", img: "icons/svg/frozen.svg", counter: true, counterHint: "damage each turn, and Run and Sprint each cut by it", onTurn: "takes X cold damage, Run and Sprint each cut by X",
     text: "Take X damage at the start of each turn, and Run and Sprint speed are each reduced by X. Ticks down each turn. Cured by Warming Gel." },
   { id: "pinned", name: "Pinned", img: "icons/svg/net.svg", counter: false,
     text: "Speed is set to 0, and its attacks take +20 D.M. If the pinner takes damage, make a contested Athletics check (+1 per 5 damage dealt) to break free. Ends by winning that check." },
@@ -724,18 +730,21 @@ IROP.statusEffects = [
     text: "Won't trigger overwatch in most cases, and attacks made from concealment take -5 D.M. Entered with a Challenging Stealth check, which costs an action. Any non-movement action breaks it." },
   { id: "mindControl", name: "Mind Control", img: "icons/svg/daze.svg", counter: false,
     text: "The controller decides the target's turn. A Charisma save partly mitigates the orders (a shotgun order becomes a pistol). Cured by disorienting or killing the controller." },
-  { id: "panicked", name: "Panicked", img: "icons/svg/terror.svg", counter: true, counterHint: "turns",
+  { id: "panicked", name: "Panicked", img: "icons/svg/terror.svg", counter: true, counterHint: "turns", onTurn: "Hunkers Down at once",
     text: "At the start of its turn the creature immediately Hunkers Down, for X turns. Ticks down each turn. Ended by a flat Charisma test; an ally can spend one of their actions to Help, giving a re-roll." },
-  { id: "vulnerable", name: "Vulnerable", img: "icons/svg/downgrade.svg", counter: true, counterHint: "bonus damage on the next hit",
+  { id: "vulnerable", name: "Vulnerable", img: "icons/svg/downgrade.svg", counter: true, counterHint: "bonus damage on the next hit", ticks: false,
     text: "The first time it takes damage, add bonus damage equal to X, then the status drops. Cured by a Medkit before it triggers." },
-  { id: "bleeding", name: "Bleeding", img: "icons/svg/blood.svg", counter: true, counterHint: "damage when acting",
+  { id: "bleeding", name: "Bleeding", img: "icons/svg/blood.svg", counter: true, counterHint: "damage when acting", onTurn: "takes X damage on its first action other than self healing, past armor and barriers",
     text: "Take X damage when taking any action other than self-healing, once per turn. Bypasses armor and barriers. Ticks down each turn. Cured by a Medkit." },
-  { id: "electrified", name: "Electrified", img: "icons/svg/lightning.svg", counter: true, counterHint: "damage each turn, doubled against barriers",
+  { id: "electrified", name: "Electrified", img: "icons/svg/lightning.svg", counter: true, counterHint: "damage each turn, doubled against barriers", onTurn: "takes X electric damage, doubled against barriers",
     text: "Damage like Ignited, but X doubles against barrier or shield points. Overflow past destroyed shields carries into HP (minimum 1). Ticks down each turn. Cured by a Grounding Stake." },
-  { id: "stunned", name: "Stunned", img: "icons/svg/paralysis.svg", counter: true, counterHint: "actions lost",
+  { id: "stunned", name: "Stunned", img: "icons/svg/paralysis.svg", counter: true, counterHint: "actions lost", ticks: false,
     text: "Lose actions equal to X, usually 1, though some abilities and creatures stun for longer. Cured by an Adrenal Shot." },
   { id: "disorientated", name: "Disorientated", img: "icons/svg/stoned.svg", counter: false,
     text: "+20 D.M. to attacks and dodges. Speed halved (rounded down), no Concentration actions, and maintained concentration breaks." },
+  // A power's Concentration held (2026-10-20); the power it is for rides on the status.
+  { id: "concentrating", name: "Concentrating", img: "icons/svg/eye.svg", counter: false,
+    text: "Holding a power that needs Concentration. Disorientated breaks it; concentrating on another power lets this one go." },
   { id: "suppressed", name: "Suppressed", img: "icons/svg/down.svg", counter: false,
     text: "+20 D.M. to attacks. Item and ability range capped at two tiles. Paraphysical abilities are unaffected." },
   { id: "bleedingOut", name: "Bleeding Out", img: "icons/svg/unconscious.svg", counter: false,

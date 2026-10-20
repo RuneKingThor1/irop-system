@@ -11,7 +11,8 @@
  *     Supply Run, Waste Not, and the Reputation perks)
  * The same goes for the copies operatives have already taken. Innovater becomes Innovator,
  * on the background and on every operative who has it, with their perk still linked.
- * Awakened, and the backgrounds' own descriptions, are left alone.
+ * Awakened's three perks were written 2026-10-20 (Johnald): Weird World, Power Overwhelming and
+ * Man of Tomorrow. The backgrounds' own descriptions are left alone.
  *
  * Safe to run again: it finds perks by their old name or their new one, and replaces the effects
  * it made before rather than adding more.
@@ -142,6 +143,18 @@ try {
       { from: ["Waste Not"], name: "Waste Not",
         text: p("Once per strategy layer turn, after a successful mission, you recover 5 Logistics and 5 Intel."),
         changes: { [`${S}.mission.logistics`]: 5, [`${S}.mission.intel`]: 5 } }
+    ],
+    // Awakened (Johnald, 2026-10-20): nothing combat focused.
+    "Awakened": [
+      { from: ["Weird World"], name: "Weird World",
+        text: p("The world stopped making sense for you long before it did for everyone else. Once per mission, the GM tells you about one paraphysical anomaly at your location, such as a live object, a storm's residue or a ritual site, and roughly where it is.") },
+      { from: ["Power Overwhelming"], name: "Power Overwhelming",
+        text: p("Your gift comes easier than it should. Once per session, an improvised paraphysical effect costs no Energy.",
+          "Improvisation keeps its rules: outside combat, within a discipline you hold, and never a cheaper copy of a power.") },
+      { from: ["Man of Tomorrow"], name: "Man of Tomorrow",
+        text: p("Others like you are surfacing everywhere, and word of them reaches you first. Once per strategy layer turn, after a successful mission, you bring back 5 extra Intel on paraphysical activity (sightings, defectors, GENESIS pickups), and Reputation in that region rises by 1 extra point."),
+        changes: { [`${S}.mission.intel`]: 5, [`${S}.mission.reputation.megacity`]: 1, [`${S}.mission.reputation.slums`]: 1,
+          [`${S}.mission.reputation.rural`]: 1, [`${S}.mission.reputation.wildland`]: 1 } }
     ],
     "Xenospecialist": [
       { from: ["Field Analysis"], name: "Field Analysis",

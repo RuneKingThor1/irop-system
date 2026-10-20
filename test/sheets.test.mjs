@@ -1256,7 +1256,11 @@ for ( const editMode of [false, true] ) {
   const passives = operative.items.filter(i => (i.type === "ability") && (i.system.kind === "passive"));
   check("perk grid: one tile per passive perk, none left in a list, actives still a list",
     (tiles.length === passives.length) && (tiles.length > 0) && !abil.querySelector(".perk-grid .item-row")
-      && abil.querySelectorAll(".ability-row").length === operative.items.filter(i => (i.type === "ability") && (i.system.kind === "active")).length);
+      && abil.querySelectorAll(".ability-row").length === operative.items.filter(i => (i.type === "ability") && (i.system.kind === "active") && !i.system.paraphysics?.discipline).length);
+  // Powers live on the Paraphysics tab alone (Johnald, 2026-10-20).
+  const gravRow = operative.items.find(i => i.name === "Gravbolt");
+  check("powers: not on the Abilities tab; on the Paraphysics tab",
+    !abil.querySelector(`[data-item-id="${gravRow.id}"]`) && !!new JSDOM(out.paraphysics).window.document.querySelector(`.power-row[data-item-id="${gravRow.id}"]`));
   const tile = tiles[0];
   check("perk grid: a tile opens the perk, posts it, deletes it, and drags",
     tile.classList.contains("draggable") && !!tile.dataset.itemId && !!tile.querySelector('img[data-action="editItem"]')
@@ -1297,7 +1301,8 @@ for ( const editMode of [false, true] ) {
   check("ability dropdown: it stays open when the sheet redraws", row.classList.contains("expanded"));
   await IropActorSheet.DEFAULT_OPTIONS.actions.toggleSummary.call(sheet, {}, row.querySelector(".summary-toggle"));
   check("ability dropdown: a second click folds it", !row.classList.contains("expanded") && !(await draw()).querySelector(".ability-row.expanded"));
-  const empty = [...d.querySelectorAll(".ability-row")].find(r => r.dataset.itemId !== shot.id);
+  shot.system.description = "";
+  const empty = (await draw()).querySelector(`.ability-row[data-item-id="${shot.id}"]`);
   check("ability dropdown: one with no text says so", /No description yet/.test(empty?.querySelector(".ability-summary").textContent ?? ""));
   shot.system.description = was;
   shot.system.prerequisites = "";
@@ -7290,7 +7295,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   await act(app, "trainSkill", { key: "awareness", delta: "1" });
   await act(app, "trainAttribute", { key: "str", delta: "1" });
   check("enlistment: training a Toughness rank, two perks and Awareness 2 spends all 100; one more rank is refused with the cost",
-    eq(app.choices.training, { attributes: { tgh: 1 }, skills: { awareness: 1 }, perks: ["nhc", "nth"] }) && /costs 10 XP; 0 left/.test(said.at(-1) ?? ""), JSON.stringify(app.choices.training));
+    eq(app.choices.training, { attributes: { tgh: 1 }, skills: { awareness: 1 }, perks: ["nhc", "nth"], psi: { discipline: "", extra: 0, power: "" } }) && /costs 10 XP; 0 left/.test(said.at(-1) ?? ""), JSON.stringify(app.choices.training));
   d = await show(app, "trained");
   check("enlistment: trained: the meter empty, the pips and perks lit, the record and the rail showing it",
     /0 of 100 left/.test(d.querySelector(".en-xp-left").textContent) && texts(d, ".en-tperk.on .en-perk-name").join() === "Hard Charger,Thick Hide"
@@ -7300,7 +7305,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   await act(app, "trainAttribute", { key: "tgh", delta: "-1" });
   check("enlistment: taking off the rank a perk needed takes the perk off too, with a word", eq(app.choices.training.perks, ["nhc"]) && /Thick Hide came off/.test(said.at(-1) ?? ""));
   await act(app, "resetTraining");
-  check("enlistment: Reset starts the plan over", eq(app.choices.training, { attributes: {}, skills: {}, perks: [] }));
+  check("enlistment: Reset starts the plan over", eq(app.choices.training, { attributes: {}, skills: {}, perks: [], psi: { discipline: "", extra: 0, power: "" } }));
   for ( const [name, dataset] of [["trainAttribute", { key: "tgh", delta: "1" }], ["trainPerk", { node: "nhc" }], ["trainPerk", { node: "nth" }], ["trainSkill", { key: "awareness", delta: "1" }]] ) {
     await act(app, name, dataset);
   }
@@ -7441,6 +7446,72 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     check("enlistment: the operative's Aberrant Potential carries the choice, and Stealth is rank 1",
       eq(filed.items.find(i => i.name === "Aberrant Potential")?.system.chosen, { attribute: "per", skill: "stealth" }) && (filed.system.skills.stealth.rank === 1));
     world.splice(world.indexOf(ap), 1);
+  }
+
+  // A paraphysical recruit (2026-10-20): rank 1 free, a second from training XP, one power free.
+  {
+    const extra = [
+      mk("rt", "Reticulon", "species", { paraphysical: true, paraphysics: { attribute: "int", schools: 4 } }),
+      mk("pl", "Psi-Lance", "ability", { kind: "active", energyCost: 3, paraphysics: { discipline: "telekinesis", attack: true, tier: 1, trackA: "accuracy" } }),
+      mk("sf", "Starfall", "ability", { kind: "active", energyCost: 4, paraphysics: { discipline: "astrokinesis", tier: 1 } }),
+      mk("ms", "Mind Spike", "ability", { kind: "active", energyCost: 6, paraphysics: { discipline: "telekinesis", tier: 3 } })
+    ];
+    world.push(...extra);
+    game.user = gm;
+    const caster = new EnlistmentApp();
+    Object.assign(caster.choices, { species: "rt", role: "mr", background: "sd", roleSkill: "athletics", backgroundSkills: ["athletics", "insight", "coercion"], perk: "pk1", callsign: "Seer" });
+    caster.step = 4;
+    let cd = await show(caster, "psi training");
+    check("enlistment psi: a paraphysical recruit's Training has a Paraphysics block with the open disciplines and no power yet",
+      cd.querySelector(".en-step.on .t")?.textContent === "Training" && !!cd.querySelector(".en-train-psi") && cd.querySelectorAll('[data-action="trainDiscipline"]').length === 6
+        && !cd.querySelector('[data-action="trainPower"]') && !cd.querySelector('[data-key="cryokinesis"]'));
+    await act(caster, "trainDiscipline", { key: "telekinesis" });
+    cd = await show(caster, "psi discipline");
+    check("enlistment psi: rank 1 is free; its powers at tier 1 are offered, not another school's or a higher tier",
+      /100 of 100 left/.test(cd.querySelector(".en-xp-left").textContent) && texts(cd, '[data-action="trainPower"] .en-perk-name').join() === "Psi-Lance"
+        && /Telekinesis/.test(cd.querySelector(".en-train-psi .en-train-row .en-tr-name")?.textContent ?? ""));
+    await act(caster, "trainDisciplineRank", { delta: "1" });
+    await act(caster, "trainDisciplineRank", { delta: "1" });
+    check("enlistment psi: a second rank costs 75 of the training XP; rank 2 is the most at enlistment",
+      caster.choices.training.psi.extra === 1 && /Rank 2 is the most a recruit starts with/.test(said.at(-1) ?? ""));
+    await act(caster, "trainPower", { id: "pl" });
+    cd = await show(caster, "psi power");
+    check("enlistment psi: the power picked lights, the record says so, and 25 XP are left",
+      !!cd.querySelector('[data-action="trainPower"][data-id="pl"].on') && /25 of 100 left/.test(cd.querySelector(".en-xp-left").textContent)
+        && /Telekinesis 2, Psi-Lance/.test(cd.querySelector(".en-dossier").textContent));
+    await createOperative(caster.choices, gm);
+    const filed = made.at(-1);
+    const lance = filed.items.find(i => i.name === "Psi-Lance");
+    const log = filed.system.xp.log;
+    check("enlistment psi: the operative has Telekinesis 2, Psi-Lance at Rank 1, and the ledger: rank 1 free, rank 2 for 75, the power free",
+      filed.system.paraphysics?.telekinesis === 2 && lance?.system.paraphysics.rank === 1 && (filed.system.xp.earned === 100)
+        && log.some(e => (e.kind === "discipline") && (e.xp === 0) && (e.rank === 1)) && log.some(e => (e.kind === "discipline") && (e.xp === 75) && (e.rank === 2))
+        && log.some(e => (e.kind === "awakenPower") && (e.ref === "pl")), JSON.stringify({ p: filed.system.paraphysics, log }));
+    // Changing the discipline starts it over; a non paraphysical recruit gets no block.
+    await act(caster, "trainDiscipline", { key: "astrokinesis" });
+    check("enlistment psi: picking another discipline starts it over", eq(caster.choices.training.psi, { discipline: "astrokinesis", extra: 0, power: "" }));
+    const plain = new EnlistmentApp();
+    Object.assign(plain.choices, { species: "hu", role: "mr", background: "sd", roleSkill: "athletics", backgroundSkills: ["athletics", "insight", "coercion"], perk: "pk1", boons: ["agi", "cha"] });
+    plain.step = 5;
+    const pd = await show(plain, "no psi");
+    check("enlistment psi: a recruit who is not paraphysical sees no Paraphysics block", pd.querySelector(".en-step.on .t")?.textContent === "Training" && !pd.querySelector(".en-train-psi"));
+    // Awakened is for Humans and Mutants (2026-10-20): not offered to a Reticulon, and taken off if the species changes.
+    const aw = mk("aw", "Awakened", "background", { paraphysical: true, species: "Human, Mutant", startingSkills: "Awareness, Insight, Paraphysics", skillPicks: 3 });
+    world.push(aw);
+    const pick = new EnlistmentApp();
+    await act(pick, "pick", { kind: "species", id: "rt" });
+    pick.step = 2;
+    let bgd = await show(pick, "backgrounds for a Reticulon");
+    check("enlistment: Awakened is not offered to a Reticulon", !bgd.querySelector('[data-kind="background"][data-id="aw"]') && !!bgd.querySelector('[data-kind="background"][data-id="sd"]'));
+    await act(pick, "pick", { kind: "species", id: "mu" });
+    bgd = await show(pick, "backgrounds for a Mutant");
+    check("enlistment: Awakened is offered to a Mutant", !!bgd.querySelector('[data-kind="background"][data-id="aw"]'));
+    await act(pick, "pick", { kind: "background", id: "aw" });
+    await act(pick, "pick", { kind: "species", id: "rt" });
+    check("enlistment: switching to a species it is not open to takes Awakened off, with a word",
+      pick.choices.background === "" && /Awakened is not open to Reticulon/.test(said.at(-1) ?? ""));
+    world.splice(world.indexOf(aw), 1);
+    for ( const x of extra ) world.splice(world.indexOf(x), 1);
   }
 
   // The sidebar button.
@@ -7668,6 +7739,264 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   await IropItemSheet.DEFAULT_OPTIONS.actions.removePowerOption.call(ui, null, { closest: () => ({ dataset: { optionId: gravbolt.system.paraphysics.options[0].id } }) });
   u = updates.pop();
   check("power ranks: removing the option taken opens the choice again", u["system.paraphysics.options"].length === 0 && u["system.paraphysics.choice"] === "");
+}
+
+// Save powers' Roll save button (2026-10-20).
+{
+  const rolls = await import("../module/rolls.mjs");
+  const saved = { targets: game.user.targets, ui: globalThis.ui, evaluate: D100Roll.prototype.evaluate, toMessage: D100Roll.prototype.toMessage, chat: globalThis.ChatMessage };
+  globalThis.ChatMessage = { implementation: { create: async d => d, getSpeaker: () => ({ alias: "Brute" }) } };
+  const notes = [];
+  globalThis.ui = { notifications: { info: m => notes.push(m), warn: m => notes.push(m) } };
+  const caster = makeActor("operative", OperativeData, { attributes: { cha: { base: 55 } } }, [
+    { type: "species", name: "Human", system: { paraphysical: true } },
+    { id: "pw", type: "ability", name: "Crushing Gaze", system: { kind: "active", energyCost: 4,
+      paraphysics: { discipline: "telekinesis", tier: 1, rank: 2, trackA: "potency", trackB: "duration", save: "str" } } }
+  ]);
+  const card = rolls.powerCard(caster, caster.items.get("pw"));
+  check("save powers: the card carries the save, the caster's mod plus Potency",
+    card.powerSave?.save === "str" && card.powerSave.dm === 9 && card.powerSave.dmText === "+9" && card.powerSave.label === "Crushing Gaze", JSON.stringify(card.powerSave));
+  const cardDoc = new JSDOM(tpl("templates/chat/item-card.hbs")({ item: { name: "Crushing Gaze", img: "x.svg" }, system: {}, ...card })).window.document;
+  check("save powers: the card shows a Roll save button with the D.M.",
+    /Roll Strength save \(\+9\)/.test(cardDoc.querySelector('[data-irop-action="powerSave"]')?.textContent ?? ""));
+  const message = { flags: { irop: { powerSave: card.powerSave } } };
+  game.user.targets = new Set();
+  await rolls.rollPowerSave(message);
+  check("save powers: with nothing targeted, the button asks for a target", /Target the token/.test(notes.at(-1) ?? ""));
+  const chat = [];
+  D100Roll.prototype.evaluate = async function() { return this; };
+  D100Roll.prototype.toMessage = async function(data) { chat.push({ ...data, rolls: [this] }); return chat.at(-1); };
+  const brute = { uuid: "Actor.b", name: "Brute", isOwner: true, system: { attributes: { str: { value: 60, abbr: "STR" } } } };
+  const other = { uuid: "Actor.o", name: "Watcher", isOwner: false, system: { attributes: { str: { value: 40, abbr: "STR" } } } };
+  game.user.targets = new Set([{ actor: brute }, { actor: other }]);
+  const out = await rolls.rollPowerSave(message);
+  const r = out?.[0];
+  check("save powers: each targeted token the presser owns rolls under its attribute with the caster's D.M.; others are refused",
+    out?.length === 1 && r.options.target === 60 && r.options.modifiers[0].value === 9 && /Strength save/.test(r.options.label)
+      && notes.some(n => /Only Watcher's owner/.test(n)), JSON.stringify(r?.options));
+  check("save powers: the button also works from an attack power's damage card",
+    (await rolls.rollPowerSave({ rolls: [{ options: { powerSave: card.powerSave } }] }))?.length === 1);
+  const dmgDoc = new JSDOM(tpl("templates/chat/damage-roll.hbs")({ total: 7, formula: "2d4", powerSave: card.powerSave })).window.document;
+  check("save powers: the damage card shows the button", !!dmgDoc.querySelector('[data-irop-action="powerSave"]'));
+  D100Roll.prototype.evaluate = saved.evaluate;
+  D100Roll.prototype.toMessage = saved.toMessage;
+  game.user.targets = saved.targets;
+  globalThis.ui = saved.ui;
+  globalThis.ChatMessage = saved.chat;
+}
+
+// Concentration (2026-10-20): the status names the power; one at a time; Disorientated breaks it.
+{
+  const conc = await import("../module/concentration.mjs");
+  const saved = { chat: globalThis.ChatMessage, hooks: globalThis.Hooks, user: game.user };
+  const said = [];
+  globalThis.ChatMessage = { implementation: { create: async d => { said.push(d.content); return d; }, getSpeaker: () => ({}) } };
+  const effect = { statuses: new Set(["concentrating"]), flags: { irop: { concentration: { itemId: "ln", name: "The Long Night" } } },
+    deleted: false, async delete() { this.deleted = true; }, async update(u) { this.flags.irop.concentration = u["flags.irop.concentration"]; return this; } };
+  const actor = { name: "Mira", effects: [effect] };
+  check("concentration: read off the status", conc.concentrationOn(actor)?.name === "The Long Night" && conc.concentrationOn({ effects: [] }) === null);
+  await conc.startConcentration(actor, { id: "uv", name: "Umbral Veil" });
+  check("concentration: a new power lets the old one go, and says so",
+    effect.flags.irop.concentration.itemId === "uv" && /lets go of <strong>The Long Night<\/strong> to concentrate on <strong>Umbral Veil<\/strong>/.test(said.at(-1) ?? ""));
+  const hooks = {};
+  globalThis.Hooks = { on: (name, fn) => { hooks[name] = fn; } };
+  game.user = { id: "u1" };
+  conc.registerConcentration();
+  hooks.createActiveEffect({ statuses: new Set(["disorientated"]), parent: actor }, {}, "u2");
+  check("concentration: only the client that applied Disorientated acts on it", !effect.deleted);
+  hooks.createActiveEffect({ statuses: new Set(["disorientated"]), parent: actor }, {}, "u1");
+  await new Promise(r => setTimeout(r, 0));
+  check("concentration: Disorientated breaks it, and says so", effect.deleted && /Disorientated: Concentration on <strong>Umbral Veil<\/strong> breaks/.test(said.at(-1) ?? ""));
+  check("concentration: the status is in the list, for the token", !!IROP.statusEffects.find(s => s.id === "concentrating"));
+  // The tab's chip.
+  const tabDoc = new JSDOM(tpl("templates/actor/paraphysics.hbs")({ psi: { casting: "CHA 55", crystals: 0, schools: "1 of 5", concentrating: "Umbral Veil", disciplines: [], selected: null }, tab: {} })).window.document;
+  check("concentration: the tab says what is held, with a button to let it go",
+    /Concentrating on Umbral Veil/.test(tabDoc.querySelector(".psi-concentrating")?.textContent ?? "") && !!tabDoc.querySelector('[data-action="endConcentration"]'));
+  globalThis.ChatMessage = saved.chat;
+  globalThis.Hooks = saved.hooks;
+  game.user = saved.user;
+}
+
+// Psycrystals are loot (2026-10-20), and out of optimal range is +15.
+{
+  const psiTab = await import("../module/sheets/paraphysics-tab.mjs");
+  const rolls = await import("../module/rolls.mjs");
+  const looter = makeActor("operative", OperativeData, { psi: { crystals: 1 } }, [
+    { type: "species", name: "Human", system: { paraphysical: true } },
+    { id: "c1", type: "gear", name: "Psycrystal", system: { kind: "psycrystal", quantity: 2 } },
+    { id: "c2", type: "gear", name: "Psycrystal (Glasslands)", system: { kind: "psycrystal", quantity: 1 } }
+  ]);
+  check("psycrystals: carried Psycrystal items count, with any held back",
+    looter.system.crystals.carried === 3 && looter.system.crystals.banked === 1 && looter.system.crystals.total === 4 && psiTab.crystalsOf(looter) === 4);
+  const changes = [];
+  for ( const i of looter.items ) {
+    i.update = async u => { changes.push({ id: i.id, ...u }); return i; };
+    i.delete = async () => { changes.push({ id: i.id, deleted: true }); return i; };
+  }
+  const bankUpdate = await psiTab.spendCrystals(looter, 3);
+  check("psycrystals: spending takes the held back ones first, then the items, a stack emptied is removed",
+    bankUpdate["system.psi.crystals"] === 0 && changes.some(c => (c.id === "c1") && c.deleted) && !changes.some(c => c.id === "c2"), JSON.stringify(changes));
+  changes.length = 0;
+  const none = await psiTab.spendCrystals(makeActor("operative", OperativeData, {}, []), 0);
+  check("psycrystals: spending none changes nothing", JSON.stringify(none) === "{}");
+  const partial = makeActor("operative", OperativeData, {}, [{ id: "c3", type: "gear", name: "Psycrystal", system: { kind: "psycrystal", quantity: 3 } }]);
+  partial.items[0].update = async u => { changes.push(u); return partial.items[0]; };
+  await psiTab.spendCrystals(partial, 2);
+  check("psycrystals: part of a stack is taken off its quantity", changes.at(-1)?.["system.quantity"] === 1);
+  check("psycrystals: a Psycrystal is a gear kind", IROP.gearKinds.psycrystal === "Psycrystal");
+  // Out of optimal range.
+  const caster = makeActor("operative", OperativeData, { attributes: { cha: { base: 55 } } }, [
+    { type: "species", name: "Human", system: { paraphysical: true } },
+    { id: "gb", type: "ability", name: "Gravbolt", system: { paraphysics: { discipline: "astrokinesis", attack: true, tier: 1, rank: 1 } } }]);
+  const pa = rolls.powerAttack(caster, caster.items.get("gb"));
+  const atk = new JSDOM(tpl("templates/dialog/attack.hbs")({ covers: [], toggles: [], target: {}, modes: [], perks: { any: false }, power: pa })).window.document;
+  check("out of optimal range: +15, offered beside in range in the attack window",
+    pa.outOfRange === 15 && pa.outOfRangeText === "+15" && !!atk.querySelector('input[name="psi.range"][value="in"][checked]') && !!atk.querySelector('input[name="psi.range"][value="out"]'));
+}
+
+// Paraphysical barriers (2026-10-20): one pool with armor's; a grant lifts it, like temporary HP, never adds.
+{
+  const psi = await import("../module/rules/paraphysics.mjs");
+  const rolls = await import("../module/rolls.mjs");
+  check("barrier: a grant lifts the pool to its amount, never on top",
+    JSON.stringify(psi.barrierGrant({ value: 1 }, 3)) === JSON.stringify({ value: 3, granted: 3 }) && psi.barrierGrant({ value: 4 }, 3) === null
+      && psi.barrierGrant({ value: 3 }, 3) === null && psi.barrierGrant({ value: 0 }, 0) === null);
+  const bare = makeActor("operative", OperativeData, { vitals: { barrier: { value: 3, granted: 3 } } }, []);
+  check("barrier: with no barrier armor, a granted barrier sets the pool's top while any is left",
+    bare.system.vitals.barrier.max === 3 && bare.system.vitals.barrier.armor === 0);
+  const spent = makeActor("operative", OperativeData, { vitals: { barrier: { value: 0, granted: 3 } } }, []);
+  check("barrier: once it is gone, the top is armor's again", spent.system.vitals.barrier.max === 0);
+  const sanctuary = makeActor("operative", OperativeData, { attributes: { cha: { base: 55 } } }, [
+    { type: "species", name: "Human", system: { paraphysical: true } },
+    { id: "sn", type: "ability", name: "Sanctuary", system: { paraphysics: { discipline: "astrokinesis", tier: 3, rank: 2, barrier: 2,
+      rank2: { barrier: 1 } } } }]);
+  const card = rolls.powerCard(sanctuary, sanctuary.items.get("sn"));
+  check("barrier: a power's barrier is its own plus what its ranks add, offered on its card",
+    card.powerBarrier?.amount === 3 && card.powerLines.some(l => /^Barrier 3: lifts a barrier/.test(l)), JSON.stringify(card));
+  const cardDoc = new JSDOM(tpl("templates/chat/item-card.hbs")({ item: { name: "Sanctuary", img: "x.svg" }, system: {}, ...card })).window.document;
+  check("barrier: the card has a Grant barrier button", /Grant barrier 3/.test(cardDoc.querySelector('[data-irop-action="powerBarrier"]')?.textContent ?? ""));
+  const saved = { targets: game.user.targets, chat: globalThis.ChatMessage, ui: globalThis.ui };
+  const said = [];
+  globalThis.ChatMessage = { implementation: { create: async d => { said.push(d.content); return d; } } };
+  globalThis.ui = { notifications: { warn: () => {}, info: () => {} } };
+  const ups = [];
+  const ally = { name: "Hale", isOwner: true, system: { vitals: { barrier: { value: 1 } } }, update: async u => ups.push(["Hale", u]) };
+  const tank = { name: "Ox", isOwner: true, system: { vitals: { barrier: { value: 5 } } }, update: async u => ups.push(["Ox", u]) };
+  game.user.targets = new Set([{ actor: ally }, { actor: tank }]);
+  await rolls.grantPowerBarrier({ flags: { irop: { powerBarrier: card.powerBarrier } } });
+  check("barrier: each target is lifted to the amount; one already above keeps its own",
+    ups.length === 1 && ups[0][0] === "Hale" && ups[0][1]["system.vitals.barrier.value"] === 3 && /Ox<\/strong> already holds 5/.test(said.at(-1) ?? ""));
+  game.user.targets = saved.targets;
+  globalThis.ChatMessage = saved.chat;
+  globalThis.ui = saved.ui;
+}
+
+// Durations count down at the start of each turn (2026-10-20).
+{
+  const dr = await import("../module/rules/durations.mjs");
+  const dur = await import("../module/durations.mjs");
+  const tick = dr.tickEffects([
+    { id: "ig", name: "Ignited (3)", statuses: ["ignited"], counter: 3, rounds: null },
+    { id: "po", name: "Poisoned (1)", statuses: ["poisoned"], counter: 1, rounds: null },
+    { id: "st", name: "Stunned (2)", statuses: ["stunned"], counter: 2, rounds: null },
+    { id: "vu", name: "Vulnerable (4)", statuses: ["vulnerable"], counter: 4, rounds: null },
+    { id: "pa", name: "Panicked (2)", statuses: ["panicked"], counter: 2, rounds: null },
+    { id: "uv", name: "Umbral Veil (2 rounds)", statuses: [], counter: null, rounds: 2, timedName: "Umbral Veil" },
+    { id: "cn", name: "Concentrating", statuses: ["concentrating"], counter: null, rounds: 1, timedName: "The Long Night" },
+    { id: "pl", name: "Plain buff", statuses: [], counter: null, rounds: null }
+  ]);
+  const op = id => tick.ops.find(o => o.id === id);
+  check("durations: Ignited deals its X first, then drops by 1; its name follows",
+    op("ig").update["flags.irop.counter"] === 2 && op("ig").update.name === "Ignited (2)" && tick.lines.includes("Ignited (3): takes 3 fire damage."));
+  check("durations: an X reaching 0 comes off, and says so", op("po").remove && tick.lines.includes("Poisoned wears off."));
+  check("durations: Stunned and Vulnerable do not tick", !op("st") && !op("vu"));
+  check("durations: Panicked reads its turn out", tick.lines.includes("Panicked (2): Hunkers Down at once.") && op("pa").update["flags.irop.counter"] === 1);
+  check("durations: a timed effect loses a round, its name showing what is left",
+    op("uv").update["flags.irop.rounds"] === 1 && op("uv").update.name === "Umbral Veil (1 round)" && tick.lines.includes("Umbral Veil: 1 round left."));
+  check("durations: a Concentration with rounds ends at 0, and so does the power", op("cn").remove && tick.lines.includes("The Long Night ends."));
+  check("durations: an effect with no count is left alone", !op("pl"));
+  check("durations: the names", dr.timedName("Veil", 1) === "Veil (1 round)" && dr.timedName("Veil", 3) === "Veil (3 rounds)" && dr.timedName("Veil", 0) === "Veil");
+
+  // The Foundry side: one character's turn.
+  const saved = { chat: globalThis.ChatMessage, hooks: globalThis.Hooks, config: globalThis.CONFIG, users: game.users, user: game.user };
+  const posts = [];
+  globalThis.ChatMessage = { implementation: { create: async d => { posts.push(d); return d; }, getSpeaker: () => ({}), getWhisperRecipients: () => [{ id: "gm" }] } };
+  const calls = [];
+  const fx = [{ id: "ig", name: "Ignited (1)", statuses: new Set(["ignited"]), flags: { irop: { counter: 1 } } },
+    { id: "uv", name: "Umbral Veil (3 rounds)", statuses: new Set(), flags: { irop: { rounds: 3, timedName: "Umbral Veil" } } }];
+  const npc = { name: "Drone", hasPlayerOwner: false, effects: fx,
+    updateEmbeddedDocuments: async (t, d) => calls.push(["update", d]), deleteEmbeddedDocuments: async (t, d) => calls.push(["delete", d]) };
+  await dur.tickActor(npc);
+  check("durations: a turn's start applies the ticks and posts them, an NPC's to the GM alone",
+    calls.some(c => (c[0] === "update") && (c[1][0]._id === "uv") && (c[1][0]["flags.irop.rounds"] === 2)) && calls.some(c => (c[0] === "delete") && c[1].includes("ig"))
+      && /Drone's turn/.test(posts.at(-1)?.content ?? "") && /Ignited \(1\): takes 1 fire damage/.test(posts.at(-1).content) && posts.at(-1).whisper?.[0] === "gm");
+  // The hook: forward only, the active GM only.
+  const hooks = {};
+  globalThis.Hooks = { on: (n, f) => { hooks[n] = f; } };
+  dur.registerDurations();
+  let ticked = 0;
+  const pc = { name: "Mira", hasPlayerOwner: true, effects: [{ id: "x", name: "Veil (1 round)", statuses: new Set(), flags: { irop: { rounds: 1 } } }],
+    updateEmbeddedDocuments: async () => {}, deleteEmbeddedDocuments: async () => { ticked++; } };
+  const combat = { combatant: { actor: pc } };
+  game.users = { activeGM: { isSelf: true } };
+  hooks.updateCombat(combat, { turn: 2 }, { direction: -1 });
+  hooks.updateCombat(combat, { name: "x" }, {});
+  await new Promise(r => setTimeout(r, 0));
+  check("durations: going back a turn, or a change that is not a turn, ticks nothing", ticked === 0);
+  hooks.updateCombat(combat, { turn: 3 }, { direction: 1 });
+  await new Promise(r => setTimeout(r, 0));
+  check("durations: a new turn ticks its combatant", ticked === 1 && !posts.at(-1).whisper);
+  game.users = { activeGM: { isSelf: false } };
+  hooks.updateCombat(combat, { turn: 4 }, { direction: 1 });
+  await new Promise(r => setTimeout(r, 0));
+  check("durations: another GM's client leaves it to the active GM", ticked === 1);
+  // A power's Duration: on its own effect, or on its Concentration.
+  const made = [];
+  globalThis.CONFIG = { ...(saved.config ?? {}), ActiveEffect: { documentClass: { create: async (d, o) => { made.push(d); return d; } } } };
+  await dur.startTimed({ name: "Mira" }, { name: "Weightless", rounds: 2, img: "w.svg" });
+  check("durations: a power that lasts gets an effect counting its rounds", made.at(-1)?.name === "Weightless (2 rounds)" && made.at(-1).flags.irop.rounds === 2);
+  const held = { updates: [], update(u) { this.updates.push(u); return this; } };
+  await dur.startTimed({ name: "Mira" }, { name: "The Long Night", rounds: 3, effect: held });
+  check("durations: one held in Concentration counts on the Concentrating status", held.updates.at(-1)["flags.irop.rounds"] === 3 && made.length === 1);
+  // The Effects tab shows what is left.
+  const effDoc = new JSDOM(tpl("templates/actor/effects.hbs")({ effects: [{ id: "uv", name: "Weightless (2 rounds)", img: "w.svg", source: "Actor", owned: true, rounds: 2, canTime: true }], editable: true, tab: {} })).window.document;
+  check("durations: the Effects tab says the rounds left, with a GM's steps",
+    /2 rounds left/.test(effDoc.querySelector(".effect-row .item-sub")?.textContent ?? "") && effDoc.querySelectorAll('[data-action="effectRounds"]').length === 2);
+  globalThis.ChatMessage = saved.chat;
+  globalThis.Hooks = saved.hooks;
+  globalThis.CONFIG = saved.config;
+  game.users = saved.users;
+  game.user = saved.user;
+}
+
+// NPCs' Paraphysics tab (2026-10-20): the operative's, set by the GM straight from the pips.
+{
+  const psiTab = await import("../module/sheets/paraphysics-tab.mjs");
+  const savedUser = game.user;
+  game.user = { isGM: true, name: "GM" };
+  const seer = makeActor("npc", NpcData, { paraphysics: { cryokinesis: 2 } }, [
+    { id: "ic", type: "ability", name: "Ice Wall", system: { kind: "active", energyCost: 5, paraphysics: { discipline: "cryokinesis", tier: 2, rank: 1, learnable: false } } }]);
+  const npcSheet = new NpcSheet(seer);
+  const { context, out } = await renderSheet(NpcSheet, seer);
+  const tab = new JSDOM(out.paraphysics ?? "").window.document;
+  const cryo = context.psi.disciplines.find(d => d.key === "cryokinesis");
+  check("npc psi: a GM sees the Paraphysics tab on an NPC, wave two schools included, no crystals or awakening",
+    npcSheet._getTabsConfig("primary").tabs.some(t => t.id === "paraphysics") && context.psi.npc && context.psi.disciplines.length === 12
+      && cryo.rank === 2 && !tab.querySelector(".psi-crystals") && !tab.querySelector('[data-action="awaken"]') && !/<h3>Paraphysics<\/h3>/.test(out.abilities));
+  check("npc psi: the GM's pips are live without Edit mode",
+    !tab.querySelector('[data-action="buyDiscipline"][data-discipline="cryokinesis"][data-rank="3"]')?.disabled
+      && cryo.powers[0]?.pips.every(p => p.editable));
+  const ups = [];
+  seer.update = async u => { ups.push(u); return seer; };
+  seer.items[0].update = async u => { ups.push(u); return seer.items[0]; };
+  await psiTab.onBuyDiscipline.call({ actor: seer, isEditMode: false }, null, { dataset: { discipline: "cryokinesis", rank: "4" } });
+  await psiTab.onBuyPowerRank.call({ actor: seer, isEditMode: false }, null, { dataset: { rank: "3" }, closest: () => ({ dataset: { itemId: "ic" } }) });
+  check("npc psi: a GM sets an NPC's discipline and power ranks outright, no XP, nothing logged",
+    ups[0]?.["system.paraphysics.cryokinesis"] === 4 && !("system.xp.log" in ups[0]) && ups[1]?.["system.paraphysics.rank"] === 3);
+  game.user = { isGM: false, name: "Player" };
+  const plain = makeActor("npc", NpcData, {}, []);
+  check("npc psi: a player sees no Paraphysics tab on an NPC who has none", !new NpcSheet(plain)._getTabsConfig("primary").tabs.some(t => t.id === "paraphysics"));
+  game.user = savedUser;
 }
 
 console.log(`${pass} passed, ${fail} failed`);

@@ -1097,7 +1097,7 @@ export function roleTreesContext(item, active = "", items = game.items) {
 export function powerRanksContext(p) {
   const NUMBERS = [["accuracy", "Accuracy D.M.", "Minus makes it easier to hit"], ["potency", "Potency", "Added to a save power's D.M. on its target"],
     ["energy", "Energy", "Added to its cost"], ["range", "Range", "Tiles added"], ["area", "Area", "Tiles of radius added"],
-    ["duration", "Duration", "Rounds added"]];
+    ["duration", "Duration", "Rounds added"], ["barrier", "Barrier", "Barrier points it grants, added to its own: lifts a target's barrier to at least this, never on top"]];
   const fields = (path, src, defaults = {}) => [
     ...NUMBERS.map(([key, label, tip]) => ({ name: `${path}.${key}`, label, tip, value: src?.[key] ?? "", placeholder: defaults[key] ?? 0, number: true })),
     { name: `${path}.damage`, label: "Damage", tip: "Added to its damage: 1d4, +2", value: src?.damage ?? "", placeholder: "none" }

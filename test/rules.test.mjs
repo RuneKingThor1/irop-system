@@ -982,7 +982,15 @@ check("disorientated both ways",
   check("reset: every item goes; keeping the gear keeps weapons, armor, gear and mods",
     rs.resetItems(items).length === 10 && rs.resetItems(items, { gear: true }).join() === "r,s,b,p,bo,mu");
   check("reset: what was kept, in words", rs.keptWords({}) === "Nothing was kept." && rs.keptWords({ gear: true }) === "Kept their gear."
-    && rs.keptWords({ identity: true, gear: true, xp: true }) === "Kept who they are, their gear and the XP earned.");
+    && rs.keptWords({ identity: true, gear: true, xp: true }) === "Kept who they are, their gear and the XP earned and psycrystals.");
+  // Psycrystals go with the XP (2026-10-20): kept, the spent ones come back.
+  const psiNow = { xp: { earned: 300, log: [{ kind: "award", xp: 300 }, { kind: "awaken", xp: 0 }, { kind: "crystal", xp: 0 }, { kind: "crystal", xp: 0 }, { kind: "discipline", xp: 75 }, { kind: "awakenPower", xp: 0 }] },
+    psi: { crystals: 1, awakened: true, freePower: false } };
+  const psiBlank = { xp: { earned: 100, log: [] }, psi: { crystals: 0, awakened: false, freePower: false } };
+  const psiKept = rs.resetSystem(psiBlank, psiNow, { xp: true });
+  check("reset: kept XP brings back every psycrystal: held, awakening and powers; the awakening itself goes",
+    rs.crystalsRefunded(psiNow) === 5 && psiKept.psi.crystals === 5 && !psiKept.psi.awakened && psiKept.xp.log.length === 1
+      && rs.resetSystem(psiBlank, psiNow).psi.crystals === 0);
 }
 
 // What stacks (Johnald, 2026-10-10: grenades dragged from the sidebar did not stack).
@@ -1579,7 +1587,8 @@ check("disorientated both ways",
   const capped = en.trainingPlan({ skills: { athletics: 5 }, attributes: { str: 9 } }, { ...recruit, budget: 1000 });
   check("enlistment: training never goes past a top rank; cleaned, the plan keeps only what it allows",
     (capped.skills.find(s => s.key === "athletics").rank === 4) && (capped.attributes.find(a => a.key === "str").pips === 6)
-      && eq(en.cleanTraining({}, untough), { attributes: {}, skills: { awareness: 1 }, perks: ["a"] }) && eq(en.emptyTraining(), { attributes: {}, skills: {}, perks: [] }));
+      && eq(en.cleanTraining({}, untough), { attributes: {}, skills: { awareness: 1 }, perks: ["a"], psi: en.emptyPsi() })
+      && eq(en.emptyTraining(), { attributes: {}, skills: {}, perks: [], psi: { discipline: "", extra: 0, power: "" } }));
   const trainedData = en.operativeData(full, { species, role, background, training: trained,
     trainingPerks: [{ data: { _id: "x1", name: "Hard Charger", type: "ability", system: {}, flags: { core: { a: 1 } } }, tree: "t1", node: "a", xp: 20 }] }, { date: "17 May 2040" });
   const charger = trainedData.items.find(i => i.name === "Hard Charger");
@@ -1707,6 +1716,40 @@ check("disorientated both ways",
       && psi.powerAccuracy({ rank: 4, rank2: { accuracy: -20 }, rank4: { accuracy: -30 } }, { focus: true }).focus === 0);
   check("psi: Energy adds what the ranks add, still under the floor",
     psi.powerEnergy({ ...custom, energy: 5, tier: 1 }, 1).cost === 7 && psi.powerEnergy({ energy: 6, tier: 1, rank: 2, rank2: { energy: -5 } }, 1).cost === 3);
+}
+
+// A paraphysical recruit's enlistment (2026-10-20).
+{
+  const en2 = await import("../module/rules/enlistment.mjs");
+  const psiR = await import("../module/rules/paraphysics.mjs");
+  const tel = psiR.speciesParaphysics({ paraphysics: { schools: 3, bonus: { telepathy: 1, optics: 1 } } });
+  const powers = [{ id: "mc", name: "Whisper", system: { paraphysics: { discipline: "telepathy", tier: 2 } } }, { id: "tk", name: "Shove", system: { paraphysics: { discipline: "telekinesis", tier: 1 } } }];
+  const t1 = en2.psiTraining({ discipline: "telepathy", extra: 1, power: "mc" }, { enabled: true, species: tel, powers });
+  check("enlist psi: a Telestoi's free Telepathy rank lands on its granted one: rank 2, no room for more, a tier 2 power in reach",
+    t1.rank === 2 && t1.extra === 0 && t1.cost === 0 && t1.nextCost === null && t1.power?.id === "mc" && t1.entries[0].rank === 2);
+  const t2 = en2.psiTraining({ discipline: "telekinesis", power: "mc" }, { enabled: true, species: tel, powers });
+  check("enlist psi: a third school fits a Telestoi's three; its granted schools' powers stay in reach",
+    t2.discipline === "telekinesis" && t2.rank === 1 && t2.offered.map(p => p.id).join() === "tk" && t2.power === null);
+  const tight = psiR.speciesParaphysics({ paraphysics: { schools: 2, bonus: { telepathy: 1, optics: 1 } } });
+  check("enlist psi: no free rank in a school past the species' limit, nor a closed one, nor when not paraphysical",
+    en2.psiTraining({ discipline: "telekinesis" }, { enabled: true, species: tight, powers }).discipline === ""
+      && en2.psiTraining({ discipline: "divining" }, { enabled: true, species: tel, powers }).discipline === ""
+      && en2.psiTraining({ discipline: "telekinesis" }, { enabled: false, species: tel, powers }).discipline === "");
+  const human = psiR.speciesParaphysics(null);
+  const plan = en2.trainingPlan({ psi: {} }, { attributes: { str: 40 }, ranks: {}, psi: en2.psiTraining({ discipline: "optics", extra: 1 }, { enabled: true, species: human, powers }) });
+  const twice = en2.psiTraining({ discipline: "telekinesis" }, { enabled: true, species: human, powers: [...powers, { id: "tk2", name: "Shove", system: { paraphysics: { discipline: "telekinesis", tier: 1 } } }] });
+  const awk = { name: "Awakened", system: { species: "Human, Mutant" } };
+  check("enlist: a background open to some species only; blank is any; nothing to judge before a species",
+    en2.backgroundFits(awk, { name: "Human" }) && en2.backgroundFits(awk, { name: "mutant" }) && !en2.backgroundFits(awk, { name: "Reticulon" })
+      && en2.backgroundFits({ system: { species: "" } }, { name: "Reticulon" }) && en2.backgroundFits(awk, null)
+      && /Awakened is not open to Reticulon/.test(en2.stepIssues({}, { species: { name: "Reticulon", system: {} }, background: awk }).background));
+  const npcOnly = en2.psiTraining({ discipline: "telekinesis" }, { enabled: true, species: human, powers: [{ id: "rl", name: "Reticulon Psi-Lance", system: { paraphysics: { discipline: "telekinesis", tier: 1, learnable: false } } }, ...powers] });
+  check("enlist psi: a power players cannot learn is never offered", npcOnly.offered.map(p => p.id).join() === "tk");
+  check("psi: learning a power players cannot learn is refused",
+    /is not a power players can learn/.test(psiR.checkPowerUnlock({ name: "Reticulon Psi-Lance", tier: 1, discipline: "telekinesis", state: { rank: 3 }, inDiscipline: 0, crystals: 5, enabled: true, learnable: false }).reason ?? "")
+      && psiR.checkPowerUnlock({ name: "Shove", tier: 1, discipline: "telekinesis", state: { rank: 3 }, inDiscipline: 0, crystals: 5, enabled: true }).ok);
+  check("enlist psi: a power the world holds twice is offered once", twice.offered.map(p => p.id).join() === "tk");
+  check("enlist psi: the second rank's 75 XP comes off the training budget", plan.spent === 75 && plan.left === 25 && plan.entries.filter(e => e.kind === "discipline").length === 2);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

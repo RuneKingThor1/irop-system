@@ -11,6 +11,7 @@
       <label data-tooltip="Optimal range, in tiles"><span>Range</span><input type="number" name="system.range" value="{{@root.system.range}}"></label>
       <label data-tooltip="Radius in tiles; 0 for a single target"><span>Area</span><input type="number" name="system.area" value="{{@root.system.area}}"></label>
       <label data-tooltip="Rounds it lasts; 0 for instant"><span>Duration</span><input type="number" name="system.paraphysics.duration" value="{{@root.system.paraphysics.duration}}"></label>
+      <label data-tooltip="Barrier points it grants: lifts a target's barrier to at least this, never on top, armor or none"><span>Barrier</span><input type="number" name="system.paraphysics.barrier" value="{{@root.system.paraphysics.barrier}}"></label>
       <label><span>Damage</span><input type="text" name="system.paraphysics.damage.formula" value="{{@root.system.paraphysics.damage.formula}}" placeholder="2d4 + @cha.mod"></label>
       <label><span>Damage type</span><select name="system.paraphysics.damage.type">{{selectOptions r.damageTypes selected=@root.system.paraphysics.damage.type}}</select></label>
     </div>

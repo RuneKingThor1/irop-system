@@ -6,6 +6,8 @@
   {{!-- The GM's call, so players never see it (Johnald, 2026-10-10). --}}
   {{#if isGM}}
   <label class="check" data-tooltip="Untick to keep it out of the enlistment terminal, without deleting it"><input type="checkbox" name="system.enlist" {{checked system.enlist}}><span>Offered at enlistment</span></label>
+  <label class="wide-field" data-tooltip="The species it is offered to at enlistment, by name, comma separated. Blank for any"><span>Open to species</span>
+    <input type="text" name="system.species" value="{{system.species}}" placeholder="Any species"></label>
   <label class="check" data-tooltip="Grants the Paraphysical tag: the Abilities tab shows the Paraphysics panel">
     <input type="checkbox" name="system.paraphysical" {{checked system.paraphysical}}><span>Paraphysical</span></label>
   {{/if}}

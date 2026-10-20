@@ -32,7 +32,7 @@ export async function confirmReset(actor) {
       <p class="reset-warning"><i class="fa-solid fa-triangle-exclamation"></i> Are you sure? This cannot be undone.</p>
       <label class="check"><input type="checkbox" name="identity"> Keep who they are: callsign, Personnel Record, biography and notes</label>
       <label class="check"><input type="checkbox" name="gear"> Keep their weapons, armor, gear and wealth</label>
-      ${isGM ? "<label class=\"check\"><input type=\"checkbox\" name=\"xp\"> Keep the XP earned, refunding everything spent</label>" : ""}
+      ${isGM ? "<label class=\"check\"><input type=\"checkbox\" name=\"xp\"> Keep the XP earned and psycrystals, refunding everything spent</label>" : ""}
       <p class="hint">The name, portrait, token and owners stay.</p>
     </div>`,
     buttons: [

@@ -47,6 +47,8 @@ import { EventCardData } from "./data/card.mjs";
 import { EventCardSheet } from "./apps/card-sheet.mjs";
 import { CodexPageData } from "./data/codex.mjs";
 import { CodexPageSheet, registerCodexSync } from "./codex.mjs";
+import { registerConcentration } from "./concentration.mjs";
+import { registerDurations } from "./durations.mjs";
 import { EventsApp } from "./apps/events.mjs";
 import { setupDecks, importEventCards, newCard, reshuffle } from "./strategy/events.mjs";
 import { confirmLiberation, liberate, incursions, breakIncursion } from "./strategy/losing-ground.mjs";
@@ -171,6 +173,10 @@ Hooks.once("init", () => {
     types: ["codex"], makeDefault: true, label: "Insurrection Threat codex"
   });
   registerCodexSync();
+  // Disorientated breaks Concentration (2026-10-20).
+  registerConcentration();
+  // Statuses' X and timed effects count down at the start of each turn (2026-10-20).
+  registerDurations();
 
   // Fonts used by the sheets, registered so Foundry text (drawings, notes) can use them too.
   CONFIG.fontDefinitions["Rajdhani"] ??= { editor: true, fonts: [] };

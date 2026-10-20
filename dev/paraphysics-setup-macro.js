@@ -6,6 +6,10 @@
  *     Characters keep the rank they have;
  *   - moves Barrier Restoration to Vitakinesis (the old "Energy" discipline became Astrokinesis on
  *     its own when the system updated);
+ *   - creates the Prototype Foci, the paraphysical focus, in the Items sidebar (weight 2, no price yet);
+ *   - creates a Psycrystal gear item, the loot crystals are found and traded as (no price or weight yet);
+ *   - opens the Awakened background to Humans and Mutants only;
+ *   - keeps the Reticulon powers (Psi-Lance, Instill Panic, Mind Control) to NPCs: players cannot learn them;
  *   - sets the species: Reticulons cast on Intelligence and hold 4 disciplines, Telestoi hold 3 with
  *     a granted rank in Telepathy and Optics, Humans hold 5 on Charisma.
  * Change the numbers below before running if they are not what you want.
@@ -53,16 +57,54 @@
       await item.update(change);
       done.push(`${owner}: Gravbolt made an Astrokinesis power`);
     }
+    // The Reticulons' own powers are theirs: players cannot learn them (Johnald, 2026-10-20).
+    else if ( /^reticulon\s/i.test(item.name) && item.system.paraphysics?.discipline && (item.system.paraphysics.learnable !== false) ) {
+      await item.update({ "system.paraphysics.learnable": false });
+      done.push(`${owner}: ${item.name} kept to NPCs`);
+    }
     else if ( fold(item.name) === "barrierrestoration" && (item.system.paraphysics.discipline !== "vitakinesis") ) {
       await item.update({ "system.paraphysics.discipline": "vitakinesis" });
       done.push(`${owner}: Barrier Restoration moved to Vitakinesis`);
     }
+  }
+  // The Awakened background is for the species not born to paraphysics (Johnald, 2026-10-20).
+  for ( const bg of game.items.filter(i => (i.type === "background") && (fold(i.name) === "awakened")) ) {
+    if ( bg.system.species ) continue;
+    await bg.update({ "system.species": "Human, Mutant" });
+    done.push("Items: Awakened background open to Humans and Mutants only");
   }
   for ( const { item, owner } of everywhere("species") ) {
     const change = SPECIES[fold(item.name)];
     if ( !change ) continue;
     await item.update(change);
     done.push(`${owner}: ${item.name} species set`);
+  }
+  // The Prototype Foci (Johnald, 2026-10-20): the paraphysical focus, as gear in the Items sidebar.
+  // Weight 2, as a pistol; no price until one is set, so no store sells it yet.
+  const FOCI = {
+    name: "Prototype Foci", type: "gear", img: "icons/svg/aura.svg",
+    system: {
+      kind: "focus", weight: 2, quantity: 1, concealable: false,
+      description: "<p>A paraphysical focus. While carried, paraphysical attacks gain <strong>-20</strong>, sharing the "
+        + "<strong>-25</strong> ceiling with the power's own Accuracy: it carries a fledgling power and adds nothing to one at Rank 4.</p>"
+        + "<p>It weighs against carry capacity and <strong>cannot be concealed</strong>: carried through a checkpoint, it is caught.</p>"
+    }
+  };
+  const foci = game.items.find(i => fold(i.name) === fold(FOCI.name));
+  if ( !foci ) {
+    await Item.implementation.create(FOCI);
+    done.push("Items: Prototype Foci created");
+  }
+  else if ( foci.system.kind !== "focus" ) {
+    await foci.update({ "system.kind": "focus", "system.concealable": false });
+    done.push("Items: Prototype Foci made a focus");
+  }
+  // Psycrystals are loot (Johnald, 2026-10-20): a gear item to find, buy and sell. No price or weight yet.
+  if ( !game.items.find(i => (i.type === "gear") && (i.system.kind === "psycrystal")) ) {
+    await Item.implementation.create({ name: "Psycrystal", type: "gear", img: "icons/commodities/gems/gem-cluster-teal.webp",
+      system: { kind: "psycrystal", weight: 0, quantity: 1,
+        description: "<p>A crystal of Eidolon-9. Spent to learn a power, to evolve one, and two to awaken a person.</p>" } });
+    done.push("Items: Psycrystal created");
   }
   const list = done.map(d => `<li>${foundry.utils.escapeHTML(d)}</li>`).join("");
   ChatMessage.create({

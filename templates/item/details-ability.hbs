@@ -32,6 +32,7 @@
     <label><span>Track B</span><select name="system.paraphysics.trackB">{{selectOptions powerTrackOptions selected=system.paraphysics.trackB blank="None"}}</select></label>
     <label data-tooltip="For a save power: the attribute its target rolls under"><span>Target saves on</span><select name="system.paraphysics.save">{{selectOptions attributeOptions selected=system.paraphysics.save blank="No save"}}</select></label>
     <label class="check" data-tooltip="Disorientated breaks it. Anchored takes it away"><input type="checkbox" name="system.paraphysics.concentration" {{checked system.paraphysics.concentration}}><span>Concentration</span></label>
+    <label class="check" data-tooltip="Untick for a power only NPCs have: it is not offered at enlistment and players cannot learn it"><input type="checkbox" name="system.paraphysics.learnable" {{checked system.paraphysics.learnable}}><span>Players can learn this</span></label>
   </div>
   <p class="hint">The tracks fill Rank 2 and Rank 4 where the Ranks tab leaves Accuracy or Potency blank. Each rank, the Rank 3 options and the evolution are written on the Ranks tab.</p>
   {{/if}}
