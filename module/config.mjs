@@ -742,6 +742,9 @@ IROP.statusEffects = [
     text: "Lose actions equal to X, usually 1, though some abilities and creatures stun for longer. Cured by an Adrenal Shot." },
   { id: "disorientated", name: "Disorientated", img: "icons/svg/stoned.svg", counter: false,
     text: "+20 D.M. to attacks and dodges. Speed halved (rounded down), no Concentration actions, and maintained concentration breaks." },
+  // A Telestoi's Glamor held (2026-10-20): 3 Energy committed while it holds.
+  { id: "glamor", name: "Glamor", img: "icons/svg/mystery-man.svg", counter: false,
+    text: "Holding Telestoian Glamor: a disguise on the minds around you. 3 Energy is committed while it holds. Falls if you go down; Disorientated does not break it." },
   // A power's Concentration held (2026-10-20); the power it is for rides on the status.
   { id: "concentrating", name: "Concentrating", img: "icons/svg/eye.svg", counter: false,
     text: "Holding a power that needs Concentration. Disorientated breaks it; concentrating on another power lets this one go." },

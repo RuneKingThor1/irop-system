@@ -124,6 +124,8 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
             [kind, new fields.SchemaField(Object.fromEntries(Object.keys(IROP.skills).map(k => [k, int(0)])))]))),
           laborToughness: int(0),
           intelMegacity: int(0),
+          // Extra standing a faction gains when a task this operative worked on succeeds (Envoy, 2026-10-20).
+          factionStanding: int(0),
           mission: new fields.SchemaField({
             logistics: int(0),
             intel: int(0),

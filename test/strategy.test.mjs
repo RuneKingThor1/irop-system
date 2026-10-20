@@ -607,6 +607,12 @@ check("socket: with no GM online the player is told", /No GM is connected/.test(
     JSON.stringify(fx.resolveDefaults(task(t2.id)).resultsFor) === JSON.stringify({
       success: { standing: 2, rival: 0, logistics: 0, intel: 0 }, partial: { standing: 1, rival: 0, logistics: 0, intel: 0 }, failure: { standing: -2, rival: 0, logistics: 0, intel: 0 } }));
 
+  // Envoy (2026-10-20): an assigned operative's perk adds standing when the work gets done, not on a failure.
+  const envoyActors = new Map([["scion", { name: "Ysolde", system: { bonuses: { strategy: { factionStanding: 2 } } } }], ["plain", { name: "Rook", system: { bonuses: { strategy: {} } } }]]);
+  const withEnvoy = fx.resolveDefaults({ ...task(t2.id), operatives: ["scion", "plain"] }, undefined, envoyActors);
+  check("factions: Envoy's +2 is in the success and partial standing, named for the GM, and not in a failure",
+    withEnvoy.standing === 4 && withEnvoy.resultsFor.partial.standing === 3 && withEnvoy.resultsFor.failure.standing === -2 && JSON.stringify(withEnvoy.perkLines) === JSON.stringify(["Ysolde: +2"]));
+
   // Resolve: the ledger, both standings, a card.
   const before = settings.getWarRoom();
   chat.length = 0;

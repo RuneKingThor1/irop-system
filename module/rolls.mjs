@@ -8,6 +8,8 @@ import { powerAccuracy, powerSaveDm, needsConcentration, trackText, powerTotals,
 import { isFocus } from "./rules/concealment.mjs";
 import { startConcentration, concentrationOn } from "./concentration.mjs";
 import { startTimed } from "./durations.mjs";
+import { isGlamor, toggleGlamor } from "./glamor.mjs";
+import { statusEffectOn } from "./statuses.mjs";
 import { COVER, MODIFIERS, ENGAGED_BY_HANDLING, SCATTER, collectModifiers } from "./rules/combat.mjs";
 import { DynosrsRoll } from "./dice/dynosrs-roll.mjs";
 import { D100Roll, DamageRoll } from "./dice/d100-roll.mjs";
@@ -879,6 +881,8 @@ export async function rollFreePool(actor = null) {
  * paraphysical attack, go straight to the attack.
  */
 export async function useAbility(actor, item) {
+  // Telestoian Glamor (2026-10-20): Use raises it, or lets it fall.
+  if ( isGlamor(item) ) return toggleGlamor(actor);
   // Role perks (2026-10-18): limited uses from the perk's rule, set the first time it is used.
   const ruled = perkUses(item, perkContext(actor).attributes);
   if ( ruled && (item.system.uses.max !== ruled.max) ) await item.update({ "system.uses.max": ruled.max, "system.uses.value": ruled.max });
@@ -924,6 +928,7 @@ export async function useAbility(actor, item) {
   // And one that lasts counts down from then (2026-10-20): on its Concentration, or on its own.
   const concentrate = async () => {
     if ( !s.paraphysics?.discipline ) return;
+    await telesmaPulse(actor);
     const name = powerTotals(s.paraphysics).evolvedName || item.name;
     const held = needsConcentration(s.paraphysics);
     if ( held ) await startConcentration(actor, item, name);
@@ -941,6 +946,22 @@ export async function useAbility(actor, item) {
   await spend();
   await concentrate();
   return postItemCard(actor, item, { spent: cost, upgrades: upgraded.upgrades, ...powerCard(actor, item) });
+}
+
+/**
+ * The Telesma (Johnald, 2026-10-20): a Telestoi's organ pulses when they cast, so casting a power
+ * ends any Concealment they have. A Glamor holds through it.
+ */
+export async function telesmaPulse(actor) {
+  const telesma = actor?.items?.some?.(i => (i.type === "ability") && (String(i.name ?? "").toLowerCase().replace(/[^a-z]/g, "") === "telesma"));
+  if ( !telesma ) return null;
+  const hidden = statusEffectOn(actor, "concealment");
+  if ( !hidden ) return null;
+  await hidden.delete();
+  return ChatMessage.implementation.create({
+    speaker: speakerFor(actor),
+    content: `<div class="irop-card"><p><i class="fa-solid fa-lightbulb"></i> ${foundry.utils.escapeHTML(actor.name)}'s Telesma pulses as they cast: Concealment is lost.</p></div>`
+  });
 }
 
 /**

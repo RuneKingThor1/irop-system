@@ -134,6 +134,25 @@ export function taskResults(task, outcome, rules = IROP.strategyRules) {
 }
 
 /**
+ * What the operatives on a task add to the faction's standing when the work gets done (Envoy,
+ * 2026-10-20): each one's perk bonus, with their names for the GM. Nothing on a failure.
+ * @param {{name: string, system: object}[]} operatives
+ * @returns {{standing: number, lines: string[]}}
+ */
+export function taskPerkStanding(operatives = [], outcome = "success") {
+  if ( outcome === "failure" ) return { standing: 0, lines: [] };
+  let standing = 0;
+  const lines = [];
+  for ( const op of operatives ) {
+    const n = Math.max(0, Math.round(Number(op?.system?.bonuses?.strategy?.factionStanding) || 0));
+    if ( !n ) continue;
+    standing += n;
+    lines.push(`${op.name}: +${n}`);
+  }
+  return { standing, lines };
+}
+
+/**
  * Move a faction's standing by points, through its bar (rules/reputation.mjs).
  * @returns {{factions: object[], changed: boolean, moved: number, from: {level, points}, to: {level, points}}|null}
  *   null if no such faction

@@ -1,6 +1,6 @@
 import { IROP } from "../config.mjs";
 import {
-  normalizeFaction, normalizeTask, applyFactionOps, assignToTask, taskResults, isOpen, standingChange, signed, rewardText
+  normalizeFaction, normalizeTask, applyFactionOps, assignToTask, taskResults, isOpen, standingChange, signed, rewardText, taskPerkStanding
 } from "../rules/factions.mjs";
 import { repState, sameState, repRank } from "../rules/reputation.mjs";
 import { getWarRoom, getStrategyRules, recordResource, getList, setList } from "../settings.mjs";
@@ -153,12 +153,23 @@ export async function deleteTask(id) {
   return setList("factionTasks", getTasks().filter(t => t.id !== id));
 }
 
-/** What the resolve dialog starts from. */
-export function resolveDefaults(task, rules = getStrategyRules()) {
+/**
+ * What the resolve dialog starts from. The operatives' perks that add standing (Envoy, 2026-10-20)
+ * are in the success and partial numbers already; the GM can change them before saving.
+ */
+export function resolveDefaults(task, rules = getStrategyRules(), actors = game.actors) {
+  const ops = (task.operatives ?? []).map(id => actors?.get?.(id)).filter(Boolean);
+  const withPerks = o => {
+    const r = taskResults(task, o, rules);
+    const extra = taskPerkStanding(ops, o);
+    return extra.standing ? { ...r, standing: r.standing + extra.standing } : r;
+  };
+  const perks = taskPerkStanding(ops, "success");
   return {
     outcome: "success",
-    ...taskResults(task, "success", rules),
-    resultsFor: Object.fromEntries(Object.keys(IROP.missionOutcomes).map(o => [o, taskResults(task, o, rules)]))
+    ...withPerks("success"),
+    resultsFor: Object.fromEntries(Object.keys(IROP.missionOutcomes).map(o => [o, withPerks(o)])),
+    perkLines: perks.lines
   };
 }
 

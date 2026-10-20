@@ -49,6 +49,7 @@ import { CodexPageData } from "./data/codex.mjs";
 import { CodexPageSheet, registerCodexSync } from "./codex.mjs";
 import { registerConcentration } from "./concentration.mjs";
 import { registerDurations } from "./durations.mjs";
+import { registerGlamor } from "./glamor.mjs";
 import { EventsApp } from "./apps/events.mjs";
 import { setupDecks, importEventCards, newCard, reshuffle } from "./strategy/events.mjs";
 import { confirmLiberation, liberate, incursions, breakIncursion } from "./strategy/losing-ground.mjs";
@@ -177,6 +178,8 @@ Hooks.once("init", () => {
   registerConcentration();
   // Statuses' X and timed effects count down at the start of each turn (2026-10-20).
   registerDurations();
+  // A Telestoi's Glamor falls when they go down (2026-10-20).
+  registerGlamor();
 
   // Fonts used by the sheets, registered so Foundry text (drawings, notes) can use them too.
   CONFIG.fontDefinitions["Rajdhani"] ??= { editor: true, fonts: [] };

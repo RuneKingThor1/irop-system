@@ -8026,5 +8026,69 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   foundry.utils = savedUtils;
 }
 
+// Telestoian Glamor and the Telesma (2026-10-20).
+{
+  const gl = await import("../module/glamor.mjs");
+  const rolls = await import("../module/rolls.mjs");
+  const saved = { chat: globalThis.ChatMessage, ui: globalThis.ui, config: globalThis.CONFIG, hooks: globalThis.Hooks, user: game.user };
+  const said = [], warned = [];
+  globalThis.ChatMessage = { implementation: { create: async d => { said.push(d.content); return d; }, getSpeaker: () => ({}) } };
+  globalThis.ui = { notifications: { warn: m => warned.push(m), info: () => {} } };
+  // A character with effects that can be added and removed.
+  const make = energy => {
+    const actor = { name: "Ysolde", statuses: new Set(), effects: [], updates: [],
+      system: { vitals: { energy: { value: energy } } },
+      async update(u) { this.updates.push(u); if ( "system.vitals.energy.value" in u ) this.system.vitals.energy.value = u["system.vitals.energy.value"]; return this; } };
+    return actor;
+  };
+  globalThis.CONFIG = { ...(saved.config ?? {}), ActiveEffect: { documentClass: {
+    fromStatusEffect: async (id, { parent }) => ({ id, parent, updateSource() {}, toObject() { return { id }; } }),
+    create: async (data, { parent }) => {
+      const effect = { id: "g1", statuses: new Set([data.id]), flags: {}, changes: [], parent,
+        async update(u) { this.changes = u["system.changes"] ?? this.changes; return this; },
+        async delete() { parent.effects.splice(parent.effects.indexOf(this), 1); } };
+      parent.effects.push(effect);
+      return effect;
+    } } } };
+  const ys = make(5);
+  check("glamor: the ability is recognised by its flag or its name", gl.isGlamor({ flags: { irop: { glamor: true } } }) && gl.isGlamor({ name: "Telestoian Glamor" }) && !gl.isGlamor({ name: "Empath" }));
+  await gl.toggleGlamor(ys);
+  check("glamor: raising it commits 3 Energy and lowers the maximum by 3 while it holds",
+    ys.system.vitals.energy.value === 2 && !!gl.glamorOn(ys) && gl.glamorOn(ys).changes[0]?.key === "system.vitals.energy.bonus" && gl.glamorOn(ys).changes[0]?.value === "-3"
+      && /raises a Glamor/.test(said.at(-1) ?? ""));
+  await gl.toggleGlamor(ys);
+  check("glamor: letting it fall gives the 3 back", ys.system.vitals.energy.value === 5 && !gl.glamorOn(ys) && /lets the Glamor fall/.test(said.at(-1) ?? ""));
+  const low = make(2);
+  await gl.raiseGlamor(low);
+  check("glamor: refused with fewer than 3 Energy", !gl.glamorOn(low) && /needs 3 Energy committed; Ysolde has 2/.test(warned.at(-1) ?? ""));
+  // Going down drops it; Disorientated does not.
+  const hooks = {};
+  globalThis.Hooks = { on: (n, f) => { hooks[n] = f; } };
+  game.user = { id: "u1" };
+  gl.registerGlamor();
+  const up = make(6);
+  await gl.raiseGlamor(up);
+  hooks.createActiveEffect({ statuses: new Set(["disorientated"]), parent: up }, {}, "u1");
+  await new Promise(r => setTimeout(r, 0));
+  check("glamor: Disorientated does not break it", !!gl.glamorOn(up));
+  hooks.createActiveEffect({ statuses: new Set(["bleedingOut"]), parent: up }, {}, "u1");
+  await new Promise(r => setTimeout(r, 0));
+  check("glamor: going down drops it, and the Energy comes back", !gl.glamorOn(up) && up.system.vitals.energy.value === 6 && /goes down, and the Glamor falls/.test(said.at(-1) ?? ""));
+  // The Telesma: casting ends Concealment.
+  const hidden = { statuses: new Set(["concealment"]), deleted: false, async delete() { this.deleted = true; } };
+  const caster = { name: "Ysolde", items: [{ type: "ability", name: "Telesma" }], effects: [hidden] };
+  await rolls.telesmaPulse(caster);
+  check("telesma: casting ends Concealment, and says so", hidden.deleted && /Telesma pulses as they cast: Concealment is lost/.test(said.at(-1) ?? ""));
+  const plainHidden = { statuses: new Set(["concealment"]), deleted: false, async delete() { this.deleted = true; } };
+  await rolls.telesmaPulse({ name: "Mira", items: [], effects: [plainHidden] });
+  check("telesma: no Telesma, no pulse", !plainHidden.deleted);
+  check("glamor: the status is in the list, for the token", !!IROP.statusEffects.find(s => s.id === "glamor"));
+  globalThis.ChatMessage = saved.chat;
+  globalThis.ui = saved.ui;
+  globalThis.CONFIG = saved.config;
+  globalThis.Hooks = saved.hooks;
+  game.user = saved.user;
+}
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
