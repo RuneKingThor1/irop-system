@@ -93,11 +93,24 @@
         {{#each species as |s|}}
         <button type="button" class="en-card {{#if s.on}}on{{/if}}" style="--c: var(--irop-sky)" data-action="pick" data-kind="species" data-id="{{s.id}}" aria-pressed="{{#if s.on}}true{{else}}false{{/if}}">
           <span class="en-card-top"><img class="en-thumb" src="{{s.img}}" alt=""><span><span class="en-name">{{s.name}}</span><span class="en-blurb">{{s.blurb}}</span></span></span>
-          <span class="en-row"><span class="k">Health / energy</span>{{s.health}} / {{s.energy}}{{#each s.tags as |t|}}. {{t}}{{/each}}</span>
+          <span class="en-row"><span class="k">Health / energy</span>{{s.health}} / {{s.energy}}</span>
           <span class="en-stats">{{#each s.attributes as |a|}}<span class="{{#if (gt a.diff 0)}}hi{{/if}}{{#if (lt a.diff 0)}}lo{{/if}}">{{a.abbr}}<b>{{a.value}}</b></span>{{/each}}</span>
+          {{#if s.traits.length}}<span class="en-perks en-traits">{{#each s.traits as |t|}}<span data-tooltip="{{t.tip}}">{{t.name}}</span>{{/each}}</span>{{/if}}
         </button>
         {{else}}<p class="en-empty">No playable species in this world yet. The GM adds them to the Items sidebar.</p>{{/each}}
       </div>
+      {{#if speciesTraits.length}}
+      {{!-- The picked species' traits in full (2026-10-20): every one comes with the species. --}}
+      <div class="en-block">
+        <span class="en-label">Species traits: every {{dossier.species}} has these</span>
+        <div class="en-perk-list">
+          {{#each speciesTraits as |t|}}
+          <div class="en-trait"><img src="{{t.img}}" alt=""><span class="en-perk-body"><span class="en-perk-name">{{t.name}}</span>
+            <span class="en-perk-meta">{{t.meta}}</span><span class="en-tperk-text">{{t.text}}</span></span></div>
+          {{/each}}
+        </div>
+      </div>
+      {{/if}}
       {{/if}}
 
       {{#if is.role}}
@@ -344,6 +357,7 @@
         <dl class="en-kv">
           <dt>Name</dt><dd>{{dossier.name}}</dd>
           <dt>Species</dt><dd>{{dossier.species}}</dd>
+          {{#if dossier.traits}}<dt>Traits</dt><dd>{{dossier.traits}}</dd>{{/if}}
           <dt>Role</dt><dd style="color: {{dossier.color}}">{{dossier.role}}</dd>
           <dt>Background</dt><dd>{{dossier.background}}{{#if dossier.perk}}, {{dossier.perk}}{{/if}}</dd>
           <dt>Skills</dt><dd>{{dossier.skills}}</dd>
@@ -377,6 +391,7 @@
         <div class="en-ds-line">{{dossier.species}} {{#if dossier.role}}<b>{{dossier.role}}</b>{{/if}}</div></div>
     </div>
     <dl class="en-kv">
+      {{#if dossier.traits}}<dt>Traits</dt><dd>{{dossier.traits}}</dd>{{/if}}
       <dt>Background</dt><dd class="{{#unless dossier.background}}pending{{/unless}}">{{#if dossier.background}}{{dossier.background}}{{else}}Pending{{/if}}</dd>
       <dt>Perk</dt><dd class="{{#unless dossier.perk}}pending{{/unless}}">{{#if dossier.perk}}{{dossier.perk}}{{else}}Pending{{/if}}</dd>
       <dt>Skills</dt><dd class="{{#unless dossier.skills}}pending{{/unless}}">{{#if dossier.skills}}{{dossier.skills}}{{else}}Pending{{/if}}</dd>

@@ -165,6 +165,19 @@ function perkAbility(entry) {
   return (doc?.type === "ability") ? doc : null;
 }
 
+/**
+ * A species' traits, its perks (Johnald, 2026-10-20: the terminal did not show them): each with its
+ * ability's name, picture and text as they are in this world. One missing from the world is left out.
+ */
+export function speciesTraits(species) {
+  return (species?.system?.perks ?? []).map(p => {
+    const ability = fromUuidQuiet(p.uuid);
+    if ( ability?.type !== "ability" ) return null;
+    return { name: ability.name, img: ability.img || p.img || "icons/svg/book.svg", meta: perkMeta(ability.system),
+      tip: blurb(ability.system.description, 300), text: blurb(ability.system.description, 600) };
+  }).filter(Boolean);
+}
+
 /** Today's date on the campaign calendar, for the record; blank if there is none. */
 async function today() {
   try {
@@ -366,7 +379,9 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const speciesCards = list.species.map(s => ({
       id: s.id, name: s.name, img: s.img, on: s.id === c.species, blurb: blurb(s.system.description),
       health: s.system.health, energy: s.system.energy, attributes: speciesAttributes(s.system),
-      tags: [s.system.boons ? "Takes boons" : "", s.system.mutations ? "Carries mutations" : "", s.system.paraphysical ? "Paraphysical" : ""].filter(Boolean)
+      tags: [s.system.boons ? "Takes boons" : "", s.system.mutations ? "Carries mutations" : "", s.system.paraphysical ? "Paraphysical" : ""].filter(Boolean),
+      // Its traits by name, the text on hover (2026-10-20).
+      traits: speciesTraits(s)
     }));
     const roleCards = list.roles.map(r => {
       const plan = rolePlan(r);
@@ -446,7 +461,9 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       })),
       mutations, boons, training,
       issue: issues[key], first: this.step === 0, last: key === "review",
-      species: speciesCards, roles: roleCards, backgrounds: backgroundCards, skills,
+      species: speciesCards,
+      // The picked species' traits in full (2026-10-20).
+      speciesTraits: species ? speciesTraits(species) : [], roles: roleCards, backgrounds: backgroundCards, skills,
       identity: {
         firstName: c.firstName, lastName: c.lastName, callsign: c.callsign, img: c.img,
         owners: isGM ? [{ id: "", name: `${game.user.name} (you)`, on: !c.owner },
@@ -457,6 +474,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       dossier: {
         name: name || "Unidentified recruit", img: c.img || DEFAULT_IMG, color: roleColor,
         species: species?.name ?? "", role: role?.name ?? "", background: background?.name ?? "",
+        traits: species ? speciesTraits(species).map(t => t.name).join(", ") : "",
         perk: perkEntry ? (perkAbility(perkEntry)?.name ?? perkEntry.name) : "",
         skills: rankText(trainedRanks),
         carriesMutations: !!s?.mutations, mutations: mutationItems.map(m => m.name).join(", "),

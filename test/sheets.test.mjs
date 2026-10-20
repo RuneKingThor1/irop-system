@@ -7188,13 +7188,13 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     texts(d, ".en-step .t").join() === "Species,Role,Background,Skills and perk,Training,Identity,Review" && d.querySelector(".en-step.on")?.dataset.index === "0"
       && /SELECT SPECIES|Select species/.test(d.querySelector(".en-prompt-text").textContent) && d.querySelector(".en-ds-name").textContent === "Unidentified recruit"
       && /Choose a species to see your attributes/.test(d.querySelector(".en-dossier").textContent) && !d.querySelector('[data-action="back"]'));
-  check("enlistment: species cards, without the unplayable", texts(d, ".en-card .en-name").join() === "Human,Mutant" && /Takes boons/.test(d.querySelector('[data-id="hu"]').textContent));
+  check("enlistment: species cards, without the unplayable", texts(d, ".en-card .en-name").join() === "Human,Mutant" && /Health \/ energy\s*8 \/ 10$/.test(d.querySelector('[data-id="hu"] .en-row')?.textContent.trim() ?? ""));
   await act(app, "pick", { kind: "species", id: "mu" });
   d = await show(app, "species picked");
   const mutant = d.querySelector('[data-id="mu"]');
   check("enlistment: a species picked: its card lit, attributes against the baseline, the record shows its health, energy and bars",
     mutant.classList.contains("on") && mutant.querySelector(".en-stats .hi")?.textContent === "CHA45" && [...mutant.querySelectorAll(".en-stats .lo")].length === 4
-      && /Health\s*10/.test(d.querySelector(".en-vitals").textContent) && d.querySelectorAll(".en-bar").length === 7 && /Carries mutations/.test(mutant.textContent));
+      && /Health\s*10/.test(d.querySelector(".en-vitals").textContent) && d.querySelectorAll(".en-bar").length === 7 && !/Carries mutations/.test(mutant.textContent));
   await act(app, "next");
   d = await show(app, "role");
   const mr = d.querySelector('[data-id="mr"]');
@@ -7462,6 +7462,15 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     game.user = gm;
     const caster = new EnlistmentApp();
     Object.assign(caster.choices, { species: "rt", role: "mr", background: "sd", roleSkill: "athletics", backgroundSkills: ["athletics", "insight", "coercion"], perk: "pk1", callsign: "Seer" });
+    // Species traits show on the cards, in full for the one picked, and on the record (2026-10-20).
+    caster.step = 0;
+    const sd = await show(caster, "species traits");
+    const rtCard = sd.querySelector('[data-kind="species"][data-id="rt"]');
+    check("enlistment: a species card names its traits, with the text on hover; one missing from the world is left out",
+      texts(rtCard, ".en-traits > span").join() === "Freshwater Gills" && /Breathe fresh water/.test(rtCard.querySelector(".en-traits > span")?.dataset.tooltip ?? ""));
+    check("enlistment: the picked species' traits in full under the cards, and on the record",
+      texts(sd, ".en-trait .en-perk-name").join() === "Freshwater Gills" && /Breathe fresh water/.test(sd.querySelector(".en-trait .en-tperk-text")?.textContent ?? "")
+        && /Traits\s*Freshwater Gills/.test(sd.querySelector(".en-dossier").textContent));
     caster.step = 4;
     let cd = await show(caster, "psi training");
     check("enlistment psi: a paraphysical recruit's Training has a Paraphysics block with the open disciplines and no power yet",
