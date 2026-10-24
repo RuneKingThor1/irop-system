@@ -51,6 +51,8 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       deleteEffect: IropItemSheet.#onDeleteEffect,
       toggleEffect: IropItemSheet.#onToggleEffect,
       addTier: IropItemSheet.#onAddTier,
+      addPhase: IropItemSheet.#onAddPhase,
+      deletePhase: IropItemSheet.#onDeletePhase,
       moveTier: IropItemSheet.#onMoveTier,
       deleteTier: IropItemSheet.#onDeleteTier,
       deleteNode: IropItemSheet.#onDeleteNode,
@@ -143,6 +145,11 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    */
   _processFormData(event, form, formData) {
     const data = super._processFormData(event, form, formData);
+    // A weapon's phases come back keyed by index; they are a list (2026-10-23).
+    const phases = foundry.utils.getProperty(data, "system.phases");
+    if ( phases && !Array.isArray(phases) ) {
+      foundry.utils.setProperty(data, "system.phases", Object.keys(phases).sort((a, b) => Number(a) - Number(b)).map(k => phases[k]));
+    }
     const options = foundry.utils.getProperty(data, "system.paraphysics.options");
     if ( options && !Array.isArray(options) ) {
       foundry.utils.setProperty(data, "system.paraphysics.options",
@@ -262,6 +269,10 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       burnStatuses: { "": "None", ...Object.fromEntries(IROP.statusEffects.map(e => [e.id, e.name])) },
       ammoDamageTypes: { "": "Weapon's own", ...Object.fromEntries(Object.entries(IROP.damageTypes).map(([k, t]) => [k, t.label])) },
       ammoStatuses: { "": "None", ...Object.fromEntries(IROP.statusEffects.map(e => [e.id, e.name])) },
+      // A weapon's phases (2026-10-23), each with its own range table.
+      phaseRows: (item.type === "weapon") ? (system.phases ?? []).map((ph, i) => ({ ...ph, i,
+        bands: Object.entries(IROP.rangeBands).map(([key, label]) => ({ key, label, tiles: ph.range?.[key]?.tiles, dm: ph.range?.[key]?.dm })) })) : null,
+      phaseSaves: { "": "None", ...Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label])) },
       rangeBands: Object.entries(IROP.rangeBands).map(([key, label]) => ({
         key, label, tiles: system.range?.[key]?.tiles, dm: system.range?.[key]?.dm
       })),
@@ -698,6 +709,19 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   static #tierOf(target) {
     return Number(target.closest("[data-tier]")?.dataset.tier);
+  }
+
+  /** A weapon's phases: add one, starting from the weapon's own numbers (2026-10-23). */
+  static async #onAddPhase() {
+    const phases = foundry.utils.deepClone(this.item.system._source.phases ?? []);
+    phases.push({ id: foundry.utils.randomID(), label: `Phase ${phases.length + 1}` });
+    return this.item.update({ "system.phases": phases });
+  }
+
+  static async #onDeletePhase(event, target) {
+    const i = Number(target.dataset.index);
+    const phases = foundry.utils.deepClone(this.item.system._source.phases ?? []).filter((_, n) => n !== i);
+    return this.item.update({ "system.phases": phases });
   }
 
   static #onAddTier() {

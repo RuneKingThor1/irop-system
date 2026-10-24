@@ -20,6 +20,7 @@
             <a data-action="editItem">{{w.name}}</a>
             {{!-- Class and tier; the section title already says Ranged or Melee (Johnald, 2026-10-08). --}}
             <span class="item-sub">{{w.classShort}}{{#if w.system.tier}} · Tier {{w.system.tier}}{{/if}}</span>
+            {{#if w.phase}}<button type="button" class="ghost phase-switch" data-action="switchPhase" data-tooltip="{{w.phase.tip}}"><i class="fa-solid fa-shuffle"></i> {{w.phase.label}}</button>{{/if}}
           </div>
           {{!-- Labelled boxes in fixed columns, so values line up row to row (Johnald, 2026-10-08). --}}
           <div class="item-stats weapon-stats">
@@ -57,6 +58,7 @@
           {{#if w.perkLines.length}}<span class="stat-chip perk-chip" data-tooltip="{{w.perkTip}}"><i class="fa-solid fa-gears"></i> {{w.perkLines.length}}</span>{{/if}}
           <div class="row-controls">
             {{#if w.canAttack}}<button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-crosshairs"></i> Attack</button>{{/if}}
+            {{#if w.phase.cleave}}<button type="button" class="attack" data-action="cleave" data-tooltip="An arc {{w.phase.cleave}} tiles deep in front of you: every target in it"><i class="fa-solid fa-wind"></i> Cleave</button>{{/if}}
             <button type="button" class="icon {{#if w.system.equipped}}on{{/if}}" data-action="toggleEquip" data-tooltip="Equipped"><i class="fa-solid fa-hand-fist"></i></button>
             <button type="button" class="icon" data-action="toggleStow" data-tooltip="Stow"><i class="fa-solid fa-box-archive"></i></button>
             <button type="button" class="icon" data-action="postItem" data-tooltip="Post to chat"><i class="fa-solid fa-comment"></i></button>

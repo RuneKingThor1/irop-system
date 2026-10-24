@@ -2,7 +2,7 @@
   "id": "irop",
   "title": "Insurrection: Retake Our Planet",
   "description": "The native game system for Insurrection: Retake Our Planet. d100 roll under combat, DYNOSRS skill dice, operatives, the six ODR doctrines, and the gear of the resistance.",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "authors": [
     {
       "name": "RuneKingThor1"

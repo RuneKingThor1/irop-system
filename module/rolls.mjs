@@ -1,6 +1,7 @@
 import { IROP } from "./config.mjs";
 import { DICE, DICE_ORDER, DIFFICULTY, BANK_CAP } from "./rules/dynosrs.mjs";
 import { rangesWithMods } from "./rules/mods.mjs";
+import { phasedStats } from "./rules/phases.mjs";
 import { weaponTypeOf } from "./rules/weapon-types.mjs";
 import { perkOptions, perkResult, perkRule, perkUses, abilityAsUpgraded, perkBlast, attackAccuracy, chemPerks, dieUp, weaponPerkSummary, gearCharges, requiredAbility } from "./rules/perks.mjs";
 import { perkKey } from "./rules/skill-trees.mjs";
@@ -224,7 +225,9 @@ export function attackProfile(item, { projectile = 0 } = {}) {
     // A launcher fires one loaded grenade or rocket: the launcher aims, the projectile
     // brings the damage and blast (RULED 2026-10-08).
     const shot = s.projectileSlots ? (s.loaded[projectile] ?? null) : null;
-    const source = shot ? shot.system : s;
+    // The phase it is in (2026-10-23): its damage, accuracy, critical and range.
+    const phase = phasedStats(s);
+    const source = shot ? shot.system : { ...s, damage: phase.damage, critical: phase.critical };
     const formula = source.damage?.formula;
     const hasDamage = !!formula && (String(formula).trim() !== "0");
     const damage = hasDamage ? {
@@ -246,14 +249,15 @@ export function attackProfile(item, { projectile = 0 } = {}) {
       kind: "weapon",
       category: s.category,
       attribute,
-      accuracy: s.accuracy,
+      accuracy: phase.accuracy,
       handling: s.handling,
       ranged: s.category === "ranged",
       thrown: s.category === "thrown",
       paraphysical: false,
       // The bands with the fitted mods' D.M. added: a Reflex Sight is -5 at Medium (2026-10-17).
-      ranges: s.category === "ranged" ? rangesWithMods(s.range, fittedMods(item)) : null,
-      critChance: s.critical.chance,
+      ranges: s.category === "ranged" ? rangesWithMods(phase.range, fittedMods(item)) : null,
+      critChance: phase.critical.chance,
+      phase: phase.phase ? phase : null,
       damage,
       ammo: special,
       projectile: s.projectileSlots ? (shot ? { index: projectile, name: shot.name, img: shot.img,
@@ -289,6 +293,19 @@ export function attackProfile(item, { projectile = 0 } = {}) {
     };
   }
   return null;
+}
+
+/**
+ * A phase's save on hit (2026-10-23), in the shape a save power's card uses, so the damage card
+ * carries the same Roll save button: the electrified phase's Toughness save or Stunned (2).
+ */
+export function phaseSave(phase, label) {
+  const sv = phase?.save;
+  const attr = sv ? IROP.attributes[sv.attribute] : null;
+  if ( !attr ) return null;
+  const status = IROP.statusEffects.find(e => e.id === sv.status);
+  const fail = status ? `: ${status.name}${sv.statusValue ? ` (${sv.statusValue})` : ""} on a failure` : "";
+  return { save: sv.attribute, saveLabel: attr.label, dm: sv.dm, dmText: signed(sv.dm), label: `${label}${fail}` };
 }
 
 /**
@@ -332,7 +349,7 @@ export function powerAttack(actor, item) {
   };
 }
 
-export async function rollAttack(actor, item, { projectile = 0, ability = null, abilityAttack = null } = {}) {
+export async function rollAttack(actor, item, { projectile = 0, ability = null, abilityAttack = null, cleave = false } = {}) {
   // A fuel weapon burns instead of rolling to hit (RULED 2026-10-08).
   if ( (item.type === "weapon") && (item.system.feed === "fuel") ) return rollBurn(actor, item);
   const profile = attackProfile(item, { projectile });
@@ -342,6 +359,9 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
     return ui.notifications.warn(`${item.name} has no ${noun} loaded. Load one in its slots first.`);
   }
   if ( !profile.attribute ) return useExplosive(actor, item);
+  // Cleave (2026-10-23): the phase's arc, a cone of its reach set down in front of the wielder.
+  const cleaving = !!(cleave && profile.phase?.cleave);
+  if ( cleaving ) Object.assign(profile, { blast: profile.phase.cleave, template: "cone" });
 
   const s = item.system;
   if ( (item.type === "weapon") && (s.feed === "singleUse") && (s.quantity <= 0) ) {
@@ -357,10 +377,11 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
   // RULED 2026-10-07: an attack is made against one targeted token, and the
   // target's Defense (its worn armor's Armor Bonus) goes onto the roll by itself.
   // Area weapons need no target (2026-10-08).
-  const target = attackTarget(undefined, { optional: isAreaWeapon(item) });
+  const target = attackTarget(undefined, { optional: isAreaWeapon(item) || cleaving });
   if ( target.warning ) return ui.notifications.warn(target.warning);
 
-  const label = profile.projectile ? `${item.name}: ${profile.projectile.name}` : item.name;
+  const label = profile.projectile ? `${item.name}: ${profile.projectile.name}`
+    : `${item.name}${profile.phase ? `, ${profile.phase.label}` : ""}${cleaving ? ", Cleave" : ""}`;
 
   // Blast markers (Johnald, 2026-10-09): anything with a blast radius is set down on the map
   // first, before the attack window. Backing out of it calls the attack off.
@@ -498,7 +519,7 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
     perk,
     scatter: profile.scatter,
     // An attack power that also forces a save (Collapse: save or Pinned): its damage card rolls it (2026-10-20).
-    powerSave: power ? (powerCard(actor, item).powerSave ?? null) : null,
+    powerSave: power ? (powerCard(actor, item).powerSave ?? null) : phaseSave(profile.phase, label),
     // Where the blast was set down, for Scatter to move.
     blast: marker ? { uuid: marker.uuid, radius: profile.blast } : null
   };

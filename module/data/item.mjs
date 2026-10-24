@@ -147,6 +147,32 @@ export class WeaponData extends foundry.abstract.TypeDataModel {
       // Null means the default for the category, from IROP.modSlots.
       modSlots: new fields.NumberField({ required: true, nullable: true, integer: true, min: 0, initial: null }),
       properties: text(""),
+      // Phases (Johnald, 2026-10-23): other ways the weapon fights, one held at a time, switched as an
+      // action (rules/phases.mjs). The Bio-Spike Launcher as an Assault Rifle, DMR or Shotgun; a GENESIS
+      // phased greatsword that cleaves, or turns electrified and stuns. Blank fields keep the weapon's own.
+      phase: text(""),
+      phases: new fields.ArrayField(new fields.SchemaField({
+        id: text(""),
+        label: text(""),
+        text: text(""),
+        damage: new fields.SchemaField({
+          formula: text(""),
+          type: new fields.StringField({ required: true, blank: true, initial: "", choices: () => ({ "": "Weapon's own", ...Object.fromEntries(Object.entries(IROP.damageTypes).map(([k, t]) => [k, t.label])) }) })
+        }),
+        accuracy: int(0),
+        critChance: int(0),
+        critDamage: int(0),
+        range: new fields.SchemaField({ short: band(), medium: band(), long: band(), extreme: band() }),
+        // The reach in tiles of the arc it cleaves; 0 means it does not cleave.
+        cleave: int(0, { min: 0 }),
+        // What each target hit saves on, and the status a failure takes.
+        save: new fields.StringField({ required: true, blank: true, initial: "",
+          choices: () => ({ "": "None", ...Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label])) }) }),
+        saveDm: int(0),
+        status: new fields.StringField({ required: true, blank: true, initial: "",
+          choices: () => ({ "": "None", ...Object.fromEntries(IROP.statusEffects.map(e => [e.id, e.name])) }) }),
+        statusValue: int(0, { min: 0 })
+      })),
       ...physical()
     };
   }

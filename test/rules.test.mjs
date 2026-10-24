@@ -1752,5 +1752,37 @@ check("disorientated both ways",
   check("enlist psi: the second rank's 75 XP comes off the training budget", plan.spent === 75 && plan.left === 25 && plan.entries.filter(e => e.kind === "discipline").length === 2);
 }
 
+// Weapon phases (Johnald, 2026-10-23): the Bio-Spike Launcher's three profiles, the phased greatsword's cleave and stun.
+{
+  const ph = await import("../module/rules/phases.mjs");
+  const band = (t, dm = 0) => ({ tiles: t, dm });
+  const none = { short: band(0), medium: band(0), long: band(0), extreme: band(0) };
+  const spike = { damage: { formula: "2d6", type: "physical" }, accuracy: 0, critical: { chance: 5, damage: 0 },
+    range: { short: band(10), medium: band(20), long: band(30), extreme: band(40) }, phase: "dmr",
+    phases: [
+      { id: "ar", label: "Assault Rifle", damage: { formula: "", type: "" }, accuracy: 0, critChance: 0, critDamage: 0, range: none, cleave: 0, save: "" },
+      { id: "dmr", label: "DMR", damage: { formula: "3d6", type: "" }, accuracy: 10, critChance: 5, critDamage: 2, range: { short: band(20), medium: band(40), long: band(60), extreme: band(80) }, cleave: 0, save: "" },
+      { id: "sg", label: "Shotgun", damage: { formula: "4d4", type: "" }, accuracy: 0, critChance: 0, critDamage: 0, range: none, cleave: 0, save: "" }
+    ] };
+  const dmr = ph.phasedStats(spike);
+  check("phases: the held phase's damage, accuracy, crit and range; type kept from the weapon",
+    dmr.label === "DMR" && dmr.damage.formula === "3d6" && dmr.damage.type === "physical" && dmr.accuracy === 10
+      && dmr.critical.chance === 10 && dmr.critical.damage === 2 && dmr.range.short.tiles === 20);
+  const ar = ph.phasedStats({ ...spike, phase: "ar" });
+  check("phases: blank fields keep the weapon's own", ar.damage.formula === "2d6" && ar.range.short.tiles === 10 && !ar.save && !ar.cleave);
+  check("phases: an unknown or blank phase falls to the first", ph.phasedStats({ ...spike, phase: "" }).label === "Assault Rifle");
+  check("phases: none at all is the weapon itself", ph.phasedStats({ ...spike, phases: [] }).phase === null && ph.activePhase({ phases: [] }) === null);
+  check("phases: switching to the one held, or one it lacks, does nothing", !ph.nextPhase(spike, "dmr") && !ph.nextPhase(spike, "nope") && ph.nextPhase(spike, "sg").label === "Shotgun");
+  const sword = { damage: { formula: "2d10", type: "physical" }, accuracy: 0, critical: { chance: 0, damage: 0 }, range: none, phase: "",
+    phases: [
+      { id: "edge", label: "Phased", damage: { formula: "", type: "" }, cleave: 1, save: "" },
+      { id: "shock", label: "Electrified", damage: { formula: "", type: "electric" }, cleave: 0, save: "tgh", saveDm: 0, status: "stunned", statusValue: 2 }
+    ] };
+  check("phases: the greatsword cleaves in its first phase", ph.phasedStats(sword).cleave === 1);
+  const shock = ph.phasedStats({ ...sword, phase: "shock" });
+  check("phases: electrified turns the damage Electric and a hit saves on Toughness or Stunned (2)",
+    shock.damage.type === "electric" && shock.save.attribute === "tgh" && shock.save.status === "stunned" && shock.save.statusValue === 2 && !shock.cleave);
+}
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

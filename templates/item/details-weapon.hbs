@@ -50,6 +50,39 @@
   </table>
   {{/if}}
 
+  {{!-- Phases (2026-10-23): other ways it fights, one held at a time, switched as an action. Blank keeps the weapon's own. --}}
+  <h4 class="section-title">Phases: other ways it fights, switched as an action. Blank fields keep the weapon's own
+    {{#if editable}}<button type="button" class="ghost" data-action="addPhase"><i class="fa-solid fa-plus"></i> Add phase</button>{{/if}}</h4>
+  {{#each phaseRows as |ph|}}
+  <div class="phase-card">
+    <input type="hidden" name="system.phases.{{ph.i}}.id" value="{{ph.id}}">
+    <div class="form-grid">
+      <label><span>Name</span><input type="text" name="system.phases.{{ph.i}}.label" value="{{ph.label}}"></label>
+      <label data-tooltip="Blank keeps the weapon's damage"><span>Damage</span><input type="text" name="system.phases.{{ph.i}}.damage.formula" value="{{ph.damage.formula}}" placeholder="{{@root.system.damage.formula}}"></label>
+      <label><span>Type</span><select name="system.phases.{{ph.i}}.damage.type">{{selectOptions @root.ammoDamageTypes selected=ph.damage.type}}</select></label>
+      <label data-tooltip="Added to the weapon's Accuracy"><span>Accuracy +</span><input type="number" name="system.phases.{{ph.i}}.accuracy" value="{{ph.accuracy}}"></label>
+      <label data-tooltip="Added to the weapon's Critical chance"><span>Crit +</span><input type="number" name="system.phases.{{ph.i}}.critChance" value="{{ph.critChance}}"></label>
+      <label data-tooltip="Added to the weapon's critical damage"><span>Crit dmg +</span><input type="number" name="system.phases.{{ph.i}}.critDamage" value="{{ph.critDamage}}"></label>
+      <label data-tooltip="Tiles deep of the arc it cleaves, a cone in front; 0 for none"><span>Cleave</span><input type="number" name="system.phases.{{ph.i}}.cleave" value="{{ph.cleave}}" min="0"></label>
+      <label data-tooltip="What each target hit saves on"><span>Save</span><select name="system.phases.{{ph.i}}.save">{{selectOptions @root.phaseSaves selected=ph.save}}</select></label>
+      <label data-tooltip="D.M. on that save"><span>Save D.M.</span><input type="number" name="system.phases.{{ph.i}}.saveDm" value="{{ph.saveDm}}"></label>
+      <label data-tooltip="Status on a failed save"><span>Status</span><select name="system.phases.{{ph.i}}.status">{{selectOptions @root.burnStatuses selected=ph.status}}</select></label>
+      <label data-tooltip="X in the status, e.g. Stunned (2)"><span>Status value</span><input type="number" name="system.phases.{{ph.i}}.statusValue" value="{{ph.statusValue}}" min="0"></label>
+    </div>
+    {{#if (eq @root.system.category "ranged")}}
+    <table class="range-table">
+      <thead><tr><th>Range</th>{{#each ph.bands as |b|}}<th>{{b.label}}</th>{{/each}}</tr></thead>
+      <tbody>
+        <tr><th>Tiles</th>{{#each ph.bands as |b|}}<td><input type="number" name="system.phases.{{ph.i}}.range.{{b.key}}.tiles" value="{{b.tiles}}"></td>{{/each}}</tr>
+        <tr><th>D.M.</th>{{#each ph.bands as |b|}}<td><input type="number" name="system.phases.{{ph.i}}.range.{{b.key}}.dm" value="{{b.dm}}"></td>{{/each}}</tr>
+      </tbody>
+    </table>
+    {{/if}}
+    <label class="wide-field"><span>Text</span><input type="text" name="system.phases.{{ph.i}}.text" value="{{ph.text}}" placeholder="What changes in this phase"></label>
+    {{#if @root.editable}}<button type="button" class="ghost" data-action="deletePhase" data-index="{{ph.i}}"><i class="fa-solid fa-trash"></i> Remove phase</button>{{/if}}
+  </div>
+  {{/each}}
+
   {{> "systems/irop/templates/item/physical.hbs"}}
 
   <label class="wide-field"><span>Special properties</span>

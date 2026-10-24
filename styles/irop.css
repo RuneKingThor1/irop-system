@@ -3302,3 +3302,11 @@
 .irop .en-traits { margin-top: 6px; }
 .irop .en-trait { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; }
 .irop .en-trait img { width: 36px; height: 36px; flex: none; border-radius: 3px; }
+
+/* A power's optimal range and damage on its row (2026-10-20). */
+.irop .power-row .power-range, .irop .power-row .power-damage { white-space: nowrap; }
+.irop .power-row .power-range i, .irop .power-row .power-damage i { margin-right: 3px; opacity: 0.8; }
+
+/* A weapon's phase on its row (2026-10-23): which it holds, click to switch. */
+.irop .weapon-row .phase-switch { align-self: flex-start; margin-top: 2px; padding: 1px 8px; font-size: 14px; line-height: 1.4; }
+.irop .phase-card { border: 1px solid var(--irop-line); border-radius: 3px; padding: 8px 10px; margin: 6px 0 10px; display: grid; gap: 6px; }

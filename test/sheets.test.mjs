@@ -1261,6 +1261,14 @@ for ( const editMode of [false, true] ) {
   const gravRow = operative.items.find(i => i.name === "Gravbolt");
   check("powers: not on the Abilities tab; on the Paraphysics tab",
     !abil.querySelector(`[data-item-id="${gravRow.id}"]`) && !!new JSDOM(out.paraphysics).window.document.querySelector(`.power-row[data-item-id="${gravRow.id}"]`));
+  // Each power shows its optimal range, damage and text (Johnald, 2026-10-20).
+  {
+    const pdoc = new JSDOM(out.paraphysics).window.document;
+    const row = pdoc.querySelector(`.power-row[data-item-id="${gravRow.id}"]`);
+    check("powers: damage chip, a name that drops the text down, and the text under it",
+      /2d4/.test(row?.querySelector(".power-damage")?.textContent ?? "") && /Psychic/.test(row?.querySelector(".power-damage")?.textContent ?? "")
+        && !!row?.querySelector('.summary-toggle[data-action="toggleSummary"]') && !!row?.querySelector(".ability-summary .summary-body"));
+  }
   const tile = tiles[0];
   check("perk grid: a tile opens the perk, posts it, deletes it, and drags",
     tile.classList.contains("draggable") && !!tile.dataset.itemId && !!tile.querySelector('img[data-action="editItem"]')
@@ -7589,6 +7597,8 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     JSON.stringify([sf.energy, gb.energy, ln.energy]));
   check("psi tab: at Rank 3 with none taken, the power offers its choices; a taken one and an evolution read out",
     sf.choosing?.map(c => c.key).join() === "wide,efficient" && !gb.choosing && /^Anchored/.test(ln.choice) && ln.evolution === "It never ends." && !ln.concentration && ln.save === "TGH");
+  check("psi tab: a power's optimal range in tiles, its D.M. inside and out on hover",
+    gb.range === 8 && /8 tiles/.test(gb.rangeTip) && /beyond it \+15/.test(gb.rangeTip) && !sf.damage, JSON.stringify([gb.range, gb.rangeTip, sf.damage]));
   const tab = new JSDOM(out.paraphysics).window.document;
   check("psi tab: renders crystals, the next discipline rank for sale, the powers and the choice buttons",
     /1/.test(tab.querySelector(".psi-crystals")?.textContent ?? "") && tab.querySelectorAll(".power-row").length === 3

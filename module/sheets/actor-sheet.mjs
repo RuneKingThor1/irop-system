@@ -17,6 +17,7 @@ import { isLinked, linkActor, syncActor, unlinkActor } from "../artemis/link.mjs
 import { askStatusValue, setStatus, statusLabel, statusValue } from "../statuses.mjs";
 import { liveBackground, perkCopy, perkMeta, takenPerk, speciesPerkCopy, isSpeciesPerk } from "../rules/backgrounds.mjs";
 import { placeCheck } from "../rules/concealment.mjs";
+import { phasedStats, nextPhase } from "../rules/phases.mjs";
 import { psiContext, onEndConcentration, onSelectDiscipline, onBuyDiscipline, onBuyPowerRank, onChoosePower, onAwaken, learnPower, refundPsi, crystalAmount } from "./paraphysics-tab.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -356,6 +357,8 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       perkNode: IropActorSheet.#onPerkNode,
       chooseMutation: IropActorSheet.#onChooseMutation,
       toggleSummary: IropActorSheet.#onToggleSummary,
+      switchPhase: IropActorSheet.#onSwitchPhase,
+      cleave: IropActorSheet.#onCleave,
       toggleLedger: IropActorSheet.#onToggleLedger,
       resetTree: IropActorSheet.#onResetTree,
       chooseProjectile: IropActorSheet.#onChooseProjectile,
@@ -490,6 +493,17 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         relativeTo: a.item, rollData: a.item.getRollData?.(), secrets: actor.isOwner
       });
     }
+    // Powers carry their text too, to drop down under the row on the Paraphysics tab (2026-10-20).
+    const psi = ("paraphysics" in this.constructor.PARTS) ? psiContext(this) : null;
+    for ( const w of (psi?.disciplines ?? []).flatMap(d => d.powers) ) {
+      const item = actor.items.get(w.id);
+      w.expanded = this.#expanded.has(w.id);
+      // The damage as this character rolls it: 2d4 + 3, not 2d4 + @cha.mod.
+      if ( w.damage && item && globalThis.Roll?.replaceFormulaData ) w.damage = Roll.replaceFormulaData(w.damage, item.getRollData?.() ?? actor.getRollData(), { missing: "0" });
+      w.descriptionHTML = item ? await TextEditor.enrichHTML(item.system.description ?? "", {
+        relativeTo: item, rollData: item.getRollData?.(), secrets: actor.isOwner
+      }) : "";
+    }
     const canMutate = system.canMutate;
     const canTakeBoons = system.canTakeBoons;
     const mods = system.mods;
@@ -559,7 +573,7 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // The operative sheet gives Paraphysics a tab of its own (2026-10-16); the NPC sheet keeps the panel.
       paraphysicsTab: "paraphysics" in this.constructor.PARTS,
       // The Paraphysics tab: crystals, disciplines and powers (Framework Draft 0.6, 2026-10-19).
-      psi: ("paraphysics" in this.constructor.PARTS) ? psiContext(this) : null,
+      psi,
       // The XP ledger, newest first; only a GM can award or undo (2026-10-08).
       xpLog: (system.xp?.log ?? []).map((e, index) => ({ ...xpLine(e),
         // Psycrystal lines show the crystals, not XP (2026-10-19).
@@ -695,6 +709,33 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       .sort((a, b) => String(a.system.role).localeCompare(String(b.system.role)) || (a.system.order - b.system.order))
       .map(t => ({ id: t.id, label: `${roleLabel(t.system.role)}: ${t.system.tabLabel}`, selected: t.id === this.#browseTree })) : [];
     return { trees: list, crossTrain: options.length ? options : null };
+  }
+
+  /** Combat tab: switch a weapon's phase (2026-10-23), an action, said in chat. */
+  static async #onSwitchPhase(event, target) {
+    const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    const phases = item?.system.phases ?? [];
+    if ( phases.length < 2 ) return;
+    const esc = foundry.utils.escapeHTML;
+    const current = phasedStats(item.system).phase;
+    const id = await foundry.applications.api.DialogV2.prompt({
+      window: { title: `${item.name}: switch phase` },
+      content: `<p>Switching phase is an action.</p><select name="phase" style="width:100%">${phases.map(p =>
+        `<option value="${p.id}" ${p.id === current ? "selected" : ""}>${esc(p.label || "Phase")}</option>`).join("")}</select>`,
+      ok: { label: "Switch", callback: (ev, button) => button.form.elements.phase.value },
+      rejectClose: false
+    });
+    const to = id ? nextPhase(item.system, id) : null;
+    if ( !to ) return;
+    await item.update({ "system.phase": to.id });
+    return ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      content: `<p><strong>${esc(this.actor.name)}</strong> switches ${esc(item.name)} to <strong>${esc(to.label || "Phase")}</strong> (an action).</p>` });
+  }
+
+  /** Combat tab: attack with the phase's Cleave, an arc in front of the wielder (2026-10-23). */
+  static async #onCleave(event, target) {
+    const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+    if ( item ) return rolls.rollAttack(this.actor, item, { cleave: true });
   }
 
   /** Abilities: drop an active ability's text down, or fold it away, without a re-render. */
@@ -869,13 +910,16 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         case "weapon": {
           // What the role perks do with it (2026-10-18), folded into its boxes and listed on a chip.
           const perk = weaponPerkSummary(abilities, item, perkCtx);
-          const dmgBox = damageStat(s, rollData);
+          // The phase it is in shows its own numbers (2026-10-23).
+          const ph = phasedStats(s);
+          const sv = ph.phase ? Object.assign(Object.create(s), { damage: ph.damage, accuracy: ph.accuracy, critical: ph.critical }) : s;
+          const dmgBox = damageStat(sv, rollData);
           if ( perk.damage && (dmgBox.value !== "none") ) {
             dmgBox.value = `${dmgBox.value} + ${perk.damage}`;
             dmgBox.tip = `${dmgBox.tip}, + ${perk.damage} from perks`;
             dmgBox.cls = `${dmgBox.cls ?? ""} from-perks`.trim();
           }
-          const crit = -s.critical.chance + perk.critical;
+          const crit = -sv.critical.chance + perk.critical;
           out.weapons.push({
             perkLines: perk.lines, perkTip: perk.lines.join("; "),
             item, id: item.id, name: item.name, img: item.img, system: s,
@@ -884,20 +928,23 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             classShort: IROP.weaponClassShort[s.weaponClass] ?? IROP.weaponClasses[s.weaponClass],
             // Shown as the D.M. it puts on the roll, as the Field Manual's weapon cards print it:
             // roll under, so minus is the bonus. Accuracy 30 reads "-30" (Johnald, 2026-10-07).
-            accuracyText: signed(-s.accuracy),
-            critText: signed(-s.critical.chance),
-            damageType: IROP.damageTypes[s.damage.type]?.label,
-            damageText: shownFormula(s.damage.formula, rollData),
-            damageWords: formulaInWords(s.damage.formula),
+            accuracyText: signed(-sv.accuracy),
+            critText: signed(-sv.critical.chance),
+            damageType: IROP.damageTypes[sv.damage.type]?.label,
+            damageText: shownFormula(sv.damage.formula, rollData),
+            damageWords: formulaInWords(sv.damage.formula),
             // The row's labelled boxes, in fixed columns (Johnald, 2026-10-08). Ammo follows them in the template.
             stats: [
-              { label: "Accuracy", value: signed(-s.accuracy), dim: !s.accuracy,
+              { label: "Accuracy", value: signed(-sv.accuracy), dim: !sv.accuracy,
                 tip: "Accuracy D.M. on the attack roll: minus makes it easier" },
               dmgBox,
-              typeStat(s),
+              typeStat(sv),
               { label: "Crit", value: signed(crit), dim: !crit, cls: perk.critical ? "from-perks" : "",
-                tip: `Critical D.M. on the critical roll: minus makes a crit likelier${perk.critical ? ` (${signed(-s.critical.chance)} the weapon's, ${signed(perk.critical)} from perks)` : ""}` }
+                tip: `Critical D.M. on the critical roll: minus makes a crit likelier${perk.critical ? ` (${signed(-sv.critical.chance)} the weapon's, ${signed(perk.critical)} from perks)` : ""}` }
             ],
+            // Its phases (2026-10-23): the one held, switched as an action, and Cleave if it has one.
+            phase: ph.phase ? { label: ph.label, cleave: ph.cleave, text: ph.text,
+              tip: `${ph.label}${ph.text ? `: ${ph.text}` : ""}. Switching phase is an action` } : null,
             isGrenade: s.weaponClass === "grenade",
             // Grenades, rockets and explosives show how many are carried, which the player can type in (2026-10-10).
             counted: isCountedWeapon(item) && (s.feed !== "singleUse"),

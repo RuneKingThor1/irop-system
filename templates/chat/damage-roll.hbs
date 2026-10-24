@@ -35,7 +35,7 @@
   {{/if}}
   {{#if powerSave}}
   {{!-- An attack power that also forces a save (2026-10-20). --}}
-  <div class="card-buttons"><button type="button" data-irop-action="powerSave" data-tooltip="Target the token or tokens that must save, then press">
+  <div class="card-buttons"><button type="button" data-irop-action="powerSave" data-tooltip="{{powerSave.label}}. Target the token or tokens that must save, then press">
     <i class="fa-solid fa-shield-halved"></i> Roll {{powerSave.saveLabel}} save ({{powerSave.dmText}})</button></div>
   {{/if}}
   {{#if blastUuid}}

@@ -43,11 +43,11 @@
       </header>
       <ol class="item-list psi-powers">
         {{#each d.powers as |w|}}
-        <li class="item-row power-row draggable" data-item-id="{{w.id}}">
+        <li class="item-row power-row ability-row draggable {{#if w.expanded}}expanded{{/if}}" data-item-id="{{w.id}}">
           <div class="row-main">
             <img class="item-img" src="{{w.img}}" alt="" data-action="editItem" data-tooltip="Open the power">
-            <div class="item-name">
-              <span class="ability-name">{{w.name}}</span>
+            <div class="item-name summary-toggle" data-action="toggleSummary" role="button" tabindex="0" aria-expanded="{{#if w.expanded}}true{{else}}false{{/if}}">
+              <span class="ability-name">{{w.name}}<i class="fa-solid fa-chevron-down summary-chevron" inert></i></span>
               <span class="item-sub">{{#if w.formerly}}Evolved from {{w.formerly}} · {{/if}}Tier {{w.tier}}{{#if w.tracks}} · {{w.tracks}}{{/if}}{{#if w.save}} · Save {{w.save}}{{/if}}</span>
             </div>
             <span class="pips power-pips">
@@ -55,6 +55,8 @@
                 data-action="buyPowerRank" data-rank="{{pip.n}}" data-tooltip="{{pip.tip}}"
                 {{#unless (or pip.editable pip.buyable)}}disabled{{/unless}}></button>{{/each}}
             </span>
+            {{#if w.range}}<span class="stat-chip power-range" data-tooltip="{{w.rangeTip}}"><i class="fa-solid fa-bullseye"></i> {{w.range}} T</span>{{/if}}
+            {{#if w.damage}}<span class="stat-chip power-damage" data-tooltip="Damage at this rank"><i class="fa-solid fa-burst"></i> {{w.damage}}</span>{{/if}}
             {{#if w.energy}}<span class="stat-chip energy {{#if w.energyChanged}}from-perks{{/if}}" data-tooltip="{{w.energyTip}}">{{w.energy}} EN</span>{{/if}}
             {{#if w.concentration}}<span class="stat-chip" data-tooltip="Concentration: Disorientated breaks it">CON</span>{{/if}}
             <div class="row-controls">
@@ -71,6 +73,12 @@
           {{#if w.noChoices}}<p class="hint power-note">This power offers no Rank 3 modifications yet.</p>{{/if}}
           {{#if w.choice}}<p class="power-note"><span class="mono-label">Modified</span> {{w.choice}}</p>{{/if}}
           {{#if w.evolution}}<p class="power-note"><span class="mono-label">Evolution</span> {{w.evolution}}</p>{{/if}}
+          {{!-- The power's text, dropped down from its name (2026-10-20). --}}
+          <div class="ability-summary">
+            <div class="summary-body">
+              {{#if w.descriptionHTML}}{{{w.descriptionHTML}}}{{else}}<p class="hint">No description yet.</p>{{/if}}
+            </div>
+          </div>
         </li>
         {{else}}
         <li class="empty-row">{{#if d.rank}}No {{d.label}} powers yet. Drop one on the sheet to learn it.{{else}}Buy rank 1 to open {{d.label}}.{{/if}}</li>

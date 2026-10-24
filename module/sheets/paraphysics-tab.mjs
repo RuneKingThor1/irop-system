@@ -78,7 +78,7 @@ export function psiContext(sheet) {
           return { n, filled: n <= st.rank, granted: n <= st.bonus, buyable: canBuy && enabled && (n === next) && disciplineOpen(key), cost: (n === next) ? nextCost : null };
         }),
         slots: `${held} of ${powerSlots(st.rank)}`, full: held >= powerSlots(st.rank),
-        powers: (byDiscipline[key] ?? []).map(p => powerRow(p, abilities, { canBuy, edit }))
+        powers: (byDiscipline[key] ?? []).map(p => powerRow(p, abilities, { canBuy, edit, castingMod: system.casting?.mod ?? 0 }))
       };
     });
 
@@ -107,11 +107,17 @@ export function psiContext(sheet) {
 }
 
 /** One power's row. */
-function powerRow(item, abilities, { canBuy, edit }) {
+function powerRow(item, abilities, { canBuy, edit, castingMod = 0 }) {
   const p = item.system.paraphysics;
   const choices = powerChoices(p);
   const totals = powerTotals(p);
   const chosen = totals.option;
+  // Its optimal range and damage at its current rank, on the row (Johnald, 2026-10-20).
+  const range = (Number(item.system.range) || 0) + totals.range;
+  const optimal = -(IROP.paraphysics.optimalRangeTimes * castingMod);
+  const sign = n => (n > 0 ? `+${n}` : `${n}`);
+  const formula = p.attack ? [p.damage?.formula, ...totals.damage].filter(f => String(f ?? "").trim()).join(" + ") : "";
+  const damageType = IROP.damageTypes[totals.damageType || p.damage?.type]?.label ?? "";
   return {
     id: item.id, img: item.img, tier: p.tier, rank: p.rank,
     // Its evolved name, once it has evolved (2026-10-19), with the old one under it.
@@ -130,6 +136,9 @@ function powerRow(item, abilities, { canBuy, edit }) {
       };
     }),
     tracks: trackText(p),
+    range,
+    rangeTip: `Optimal range, ${range} tiles. Within it ${sign(optimal)} D.M. to hit; beyond it ${sign(IROP.paraphysics.outOfRange)}`,
+    damage: formula ? `${formula}${damageType ? ` ${damageType}` : ""}` : "",
     ...abilityCost(item, abilities),
     concentration: totals.concentration,
     save: p.save ? (IROP.attributes[p.save]?.abbr ?? p.save) : "",
