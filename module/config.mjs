@@ -1077,7 +1077,7 @@ IROP.missionOutcomes = {
 IROP.strengthBands = [
   { upTo: 0.3, label: "Low", text: "Patrols of a few troopers." },
   { upTo: 0.7, label: "Moderate", text: "Regular GENESIS squads, with some support." },
-  { upTo: 1, label: "High", text: "Elite Xar'nath squads with paraphysical specialists and close air support." }
+  { upTo: 1, label: "High", text: "Elite Xar'Nath squads with paraphysical specialists and close air support." }
 ];
 
 /** What Reputation means on a mission (doc: Effects of Reputation). */

@@ -50,6 +50,7 @@ import { CodexPageSheet, registerCodexSync } from "./codex.mjs";
 import { registerConcentration } from "./concentration.mjs";
 import { registerDurations } from "./durations.mjs";
 import { registerAuras } from "./canvas/aura.mjs";
+import { registerRulesKey, syncRulesJournal, toggleRules } from "./rules-journal.mjs";
 import { registerGlamor } from "./glamor.mjs";
 import { EventsApp } from "./apps/events.mjs";
 import { setupDecks, importEventCards, newCard, reshuffle } from "./strategy/events.mjs";
@@ -64,6 +65,8 @@ Hooks.once("init", () => {
 
   CONFIG.IROP = IROP;
   registerSettings();
+  // G opens the Rules journal (2026-10-30).
+  registerRulesKey();
   // The Strategy Layer rules window, in Configure Settings (2026-10-08).
   game.settings.registerMenu("irop", "strategyRulesMenu", {
     name: "Strategy Layer",
@@ -202,6 +205,8 @@ Hooks.once("init", () => {
     config: IROP,
     // startingSkills: how a role's or background's skill list is read (the Background skills macro, 2026-10-10).
     rules: { dynosrs, combat, startingSkills },
+    // The Rules journal (2026-10-30): openRules() as G does; syncRules({force: true}) rewrites it (GM).
+    openRules: toggleRules, syncRules: syncRulesJournal,
     rolls,
     DynosrsRoll,
     D100Roll,
@@ -365,6 +370,8 @@ Hooks.on("updateCombat", (combat, changed) => {
 Hooks.once("ready", () => {
   // Players' ODR actions reach the GM's client over the system socket (step 5).
   initSocket();
+  // The Rules journal, written or brought up to date by the active GM (2026-10-30).
+  if ( game.users.activeGM?.isSelf ) syncRulesJournal().catch(err => console.warn("irop | The rules journal could not be written", err));
   // Portraits and tokens shown full size in the lower left on hover (2026-10-16).
   registerHoverPreview();
   // Reputation's nine levels and Strength to 25 (2026-10-11): an older world's territories move onto them, once.
