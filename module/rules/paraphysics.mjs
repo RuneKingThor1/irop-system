@@ -109,7 +109,7 @@ export function trackValue(track, rank) {
 }
 
 /** The number fields a rank, a choice or an evolution can change (Johnald, 2026-10-19). */
-export const POWER_FIELDS = ["accuracy", "potency", "energy", "range", "duration", "area", "barrier"];
+export const POWER_FIELDS = ["accuracy", "potency", "energy", "range", "duration", "area", "barrier", "defense", "shred"];
 
 /**
  * A Rank 2 or Rank 4 step's value for one field: what the GM typed, or, left blank, the default
@@ -131,14 +131,23 @@ function damagePart(text) {
 }
 
 /**
+ * The Rank 5 evolution taken (2026-10-29): one of the power's evolutions, by id. A power written
+ * before the pick (one `evolution`, not a list) has that one.
+ */
+export function chosenEvolution(p) {
+  if ( Array.isArray(p?.evolutions) ) return p.evolutions.find(e => e.id === p.evolved) ?? null;
+  return (p?.evolution && (typeof p.evolution === "object")) ? { ...p.evolution, rename: !!p.evolution.name } : null;
+}
+
+/**
  * Everything a power's ranks add up to at its rank (2026-10-19): Ranks 2 and 4 (their typed values
  * or the track defaults), the Rank 3 option taken, and the Rank 5 evolution. Rank 1 is the power's
  * own fields. `lines` reads each piece out for the card.
  */
 export function powerTotals(p) {
   const rank = Number(p?.rank) || 0;
-  const out = { accuracy: 0, potency: 0, energy: 0, range: 0, duration: 0, area: 0, barrier: Number(p?.barrier) || 0, damage: [], damageType: "",
-    concentration: !!p?.concentration, evolvedName: "", option: null, lines: [] };
+  const out = { accuracy: 0, potency: 0, energy: 0, range: 0, duration: 0, area: 0, barrier: Number(p?.barrier) || 0, defense: 0, shred: 0, damage: [], damageType: "",
+    concentration: !!p?.concentration, steadfast: false, evolvedName: "", option: null, evolution: null, lines: [] };
   const add = (src, label) => {
     for ( const f of POWER_FIELDS ) out[f] += Number(src[f]) || 0;
     const d = damagePart(src.damage);
@@ -156,11 +165,14 @@ export function powerTotals(p) {
       out.option = option;
       add(option, option.label || "Rank 3");
       if ( option.anchored ) out.concentration = false;
+      if ( option.steadfast ) out.steadfast = true;
     }
   }
-  if ( rank >= 5 ) {
-    const e = p?.evolution ?? {};
-    out.evolvedName = e.name ?? "";
+  const e = (rank >= 5) ? chosenEvolution(p) : null;
+  if ( e ) {
+    out.evolution = e;
+    // Its name is the power's only when it renames it; otherwise it is the evolution's label.
+    out.evolvedName = e.rename ? (e.name ?? "") : "";
     add(e, e.name ? `Evolved, ${e.name}` : "Evolved");
     if ( e.damageType ) out.damageType = e.damageType;
     if ( e.concentration === "remove" ) out.concentration = false;
@@ -209,6 +221,71 @@ export function needsConcentration(p) {
   return powerTotals(p).concentration;
 }
 
+/**
+ * The parts of a power whose extra Energy is paid or not at each cast (2026-10-29): the Rank 3 option
+ * and the Rank 5 evolution taken, when flagged. Each with what it adds to the cost, and whether it
+ * is Adaptive (the caster picks the save).
+ * @returns {{kind: "option"|"evolution", id: string, label: string, energy: number, adaptive: boolean}[]}
+ */
+export function optionalNodes(p) {
+  const t = powerTotals(p);
+  const out = [];
+  if ( t.option?.optionalEnergy ) out.push({ kind: "option", id: t.option.id, label: t.option.label || "Rank 3",
+    energy: Number(t.option.energy) || 0, adaptive: !!t.option.adaptive });
+  if ( t.evolution?.optionalEnergy ) out.push({ kind: "evolution", id: t.evolution.id ?? "", label: t.evolution.name || "Evolution",
+    energy: Number(t.evolution.energy) || 0, adaptive: false });
+  return out;
+}
+
+/**
+ * A power as it is cast this time (2026-10-29): an optional part not paid for is left off, so the
+ * power goes off as its standard version; a paid Adaptive option sets the attribute saved on.
+ * @param {object} p                    system.paraphysics
+ * @param {object} [paid]
+ * @param {boolean} [paid.option=true]     the Rank 3 option's extra Energy paid
+ * @param {boolean} [paid.evolution=true]  the evolution's extra Energy paid
+ * @param {string} [paid.save]             the attribute an Adaptive option makes the target save on
+ * @returns {object} a copy of p
+ */
+export function castPower(p, { option = true, evolution = true, save = "" } = {}) {
+  const out = { ...p };
+  const t = powerTotals(p);
+  if ( t.option?.optionalEnergy && !option ) out.choice = "";
+  if ( t.evolution?.optionalEnergy && !evolution ) {
+    if ( Array.isArray(p.evolutions) ) out.evolved = "";
+    else out.evolution = null;
+  }
+  if ( t.option?.adaptive && option && save && (save in IROP.attributes) ) out.save = save;
+  return out;
+}
+
+/** The evolutions a power offers at Rank 5, as {key, label, text}. */
+export function evolutionChoices(p) {
+  const plain = h => String(h ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return (Array.isArray(p?.evolutions) ? p.evolutions : []).map(e => ({ key: e.id, label: e.name || "Unnamed evolution", text: plain(e.text) }));
+}
+
+/**
+ * A damage formula gathered up for reading (2026-10-29): "2d4 + 6 + 1 + 1d4" is "3d4 + 7". Only a plain
+ * sum of dice and whole numbers is gathered; anything else comes back as it was.
+ */
+export function simplifyFormula(formula) {
+  const f = String(formula ?? "").trim();
+  if ( !f ) return "";
+  const terms = f.split("+").map(t => t.trim());
+  if ( !terms.every(t => /^(\d*d\d+|\d+)$/i.test(t)) ) return f;
+  const dice = new Map();
+  let flat = 0;
+  for ( const t of terms ) {
+    const m = /^(\d*)d(\d+)$/i.exec(t);
+    if ( m ) dice.set(Number(m[2]), (dice.get(Number(m[2])) ?? 0) + (Number(m[1]) || 1));
+    else flat += Number(t);
+  }
+  const parts = [...dice.entries()].sort((a, b) => b[0] - a[0]).map(([size, n]) => `${n}d${size}`);
+  if ( flat ) parts.push(String(flat));
+  return parts.join(" + ") || "0";
+}
+
 /** What raising a power to rank `n` costs: a psycrystal at 1 and 5, XP between. */
 export function powerRankCost(n) {
   if ( P().crystalRanks.includes(n) ) return { crystals: 1, xp: 0 };
@@ -222,13 +299,15 @@ export function powerRankCost(n) {
  * free one.
  * @returns {{ok: boolean, crystals?: number, reason?: string}}
  */
-export function checkPowerUnlock({ name, tier, discipline, state, inDiscipline, crystals, free = false, enabled, learnable = true }) {
+export function checkPowerUnlock({ name, tier, discipline, state, inDiscipline, crystals, free = false, enabled, learnable = true, rival = "" }) {
   const label = IROP.disciplines[discipline] ?? discipline;
   // A power only NPCs have (2026-10-20).
   if ( learnable === false ) return { ok: false, reason: `${name} is not a power players can learn.` };
   if ( !enabled ) return { ok: false, reason: "Only a paraphysical character can learn powers. Awaken first." };
   if ( !discipline || !state ) return { ok: false, reason: `${name} has no discipline.` };
   if ( !disciplineOpen(discipline) ) return { ok: false, reason: `${label} is not open yet.` };
+  // A pick one group, such as a discipline's two Tier 5 powers (2026-10-29): one of them, for good.
+  if ( rival ) return { ok: false, reason: `${name} and ${rival} are pick one: you already hold ${rival}.` };
   if ( state.rank < tier ) return { ok: false, reason: `${name} is a tier ${tier} power: it needs ${label} rank ${tier}; you have ${state.rank}.` };
   const slots = powerSlots(state.rank);
   if ( inDiscipline >= slots ) return { ok: false, reason: `${label} rank ${state.rank} holds ${slots} power${slots === 1 ? "" : "s"}, and all are taken.` };
@@ -270,7 +349,7 @@ export function optionFromArchetype(key, id) {
   const a = IROP.powerArchetypes[key];
   if ( !a ) return null;
   return { id, archetype: key, label: a.label, text: a.text, accuracy: 0, potency: 0, damage: "", energy: 0, range: 0,
-    duration: 0, area: 0, anchored: false, ...(a.changes ?? {}) };
+    duration: 0, area: 0, defense: 0, shred: 0, anchored: false, steadfast: false, optionalEnergy: false, adaptive: false, ...(a.changes ?? {}) };
 }
 
 /** What a power's ranks add, in words: "Accuracy -10, Damage + 1d4, Range +4". */
@@ -284,7 +363,9 @@ export function trackText(p) {
     t.range ? `Range ${sign(t.range)}` : "",
     t.area ? `Area ${sign(t.area)}` : "",
     t.duration ? `Duration ${sign(t.duration)}` : "",
-    t.barrier ? `Barrier ${t.barrier}` : ""
+    t.barrier ? `Barrier ${t.barrier}` : "",
+    t.defense ? `Defense ${sign(t.defense)}` : "",
+    t.shred ? `Shred ${t.shred}` : ""
   ].filter(Boolean).join(", ");
 }
 

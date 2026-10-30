@@ -1,6 +1,6 @@
 import { BANK_CAP } from "./rules/dynosrs.mjs";
 import { adjustGmBanks } from "./settings.mjs";
-import { rollCritical, rollDamage, rollScatter, rollBurnSave, rollPowerSave, grantPowerBarrier } from "./rolls.mjs";
+import { rollCritical, rollDamage, rollScatter, rollBurnSave, rollPowerSave, grantPowerBarrier, rollPowerDamage } from "./rolls.mjs";
 import { approveSupport, declineSupport, fireMortar, mortarDamage } from "./apps/resources.mjs";
 import { clearBlast } from "./canvas/blast.mjs";
 import { askStatusValue, setStatus, statusDef, statusValue } from "./statuses.mjs";
@@ -66,7 +66,9 @@ function canUse(message, action, button) {
     return !!target?.isOwner;
   }
   // A save power's save: anyone may press; it rolls only for the targeted tokens they own (2026-10-20).
-  if ( (action === "powerSave") || (action === "powerBarrier") ) return true;
+  if ( ["powerSave", "powerSave2", "powerBarrier"].includes(action) ) return true;
+  // A save power's damage: the caster's to roll (2026-10-29).
+  if ( action === "powerDamage" ) return !!foundry.utils.fromUuidSync(message.flags?.irop?.casterUuid ?? "")?.isOwner || game.user.isGM;
   if ( (action === "bank") && ["DANGER", "DEFEAT"].includes(button.dataset.symbol) ) return false;
   const roll = message.rolls[0];
   const uuid = roll?.options?.actorUuid ?? roll?.options?.attack?.actorUuid;
@@ -86,6 +88,8 @@ async function handle(message, action, button) {
     case "applyStatus": return applyStatus(message, roll);
     case "burnSave": return rollBurnSave(message, roll);
     case "powerSave": return rollPowerSave(message);
+    case "powerSave2": return rollPowerSave(message, { second: true });
+    case "powerDamage": return rollPowerDamage(message);
     case "powerBarrier": return grantPowerBarrier(message);
     case "supportApprove": return approveSupport(message);
     case "supportDecline": return declineSupport(message);

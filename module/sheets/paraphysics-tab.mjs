@@ -1,7 +1,7 @@
 import { IROP } from "../config.mjs";
 import {
   disciplineOpen, disciplineRankCost, checkDisciplinePurchase, checkPowerUnlock, checkPowerRank, checkAwaken,
-  powerRankCost, powerChoices, trackText, powerSlots, powerTotals
+  powerRankCost, powerChoices, trackText, powerSlots, powerTotals, evolutionChoices, powerAccuracy, powerSaveDm
 } from "../rules/paraphysics.mjs";
 import { abilityCost } from "./actor-sheet.mjs";
 import { concentrationOn, endConcentration } from "../concentration.mjs";
@@ -78,14 +78,25 @@ export function psiContext(sheet) {
           return { n, filled: n <= st.rank, granted: n <= st.bonus, buyable: canBuy && enabled && (n === next) && disciplineOpen(key), cost: (n === next) ? nextCost : null };
         }),
         slots: `${held} of ${powerSlots(st.rank)}`, full: held >= powerSlots(st.rank),
-        powers: (byDiscipline[key] ?? []).map(p => powerRow(p, abilities, { canBuy, edit, castingMod: system.casting?.mod ?? 0 }))
+        powers: byTier((byDiscipline[key] ?? []).map(p => powerRow(p, abilities, { canBuy, edit, castingMod: system.casting?.mod ?? 0 })))
       };
     });
 
+  // Every power at once (Johnald, 2026-10-29), Tier 1 to 5 and alphabetical within each, beside
+  // the view by discipline. The rows are the same ones the disciplines hold.
+  const everyPower = byTier(disciplines.flatMap(d => d.powers));
+  const all = { key: "all", label: "All powers", all: true, open: true, rank: everyPower.length, powers: everyPower,
+    slots: `${everyPower.length}`, full: false, bonusText: "" };
+  // Tier bands (Johnald, 2026-10-29): each list under Tier 1 to Tier 5 headers.
+  for ( const d of [all, ...disciplines] ) d.tiers = tierBands(d.powers);
+
   // Layout B (Johnald, 2026-10-19): disciplines down the left, the picked one's powers on the right.
   // The pick is kept on the sheet; by default the first discipline held, else the first shown.
-  const picked = disciplines.find(d => d.key === sheet._psiDiscipline) ?? disciplines.find(d => d.rank > 0) ?? disciplines[0] ?? null;
+  // All powers is the default view (2026-10-29).
+  const picked = (sheet._psiDiscipline === "all") ? all
+    : (disciplines.find(d => d.key === sheet._psiDiscipline) ?? (everyPower.length ? all : (disciplines.find(d => d.rank > 0) ?? disciplines[0] ?? null)));
   for ( const d of disciplines ) d.selected = (d === picked);
+  all.selected = (picked === all);
 
   const attr = system.casting?.attribute ?? IROP.paraphysics.attribute;
   return {
@@ -102,8 +113,24 @@ export function psiContext(sheet) {
     canAwaken: !enabled && (actor.type === "operative"),
     awakenCost: IROP.paraphysics.awakenCost,
     disciplines,
+    all,
     noPowers: !powersOf(actor).length
   };
+}
+
+/** Powers by tier, 1 to 5, then alphabetically by the name they show (2026-10-29). */
+function byTier(rows) {
+  return [...rows].sort((a, b) => ((a.tier ?? 0) - (b.tier ?? 0)) || String(a.name).localeCompare(String(b.name)));
+}
+
+/** Powers under their tier's header, lowest first, skipping empty tiers. */
+function tierBands(rows) {
+  const bands = new Map();
+  for ( const w of rows ) {
+    if ( !bands.has(w.tier) ) bands.set(w.tier, []);
+    bands.get(w.tier).push(w);
+  }
+  return [...bands.entries()].sort((a, b) => a[0] - b[0]).map(([tier, powers]) => ({ tier, label: `Tier ${tier}`, powers }));
 }
 
 /** One power's row. */
@@ -112,14 +139,48 @@ function powerRow(item, abilities, { canBuy, edit, castingMod = 0 }) {
   const choices = powerChoices(p);
   const totals = powerTotals(p);
   const chosen = totals.option;
+  const evolutions = evolutionChoices(p);
+  const evolved = totals.evolution;
+  const plain = h => String(h ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   // Its optimal range and damage at its current rank, on the row (Johnald, 2026-10-20).
   const range = (Number(item.system.range) || 0) + totals.range;
   const optimal = -(IROP.paraphysics.optimalRangeTimes * castingMod);
   const sign = n => (n > 0 ? `+${n}` : `${n}`);
   const formula = p.attack ? [p.damage?.formula, ...totals.damage].filter(f => String(f ?? "").trim()).join(" + ") : "";
   const damageType = IROP.damageTypes[totals.damageType || p.damage?.type]?.label ?? "";
+  // The stat block (Johnald, 2026-10-29): every number labeled, on its own ribbon under the name.
+  const cost = abilityCost(item, abilities);
+  const area = (Number(item.system.area) || 0) + totals.area;
+  const rounds = (Number(p.duration) || 0) + totals.duration;
+  const saveDm = p.save ? powerSaveDm(p, castingMod) : 0;
+  const stats = [
+    { key: "energy", label: "Energy", value: String(cost.energy), tip: cost.energyTip, changed: cost.energyChanged },
+    range ? { key: "range", label: "Range", value: `${range} T`, tip: `Optimal range, ${range} tiles. Within it ${sign(optimal)} D.M. to hit; beyond it ${sign(IROP.paraphysics.outOfRange)}` }
+      : { key: "range", label: "Range", value: "Self", tip: "Cast on yourself, or centered on you" },
+    formula ? { key: "damage", label: "Damage", value: formula, type: damageType, tip: "Damage at this rank" } : null,
+    p.attack ? { key: "accuracy", label: "Accuracy", value: sign(powerAccuracy(p).track), tip: "D.M. its ranks put on the attack: minus is easier, -25 at most" } : null,
+    p.save ? { key: "save", label: "Save", value: `${IROP.attributes[p.save]?.abbr ?? p.save} ${sign(saveDm)}`,
+      tip: `The target saves on ${IROP.attributes[p.save]?.label ?? p.save}, at ${sign(saveDm)} D.M.` } : null,
+    area ? { key: "area", label: "Area", value: (p.shape === "line") ? `${Number(p.width) || 1} x ${area}` : (p.shape === "cone") ? `Cone ${area}` : `Radius ${area}`,
+      tip: (p.shape === "line") ? `A line ${Number(p.width) || 1} wide and ${area} long` : `${area} tiles` }
+      : (p.attack ? { key: "area", label: "Area", value: "Single", tip: "One target" } : null),
+    rounds ? { key: "duration", label: "Duration", value: `${rounds} turn${rounds === 1 ? "" : "s"}`, tip: "Turns it lasts" } : null,
+    totals.barrier ? { key: "barrier", label: "Barrier", value: String(totals.barrier), tip: "Lifts a barrier to at least this, never on top" } : null,
+    totals.defense ? { key: "defense", label: "Defense", value: sign(totals.defense), tip: "Added to your Defense while it lasts" } : null,
+    totals.shred ? { key: "shred", label: "Shred", value: String(totals.shred), tip: "Bypasses that much DR and strips it from armor until repaired" } : null
+  ].filter(Boolean);
+  const kind = p.attack ? "Attack" : (p.save ? "Save" : "");
   return {
     id: item.id, img: item.img, tier: p.tier, rank: p.rank,
+    discipline: p.discipline,
+    disciplineLabel: IROP.disciplines[p.discipline] ?? "",
+    stats, kind,
+    damageFormula: formula,
+    // The picks, labeled by rank (2026-10-29).
+    picks: [
+      chosen ? { rank: 3, label: chosen.label || "Rank 3", text: chosen.text ?? "" } : null,
+      evolved ? { rank: 5, label: evolved.name || "Evolution", text: plain(evolved.text) } : null
+    ].filter(Boolean),
     // Its evolved name, once it has evolved (2026-10-19), with the old one under it.
     name: totals.evolvedName || item.name, formerly: totals.evolvedName ? item.name : "",
     attack: !!p.attack,
@@ -130,8 +191,8 @@ function powerRow(item, abilities, { canBuy, edit, castingMod = 0 }) {
       return {
         n, filled: n <= p.rank, crystal: !!cost?.crystals,
         buyable: canBuy && next,
-        tip: next ? (cost.crystals ? `Rank ${n}${n === 5 ? ", its evolution" : ""}: 1 psycrystal` : `Rank ${n}${n === 3 ? ", its choice" : ""}: ${cost.xp} XP`)
-          : `Rank ${n}${n === 3 ? ": choice" : (n === 5 ? ": evolution" : "")}`,
+        // Just the rank on hover (Johnald, 2026-10-29); Rank 3, the choice, is outlined instead.
+        tip: `Rank ${n}`, choice: n === 3,
         editable: edit
       };
     }),
@@ -146,7 +207,9 @@ function powerRow(item, abilities, { canBuy, edit, castingMod = 0 }) {
     choosing: (p.rank >= 3) && !p.choice && choices.length ? choices : null,
     choice: chosen ? `${chosen.label}${chosen.text ? `: ${chosen.text}` : ""}` : "",
     noChoices: (p.rank >= 3) && !p.choice && !choices.length,
-    evolution: (p.rank >= 5) ? String(p.evolution?.text ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : ""
+    // The Rank 5 evolution (2026-10-29): two offered once Rank 5 is reached, one taken for good.
+    evolving: (p.rank >= 5) && !evolved && evolutions.length ? evolutions : null,
+    evolution: evolved ? [evolved.name, plain(evolved.text)].filter(Boolean).join(": ") : ""
   };
 }
 
@@ -206,30 +269,71 @@ export async function onBuyPowerRank(event, target) {
   const n = Number(target.dataset.rank);
   if ( this.isEditMode || freeHand(actor) ) {
     const rank = (n === p.rank) ? n - 1 : n;
-    return item.update({ "system.paraphysics.rank": Math.max(1, rank), ...((rank < 3) ? { "system.paraphysics.choice": "" } : {}) });
+    return item.update({ "system.paraphysics.rank": Math.max(1, rank), ...((rank < 3) ? { "system.paraphysics.choice": "" } : {}),
+      ...((rank < 5) ? { "system.paraphysics.evolved": "" } : {}) });
   }
   if ( actor.type !== "operative" ) return null;
   const check = checkPowerRank({ name: item.name, current: p.rank, n, unspent: actor.system.xp.unspent,
     crystals: crystalsOf(actor), choice: p.choice });
   if ( !check.ok ) return (n === p.rank + 1) ? ui.notifications.warn(check.reason) : null;
   const price = check.crystals ? "<strong>1 psycrystal</strong>" : `<strong>${check.xp} XP</strong>`;
-  const what = (n === 5) ? `evolve ${esc(item.name)} to its final form` : `raise ${esc(item.name)} to rank ${n}`;
-  if ( !await confirm(check.crystals ? "Spend a psycrystal" : "Spend XP", `<p>${what[0].toUpperCase()}${what.slice(1)} for ${price}?</p>`) ) return null;
+  // Rank 3 and Rank 5 are bought by picking (Johnald, 2026-10-29): the popup is the purchase, and
+  // backing out of it spends nothing.
+  const kind = (n === 3) ? "option" : ((n === 5) ? "evolution" : null);
+  const offered = kind ? pickList(p, kind) : [];
+  let pick = null;
+  if ( offered.length ) {
+    pick = await pickDialog(item, kind, offered, price);
+    if ( !pick ) return null;
+  }
+  else {
+    const what = (n === 5) ? `evolve ${esc(item.name)} to its final form` : `raise ${esc(item.name)} to rank ${n}`;
+    if ( !await confirm(check.crystals ? "Spend a psycrystal" : "Spend XP", `<p>${what[0].toUpperCase()}${what.slice(1)} for ${price}?</p>`) ) return null;
+  }
   const log = [...actor.system._source.xp.log, check.crystals
     ? entry("crystal", `${item.name} evolved (rank ${n})`, 0, item.id, n)
     : entry("power", `${item.name} rank ${n}`, check.xp, item.id, n)];
   await actor.update({ "system.xp.log": log, ...(check.crystals ? await spendCrystals(actor, check.crystals) : {}) });
-  return item.update({ "system.paraphysics.rank": n });
+  return item.update({ "system.paraphysics.rank": n,
+    ...(pick ? { [(kind === "option") ? "system.paraphysics.choice" : "system.paraphysics.evolved"]: pick } : {}) });
 }
 
-/** Take a power's Rank 3 modification. */
+/** What a power offers at Rank 3 (its options) or Rank 5 (its evolutions), as {key, label, text}. */
+function pickList(p, kind) {
+  return (kind === "option") ? powerChoices(p) : evolutionChoices(p);
+}
+
+/**
+ * The pick popup (Johnald, 2026-10-29): each choice as a card with its text; `price` when it is a
+ * purchase. Returns the key picked, or null.
+ */
+async function pickDialog(item, kind, offered, price = "") {
+  const head = (kind === "option") ? "Rank 3: choose one modification" : "Rank 5: choose one evolution";
+  const rows = offered.map((c, i) => `<label class="power-pick-choice"><input type="radio" name="pick" value="${esc(c.key)}" ${i === 0 ? "checked" : ""}>
+      <span class="power-pick-body"><strong>${esc(c.label)}</strong><span>${esc(c.text)}</span></span></label>`).join("");
+  const data = await DialogV2().input({
+    window: { title: `${item.name}: ${head}` },
+    classes: ["irop", "irop-power-pick-dialog"],
+    position: { width: 520 },
+    content: `<p>${price ? `For ${price}. ` : ""}The choice is permanent.</p><div class="power-pick-choices">${rows}</div>`,
+    ok: { label: (kind === "option") ? "Take it" : "Evolve", icon: "fa-solid fa-star" }
+  });
+  return offered.some(c => c.key === data?.pick) ? data.pick : null;
+}
+
+/**
+ * Take a power's Rank 3 modification, or its Rank 5 evolution, when the rank is held without one (set
+ * from Edit mode, or bought before the pick was part of the purchase): the same popup, nothing to pay.
+ */
 export async function onChoosePower(event, target) {
   const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
-  const key = target.dataset.choice;
-  const a = item?.system.paraphysics.options.find(o => o.id === key);
-  if ( !item || !a ) return null;
-  if ( !this.isEditMode && !await confirm("Choose a modification", `<p>Take <strong>${esc(a.label)}</strong> for ${esc(item.name)}? ${esc(a.text)} This choice is permanent.</p>`) ) return null;
-  return item.update({ "system.paraphysics.choice": key });
+  if ( !item ) return null;
+  const kind = (target.dataset.kind === "evolution") ? "evolution" : "option";
+  const offered = pickList(item.system.paraphysics, kind);
+  if ( !offered.length ) return null;
+  const pick = await pickDialog(item, kind, offered);
+  if ( !pick ) return null;
+  return item.update({ [(kind === "option") ? "system.paraphysics.choice" : "system.paraphysics.evolved"]: pick });
 }
 
 /** Awaken (2 psycrystals): paraphysical for good, rank 1 in a discipline, and one power free. */
@@ -266,12 +370,14 @@ export async function learnPower(sheet, source, create) {
   const states = actor.system.disciplines ?? {};
   const inDiscipline = powersOf(actor).filter(i => i.system.paraphysics.discipline === p.discipline).length;
   const free = !!actor.system.psi?.freePower;
+  // A pick one group (2026-10-29): another power of the group already held.
+  const rival = p.exclusive ? (powersOf(actor).find(i => (i.system.paraphysics.exclusive === p.exclusive) && (i.name !== source.name))?.name ?? "") : "";
   if ( powersOf(actor).some(i => i.name === source.name) ) {
     ui.notifications.warn(`${actor.name} already knows ${source.name}.`);
     return null;
   }
   const check = checkPowerUnlock({ name: source.name, tier: p.tier, discipline: p.discipline, state: states[p.discipline],
-    inDiscipline, crystals: crystalsOf(actor), free, enabled: actor.system.isParaphysical, learnable: p.learnable });
+    inDiscipline, crystals: crystalsOf(actor), free, enabled: actor.system.isParaphysical, learnable: p.learnable, rival });
   if ( !check.ok ) {
     ui.notifications.warn(check.reason);
     return null;
@@ -281,7 +387,7 @@ export async function learnPower(sheet, source, create) {
   const created = await create();
   const item = Array.isArray(created) ? created[0] : created;
   if ( !item ) return null;
-  await item.update({ "system.paraphysics.rank": 1, "system.paraphysics.choice": "" });
+  await item.update({ "system.paraphysics.rank": 1, "system.paraphysics.choice": "", "system.paraphysics.evolved": "" });
   const log = [...actor.system._source.xp.log, check.crystals
     ? entry("crystal", `${item.name} learned`, 0, item.id, 1)
     : entry("awakenPower", `${item.name} learned, free from awakening`, 0, item.id, 1)];
@@ -309,7 +415,7 @@ export function refundPsi(actor, e, update) {
     update["system.psi.crystals"] = (actor.system.psi.crystals ?? 0) + 1;
     const item = actor.items.get(e.ref);
     if ( item && (e.rank === 1) ) remove.push(item.id);
-    else if ( item && (item.system.paraphysics.rank === e.rank) ) items.push({ item, change: { "system.paraphysics.rank": e.rank - 1 } });
+    else if ( item && (item.system.paraphysics.rank === e.rank) ) items.push({ item, change: { "system.paraphysics.rank": e.rank - 1, "system.paraphysics.evolved": "" } });
   }
   else if ( e.kind === "awakenPower" ) {
     if ( actor.items.get(e.ref) ) remove.push(e.ref);

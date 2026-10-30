@@ -15,7 +15,7 @@ export function concentrationOn(actor) {
   const effect = statusEffectOn(actor, "concentrating");
   if ( !effect ) return null;
   const c = effect.flags?.irop?.concentration ?? {};
-  return { effect, itemId: c.itemId ?? "", name: c.name ?? "a power" };
+  return { effect, itemId: c.itemId ?? "", name: c.name ?? "a power", steadfast: !!c.steadfast };
 }
 
 /** A chat line about a character's Concentration. */
@@ -27,14 +27,15 @@ async function say(actor, html) {
 }
 
 /** Start concentrating on a power; a power already held is let go, and said so. */
-export async function startConcentration(actor, item, name = item?.name) {
+export async function startConcentration(actor, item, name = item?.name, { steadfast = false } = {}) {
   if ( !actor || !item ) return null;
   const now = concentrationOn(actor);
   if ( now && (now.itemId === item.id) ) return now.effect;
   if ( now ) await say(actor, `<strong>${escape(actor.name)}</strong> lets go of <strong>${escape(now.name)}</strong> to concentrate on <strong>${escape(name)}</strong>.`);
   const effect = now?.effect ?? await setStatus(actor, "concentrating");
   // A new power's Concentration starts fresh: any rounds the last one had go (2026-10-20).
-  await effect?.update?.({ "flags.irop.concentration": { itemId: item.id, name }, "flags.irop.rounds": null, "flags.irop.timedName": "" });
+  // Steadfast (2026-10-29): only the caster drops it; Disorientated does not break it.
+  await effect?.update?.({ "flags.irop.concentration": { itemId: item.id, name, steadfast: !!steadfast }, "flags.irop.rounds": null, "flags.irop.timedName": "", "system.changes": [] });
   return effect;
 }
 
@@ -57,6 +58,9 @@ export function registerConcentration() {
     if ( userId !== game.user?.id ) return;
     if ( !effect.statuses?.has?.("disorientated") ) return;
     const actor = effect.parent;
-    if ( actor && concentrationOn(actor) ) endConcentration(actor, "Disorientated");
+    const now = actor ? concentrationOn(actor) : null;
+    if ( !now ) return;
+    if ( now.steadfast ) return say(actor, `<strong>${escape(actor.name)}</strong> is Disorientated, but Concentration on <strong>${escape(now.name)}</strong> holds: only the caster can drop it.`);
+    endConcentration(actor, "Disorientated");
   });
 }

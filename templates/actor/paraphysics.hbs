@@ -22,6 +22,11 @@
 
   <div class="psi-layout">
     <ol class="panel psi-sidebar">
+      {{!-- Every power at once (Johnald, 2026-10-29), as well as by discipline. --}}
+      <li class="psi-discipline psi-all {{#if p.all.selected}}selected{{/if}}" data-action="selectDiscipline" data-discipline="all"
+        data-tooltip="Every power you hold, Tier 1 to 5" role="button" tabindex="0">
+        <span class="psi-dname">All powers</span><span class="psi-count">{{p.all.slots}}</span>
+      </li>
       {{#each p.disciplines as |d|}}
       <li class="psi-discipline {{#if d.selected}}selected{{/if}} {{#unless d.rank}}unranked{{/unless}} {{#unless d.open}}closed{{/unless}}"
         data-action="selectDiscipline" data-discipline="{{d.key}}" data-tooltip="{{d.owns}}" role="button" tabindex="0">
@@ -39,40 +44,50 @@
     <div class="panel psi-main">
       <header class="panel-head">
         <h3>{{d.label}}</h3>
-        <span class="stat-chip {{#if d.full}}dim{{/if}}" data-tooltip="Powers held, of the rank's slots{{#if d.bonusText}}. Rank {{d.rank}}, {{d.bonusText}}{{/if}}">{{d.slots}} powers</span>
+        {{#if d.all}}<span class="stat-chip" data-tooltip="Every power held, Tier 1 to 5">{{d.slots}} power{{#unless (eq d.slots "1")}}s{{/unless}}</span>
+        {{else}}<span class="stat-chip {{#if d.full}}dim{{/if}}" data-tooltip="Powers held, of the rank's slots{{#if d.bonusText}}. Rank {{d.rank}}, {{d.bonusText}}{{/if}}">{{d.slots}} powers</span>{{/if}}
       </header>
+      {{!-- Tier bands and stat block cards (Johnald, 2026-10-29): powers under Tier 1 to 5 headers; each
+            card a name line with its pips and Cast, a ribbon of labeled stats, and its picks by rank. --}}
+      {{#each d.tiers as |band|}}
+      <h4 class="psi-tier-band">{{band.label}}</h4>
       <ol class="item-list psi-powers">
-        {{#each d.powers as |w|}}
-        <li class="item-row power-row ability-row draggable {{#if w.expanded}}expanded{{/if}}" data-item-id="{{w.id}}">
-          <div class="row-main">
-            <img class="item-img" src="{{w.img}}" alt="" data-action="editItem" data-tooltip="Open the power">
+        {{#each band.powers as |w|}}
+        <li class="item-row power-row power-card ability-row draggable {{#if w.expanded}}expanded{{/if}}" data-item-id="{{w.id}}" data-discipline="{{w.discipline}}">
+          <div class="power-head">
+            <img class="item-img power-img" src="{{w.img}}" alt="" data-action="editItem" data-tooltip="Open the power">
             <div class="item-name summary-toggle" data-action="toggleSummary" role="button" tabindex="0" aria-expanded="{{#if w.expanded}}true{{else}}false{{/if}}">
-              <span class="ability-name">{{w.name}}<i class="fa-solid fa-chevron-down summary-chevron" inert></i></span>
-              <span class="item-sub">{{#if w.formerly}}Evolved from {{w.formerly}} · {{/if}}Tier {{w.tier}}{{#if w.tracks}} · {{w.tracks}}{{/if}}{{#if w.save}} · Save {{w.save}}{{/if}}</span>
+              <span class="ability-name power-name">{{w.name}}<i class="fa-solid fa-chevron-down summary-chevron" inert></i></span>
+              <span class="item-sub power-sub">{{#if w.formerly}}Evolved from {{w.formerly}} · {{/if}}{{#if d.all}}{{w.disciplineLabel}} · {{/if}}Tier {{w.tier}}{{#if w.kind}} · {{w.kind}}{{/if}}{{#if w.concentration}} · <span data-tooltip="Disorientated breaks it">Concentration</span>{{/if}}</span>
             </div>
             <span class="pips power-pips">
-              {{#each w.pips as |pip|}}<button type="button" class="pip {{#if pip.filled}}filled{{/if}} {{#if pip.crystal}}crystal{{/if}} {{#if pip.buyable}}buyable{{/if}}"
+              {{#each w.pips as |pip|}}<button type="button" class="pip {{#if pip.filled}}filled{{/if}} {{#if pip.crystal}}crystal{{/if}} {{#if pip.choice}}choice{{/if}} {{#if pip.buyable}}buyable{{/if}}"
                 data-action="buyPowerRank" data-rank="{{pip.n}}" data-tooltip="{{pip.tip}}"
                 {{#unless (or pip.editable pip.buyable)}}disabled{{/unless}}></button>{{/each}}
             </span>
-            {{#if w.range}}<span class="stat-chip power-range" data-tooltip="{{w.rangeTip}}"><i class="fa-solid fa-bullseye"></i> {{w.range}} T</span>{{/if}}
-            {{#if w.damage}}<span class="stat-chip power-damage" data-tooltip="Damage at this rank"><i class="fa-solid fa-burst"></i> {{w.damage}}</span>{{/if}}
-            {{#if w.energy}}<span class="stat-chip energy {{#if w.energyChanged}}from-perks{{/if}}" data-tooltip="{{w.energyTip}}">{{w.energy}} EN</span>{{/if}}
-            {{#if w.concentration}}<span class="stat-chip" data-tooltip="Concentration: Disorientated breaks it">CON</span>{{/if}}
             <div class="row-controls">
               <button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-{{#if w.attack}}crosshairs{{else}}bolt{{/if}}"></i> {{#if w.attack}}Cast{{else}}Use{{/if}}</button>
               {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
             </div>
           </div>
-          {{#if w.choosing}}
+          <dl class="power-stats">
+            {{#each w.stats as |st|}}
+            <div class="power-stat stat-{{st.key}} {{#if st.changed}}from-perks{{/if}}" data-tooltip="{{st.tip}}">
+              <dt>{{st.label}}</dt><dd>{{st.value}}{{#if st.type}} <span class="stat-type">{{st.type}}</span>{{/if}}</dd>
+            </div>
+            {{/each}}
+          </dl>
+          {{!-- A rank held without its pick: one button opens the pick popup (2026-10-29). --}}
+          {{#if (or w.choosing w.evolving)}}
           <div class="power-choice">
-            <span class="mono-label">Rank 3: choose one</span>
-            {{#each w.choosing as |c|}}<button type="button" class="ghost" data-action="choosePower" data-choice="{{c.key}}" data-tooltip="{{c.text}}">{{c.label}}</button>{{/each}}
+            {{#if w.choosing}}<button type="button" class="ghost" data-action="choosePower" data-kind="option"><i class="fa-solid fa-star"></i> Choose the Rank 3 modification</button>{{/if}}
+            {{#if w.evolving}}<button type="button" class="ghost" data-action="choosePower" data-kind="evolution"><i class="fa-solid fa-star"></i> Choose the Rank 5 evolution</button>{{/if}}
           </div>
           {{/if}}
           {{#if w.noChoices}}<p class="hint power-note">This power offers no Rank 3 modifications yet.</p>{{/if}}
-          {{#if w.choice}}<p class="power-note"><span class="mono-label">Modified</span> {{w.choice}}</p>{{/if}}
-          {{#if w.evolution}}<p class="power-note"><span class="mono-label">Evolution</span> {{w.evolution}}</p>{{/if}}
+          {{#each w.picks as |pk|}}
+          <p class="power-pick rank-{{pk.rank}}"><span class="mono-label">Rank {{pk.rank}} · {{pk.label}}</span> {{pk.text}}</p>
+          {{/each}}
           {{!-- The power's text, dropped down from its name (2026-10-20). --}}
           <div class="ability-summary">
             <div class="summary-body">
@@ -80,10 +95,13 @@
             </div>
           </div>
         </li>
-        {{else}}
-        <li class="empty-row">{{#if d.rank}}No {{d.label}} powers yet. Drop one on the sheet to learn it.{{else}}Buy rank 1 to open {{d.label}}.{{/if}}</li>
         {{/each}}
       </ol>
+      {{else}}
+      <ol class="item-list psi-powers">
+        <li class="empty-row">{{#if d.all}}No powers yet. Drop one on the sheet to learn it.{{else if d.rank}}No {{d.label}} powers yet. Drop one on the sheet to learn it.{{else}}Buy rank 1 to open {{d.label}}.{{/if}}</li>
+      </ol>
+      {{/each}}
     </div>
     {{/with}}
   </div>

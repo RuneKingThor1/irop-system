@@ -1265,9 +1265,16 @@ for ( const editMode of [false, true] ) {
   {
     const pdoc = new JSDOM(out.paraphysics).window.document;
     const row = pdoc.querySelector(`.power-row[data-item-id="${gravRow.id}"]`);
-    check("powers: damage chip, a name that drops the text down, and the text under it",
-      /2d4/.test(row?.querySelector(".power-damage")?.textContent ?? "") && /Psychic/.test(row?.querySelector(".power-damage")?.textContent ?? "")
+    // The stat block (Johnald, 2026-10-29): labeled stats, damage gathered up with its type, under a tier band.
+    const stat = key => row?.querySelector(`.power-stat.stat-${key}`);
+    check("powers: a labeled stat ribbon with damage and its type, a name that drops the text down, and the text under it",
+      /2d4/.test(stat("damage")?.textContent ?? "") && /Psychic/.test(stat("damage")?.textContent ?? "") && stat("damage")?.querySelector("dt")?.textContent === "Damage"
+        && !!stat("energy") && !!stat("range") && !!row?.closest("ol")?.previousElementSibling?.matches(".psi-tier-band")
         && !!row?.querySelector('.summary-toggle[data-action="toggleSummary"]') && !!row?.querySelector(".ability-summary .summary-body"));
+    const psiR = await import("../module/rules/paraphysics.mjs");
+    check("powers: a damage formula is gathered up for reading, anything not a plain sum left alone",
+      psiR.simplifyFormula("2d4 + 6 + 1 + 1d4") === "3d4 + 7" && psiR.simplifyFormula("10d8 + 2d8") === "12d8"
+        && psiR.simplifyFormula("1d6 + 2d8 + 3") === "2d8 + 1d6 + 3" && psiR.simplifyFormula("2d4 - 1") === "2d4 - 1" && psiR.simplifyFormula("") === "");
   }
   const tile = tiles[0];
   check("perk grid: a tile opens the perk, posts it, deletes it, and drags",
@@ -7590,7 +7597,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     JSON.stringify(psi.disciplines.map(d => d.key)));
   const gb = astro.powers.find(w => w.name === "Gravbolt"), sf = astro.powers.find(w => w.name === "Starfall"), ln = astro.powers.find(w => w.name === "The Long Night");
   check("psi tab: a power's next pip is for sale at its price, crystals at 1 and 5",
-    gb.pips.filter(p => p.filled).length === 2 && gb.pips[2].buyable && /Rank 3, its choice: 40 XP/.test(gb.pips[2].tip)
+    gb.pips.filter(p => p.filled).length === 2 && gb.pips[2].buyable && gb.pips[2].tip === "Rank 3" && gb.pips[2].choice && !gb.pips[1].choice
       && gb.pips[0].crystal && gb.pips[4].crystal && !gb.pips[3].buyable && (gb.tracks === "Accuracy -10"), JSON.stringify(gb));
   check("psi tab: Energy after the discipline discount (Starfall tier 2, base 5, Astrokinesis 3: 4) and Gravbolt's base 3 untouched",
     sf.energy === 4 && sf.energyChanged && /discipline rank/.test(sf.energyTip) && gb.energy === 3 && !gb.energyChanged && ln.energy === 10,
@@ -7602,15 +7609,23 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   const tab = new JSDOM(out.paraphysics).window.document;
   check("psi tab: renders crystals, the next discipline rank for sale, the powers and the choice buttons",
     /1/.test(tab.querySelector(".psi-crystals")?.textContent ?? "") && tab.querySelectorAll(".power-row").length === 3
-      && tab.querySelectorAll('[data-action="choosePower"]').length === 2
+      && tab.querySelectorAll('[data-action="choosePower"]').length === 1
       && tab.querySelector('.psi-discipline [data-action="buyDiscipline"][data-discipline="astrokinesis"][data-rank="4"]')?.dataset.tooltip === "Buy rank 4: 125 XP"
       && !tab.querySelector('[data-action="awaken"]') && !tab.querySelector('[data-path="system.psi.crystals"]'));
 
   // Layout B (2026-10-19): the slim strip, disciplines down the left, the picked one's powers.
-  check("psi tab: a slim strip of chips, six disciplines in the sidebar, the held one picked and its powers shown",
+  check("psi tab: a slim strip of chips, All powers and six disciplines in the sidebar, All picked by default",
     tab.querySelectorAll(".psi-strip .stat-chip").length === 3 && /1 psycrystal$/.test(tab.querySelector(".psi-crystals")?.textContent.trim() ?? "")
-      && tab.querySelectorAll(".psi-sidebar .psi-discipline").length === 6 && tab.querySelector(".psi-discipline.selected")?.dataset.discipline === "astrokinesis"
-      && tab.querySelector(".psi-main h3")?.textContent === "Astrokinesis" && !tab.querySelector(".psi-sidebar .item-sub"));
+      && tab.querySelectorAll(".psi-sidebar .psi-discipline").length === 7 && tab.querySelector(".psi-discipline.selected")?.dataset.discipline === "all"
+      && tab.querySelector(".psi-main h3")?.textContent === "All powers" && !tab.querySelector(".psi-sidebar .item-sub"));
+  // Tier 1 to 5, alphabetical within a tier (Johnald, 2026-10-29), the discipline named in the All view.
+  check("psi tab: powers run Tier 1 to 5, alphabetical within each; All names each one's discipline",
+    psi.all.powers.map(w => w.name).join() === "Gravbolt,Starfall,The Long Night" && astro.powers.map(w => w.tier).join() === "1,2,3"
+      && /^Astrokinesis · Tier 1/.test(tab.querySelector(".psi-main .power-row .item-sub")?.textContent.trim() ?? ""));
+  {
+    const ctx2 = psiTab.psiContext({ actor, isEditMode: false, isEditable: true, _psiDiscipline: "astrokinesis" });
+    check("psi tab: picking a discipline still shows only its powers", ctx2.selected.key === "astrokinesis" && !ctx2.all.selected);
+  }
   const picker = new OperativeSheet(actor);
   picker.render = async () => picker;
   await psiTab.onSelectDiscipline.call(picker, {}, { dataset: { discipline: "telepathy" } });
@@ -7627,15 +7642,27 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   let u = updates.pop();
   check("psi: a discipline rank is bought for its XP and logged",
     u["system.paraphysics.astrokinesis"] === 4 && u["system.xp.log"].at(-1).kind === "discipline" && u["system.xp.log"].at(-1).xp === 125 && u["system.xp.log"].at(-1).rank === 4);
+  // Rank 3 is bought through its pick popup (Johnald, 2026-10-29): backing out spends nothing.
+  const realPickInput = api.DialogV2.input;
+  const pickAsked = [];
+  api.DialogV2.input = async o => { pickAsked.push(o); return null; };
+  const before = updates.length;
+  await psiTab.onBuyPowerRank.call(sheet, null, { dataset: { rank: "3" }, closest: () => ({ dataset: { itemId: "gb" } }) });
+  check("psi: backing out of the Rank 3 popup spends nothing", updates.length === before && /Rank 3: choose one modification/.test(pickAsked[0]?.window?.title ?? "")
+    && /40 XP/.test(pickAsked[0]?.content ?? "") && /value="piercing"/.test(pickAsked[0]?.content ?? ""));
+  api.DialogV2.input = async () => ({ pick: "piercing" });
   await psiTab.onBuyPowerRank.call(sheet, null, { dataset: { rank: "3" }, closest: () => ({ dataset: { itemId: "gb" } }) });
   const rankUp = updates.pop(), rankLog = updates.pop();
-  check("psi: a power rank is bought for XP and logged against the power",
-    rankUp.item === "gb" && rankUp["system.paraphysics.rank"] === 3 && rankLog["system.xp.log"].at(-1).kind === "power" && rankLog["system.xp.log"].at(-1).xp === 40);
+  check("psi: a power rank is bought for XP and logged against the power, the pick taken with it",
+    rankUp.item === "gb" && rankUp["system.paraphysics.rank"] === 3 && rankUp["system.paraphysics.choice"] === "piercing"
+      && rankLog["system.xp.log"].at(-1).kind === "power" && rankLog["system.xp.log"].at(-1).xp === 40);
   notes.length = 0;
   await psiTab.onBuyPowerRank.call(sheet, null, { dataset: { rank: "4" }, closest: () => ({ dataset: { itemId: "sf" } }) });
   check("psi: Rank 4 waits on the Rank 3 choice", /Choose Starfall's Rank 3 modification first/.test(notes[0] ?? ""), notes[0]);
-  await psiTab.onChoosePower.call(sheet, null, { dataset: { choice: "efficient" }, closest: () => ({ dataset: { itemId: "sf" } }) });
-  check("psi: the choice is taken", updates.pop()["system.paraphysics.choice"] === "efficient");
+  api.DialogV2.input = async () => ({ pick: "efficient" });
+  await psiTab.onChoosePower.call(sheet, null, { dataset: { kind: "option" }, closest: () => ({ dataset: { itemId: "sf" } }) });
+  check("psi: a rank held without its pick opens the popup, and the choice is taken", updates.pop()["system.paraphysics.choice"] === "efficient");
+  api.DialogV2.input = realPickInput;
 
   // Learning a power: the slots are full until the discipline rises; then a crystal.
   notes.length = 0;
@@ -7703,6 +7730,19 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   check("psi card: the save D.M., the modification and the evolution",
     card.powerLines.some(l => l === "Target saves on Toughness at +15") && card.powerLines.some(l => /^Anchored/.test(l)) && card.powerLines.some(l => l === "Evolved: It never ends."),
     JSON.stringify(card));
+  // A save power with damage and a second save (Supernova, 2026-10-29): Roll damage and both save buttons.
+  const nova = Object.assign(new FakeDoc({}), { id: "nv", type: "ability", name: "Supernova", img: "x.svg", actor: caster });
+  nova.system = new itemModels.AbilityData({ energyCost: 10, paraphysics: { discipline: "astrokinesis", tier: 5, rank: 4, save: "tgh",
+    damage: { formula: "10d8", type: "cosmic" }, rank4: { damage: "2d8" }, extraSave: { save: "tgh", label: "Blinded (2)" },
+    evolutions: [{ id: "cc", name: "Core-Collapse" }, { id: "sc", name: "Stellar Cradle" }] } }, { parent: nova });
+  const novaCard = rolls.powerCard(caster, nova);
+  check("psi card: a save power's damage is rolled from its card, with its ranks; a second save has its own button",
+    novaCard.powerDamage?.formula === "10d8 + 2d8" && novaCard.powerDamage.type === "cosmic" && novaCard.powerSave2?.save === "tgh"
+      && novaCard.powerSave2.label === "Blinded (2)" && novaCard.powerLines.some(l => /^Blinded \(2\): Toughness at/.test(l)), JSON.stringify(novaCard));
+  const novaDoc = new JSDOM(tpl("templates/chat/item-card.hbs")({ item: nova, system: nova.system, ...novaCard })).window.document;
+  check("psi card: the Roll damage and second save buttons render",
+    !!novaDoc.querySelector('[data-irop-action="powerDamage"]') && !!novaDoc.querySelector('[data-irop-action="powerSave2"]') && !!novaDoc.querySelector('[data-irop-action="powerSave"]')
+      && !/undefined|NaN/.test(novaDoc.body.innerHTML));
 
   // Concealment: a carried focus is never hidden and fails every checkpoint.
   const conceal = await import("../module/rules/concealment.mjs");
@@ -7724,9 +7764,15 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   const make = system => { const it = new FakeDoc({}); Object.assign(it, { id: "pw", type: "ability", name: "Gravbolt", img: "x.svg", uuid: "Item.pw" }); it.system = new itemModels.AbilityData(system, { parent: it }); return it; };
   const gravbolt = make({ energyCost: 3, range: 8, paraphysics: { discipline: "astrokinesis", attack: true, tier: 1, rank: 1, trackA: "accuracy", trackB: "damage",
     damage: { formula: "2d4 + @cha.mod", type: "cosmic" }, choices: ["chain"], evolution: "<p>Old text.</p>" } });
-  check("power ranks: old saved choices become editable copies, an old evolution its text",
+  check("power ranks: old saved choices become editable copies, an old evolution the first of the list",
     gravbolt.system.paraphysics.options.length === 1 && gravbolt.system.paraphysics.options[0].label === "Chain" && gravbolt.system.paraphysics.options[0].archetype === "chain"
-      && gravbolt.system.paraphysics.evolution.text === "<p>Old text.</p>" && !("choices" in gravbolt.system.paraphysics));
+      && gravbolt.system.paraphysics.evolutions.length === 1 && gravbolt.system.paraphysics.evolutions[0].text === "<p>Old text.</p>"
+      && !gravbolt.system.paraphysics.evolved && !("choices" in gravbolt.system.paraphysics) && !("evolution" in gravbolt.system.paraphysics));
+  // An old named evolution on a Rank 5 power (2026-10-29): kept, taken, and still renaming it.
+  const evolvedOld = make({ paraphysics: { discipline: "astrokinesis", rank: 5, evolution: { name: "Singularity Bolt", text: "<p>It collapses.</p>", area: 1 } } });
+  check("power ranks: an old Rank 5 evolution is taken and still renames the power",
+    evolvedOld.system.paraphysics.evolved === "evolution" && evolvedOld.system.paraphysics.evolutions[0].rename === true
+      && (await import("../module/rules/paraphysics.mjs")).powerTotals(evolvedOld.system.paraphysics).evolvedName === "Singularity Bolt");
   const sheet = new IropItemSheet(gravbolt);
   check("power ranks: the Ranks tab is a power's only", sheet.isPower && sheet._getTabsConfig("primary").tabs.some(t => t.id === "ranks")
     && !new IropItemSheet(make({ paraphysics: { discipline: "" } }))._getTabsConfig("primary").tabs.some(t => t.id === "ranks"));
@@ -7740,7 +7786,8 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   check("power ranks: five cards; Rank 1 binds the power's own fields; the option and evolution have their inputs",
     doc.querySelectorAll(".rank-card").length === 5 && !!doc.querySelector('input[name="system.energyCost"]') && !!doc.querySelector('input[name="system.paraphysics.duration"]')
       && !!doc.querySelector('input[name="system.paraphysics.rank2.accuracy"][placeholder="-10"]') && !!doc.querySelector('input[name="system.paraphysics.options.0.label"][value="Chain"]')
-      && !!doc.querySelector('input[name="system.paraphysics.options.0.anchored"]') && !!doc.querySelector('[name="system.paraphysics.evolution.concentration"]')
+      && !!doc.querySelector('input[name="system.paraphysics.options.0.anchored"]') && !!doc.querySelector('[name="system.paraphysics.evolutions.0.concentration"]')
+      && !!doc.querySelector('input[name="system.paraphysics.options.0.optionalEnergy"]') && !!doc.querySelector('input[name="system.paraphysics.evolutions.0.optionalEnergy"]')
       && !!doc.querySelector('select.power-library-pick option[value="wide"]') && !doc.querySelector('select.power-library-pick option[value="chain"]')
       && doc.querySelectorAll('[data-action="addPowerOption"]').length === 2 && [...doc.querySelectorAll("[data-action]")].every(b => b.dataset.action in IropItemSheet.DEFAULT_OPTIONS.actions));
   // The form's options, keyed by place, go back as a list. (Foundry's own step expands the form; the stand-in here does the same.)
@@ -7764,6 +7811,18 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   await IropItemSheet.DEFAULT_OPTIONS.actions.removePowerOption.call(ui, null, { closest: () => ({ dataset: { optionId: gravbolt.system.paraphysics.options[0].id } }) });
   u = updates.pop();
   check("power ranks: removing the option taken opens the choice again", u["system.paraphysics.options"].length === 0 && u["system.paraphysics.choice"] === "");
+  // Rank 5 evolutions (2026-10-29): added and removed like the options.
+  await IropItemSheet.DEFAULT_OPTIONS.actions.addPowerEvolution.call(ui, null, { dataset: {} });
+  u = updates.pop()["system.paraphysics.evolutions"];
+  check("power ranks: an evolution is added to the list", u.length === 2 && u[1].name === "New evolution");
+  gravbolt.system.paraphysics.evolved = gravbolt.system.paraphysics.evolutions[0].id;
+  await IropItemSheet.DEFAULT_OPTIONS.actions.removePowerEvolution.call(ui, null, { closest: () => ({ dataset: { evolutionId: gravbolt.system.paraphysics.evolutions[0].id } }) });
+  u = updates.pop();
+  check("power ranks: removing the evolution taken opens the pick again", u["system.paraphysics.evolutions"].length === 0 && u["system.paraphysics.evolved"] === "");
+  const processed2 = IropItemSheet.prototype._processFormData.call(Object.create(IropItemSheet.prototype), null, null,
+    { object: { "system.paraphysics.evolutions.1.name": "B", "system.paraphysics.evolutions.0.name": "A" } });
+  check("power ranks: the evolutions come back from the form as a list, in order",
+    Array.isArray(processed2.system?.paraphysics?.evolutions) && processed2.system.paraphysics.evolutions.map(e => e.name).join() === "A,B");
 }
 
 // Save powers' Roll save button (2026-10-20).
@@ -8107,6 +8166,20 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   globalThis.CONFIG = saved.config;
   globalThis.Hooks = saved.hooks;
   game.user = saved.user;
+}
+
+// Auras and Bent Light (Johnald, 2026-10-29).
+{
+  const blastM = await import("../module/canvas/blast.mjs");
+  const auraM = await import("../module/canvas/aura.mjs");
+  check("aura: only a power with no attack, no range and an area makes one; its radius counts from the token's edge",
+    auraM.makesAura({ area: 1 }) && !auraM.makesAura({ attack: true, area: 1 }) && !auraM.makesAura({ range: 6, area: 2 }) && !auraM.makesAura({ area: 0 })
+      && auraM.auraRadius(1) === 1.5 && auraM.auraRadius(2, 2) === 3);
+  const [a1, a2] = blastM.bentSegments({ type: "line", x: 100, y: 200, length: 600, width: 200, rotation: 0 }, 300, 90);
+  check("bend: a line cut where it turns, the rest starting at the cut and turned, the length unchanged",
+    a1.length === 300 && a1.x === 100 && Math.round(a2.x) === 400 && Math.round(a2.y) === 200 && a2.length === 300 && a2.rotation === 90 && a2.width === 200
+      && blastM.bentSegments({ type: "line", x: 0, y: 0, length: 600, width: 200, rotation: 0 }, 200, -90)[1].rotation === 270);
+  check("bend: a 2 wide line is drawn 2 tiles wide", blastM.blastShape("line", 6, 100, 2).width === 200 && blastM.blastShape("line", 6, 100).width === 100);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

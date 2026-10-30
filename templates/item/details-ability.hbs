@@ -19,7 +19,7 @@
     <label><span>Discipline</span><select name="system.paraphysics.discipline">{{selectOptions config.disciplines selected=system.paraphysics.discipline blank="Not paraphysical"}}</select></label>
     <label class="check"><input type="checkbox" name="system.paraphysics.attack" {{checked system.paraphysics.attack}}><span>Makes an attack (CHA)</span></label>
     <label data-tooltip="+40 makes the attack 40 easier"><span>Accuracy</span><input type="number" name="system.paraphysics.accuracy" value="{{system.paraphysics.accuracy}}"></label>
-    <label><span>Damage</span><input type="text" name="system.paraphysics.damage.formula" value="{{system.paraphysics.damage.formula}}" placeholder="2d4 + @cha.mod"></label>
+    <label><span>Damage</span><input type="text" name="system.paraphysics.damage.formula" value="{{system.paraphysics.damage.formula}}" placeholder="2d4 + @casting.mod"></label>
     <label><span>Damage type</span><select name="system.paraphysics.damage.type">{{selectOptions damageTypes selected=system.paraphysics.damage.type}}</select></label>
   </div>
   {{#if system.paraphysics.discipline}}
@@ -33,6 +33,12 @@
     <label data-tooltip="For a save power: the attribute its target rolls under"><span>Target saves on</span><select name="system.paraphysics.save">{{selectOptions attributeOptions selected=system.paraphysics.save blank="No save"}}</select></label>
     <label class="check" data-tooltip="Disorientated breaks it. Anchored takes it away"><input type="checkbox" name="system.paraphysics.concentration" {{checked system.paraphysics.concentration}}><span>Concentration</span></label>
     <label class="check" data-tooltip="Untick for a power only NPCs have: it is not offered at enlistment and players cannot learn it"><input type="checkbox" name="system.paraphysics.learnable" {{checked system.paraphysics.learnable}}><span>Players can learn this</span></label>
+    <label data-tooltip="Powers sharing a group are pick one: a character holds only one of them, such as a discipline's two Tier 5 powers. Blank for none"><span>Pick one group</span><input type="text" name="system.paraphysics.exclusive" value="{{system.paraphysics.exclusive}}" placeholder="None"></label>
+    <label data-tooltip="Its Area as a radius, a cone, or a line from the caster Area long"><span>Area shape</span><select name="system.paraphysics.shape">{{selectOptions (object radius="Radius" cone="Cone" line="Line") selected=system.paraphysics.shape}}</select></label>
+    <label data-tooltip="Modes the caster picks one of at each cast, separated by commas, such as Ward, Calm. Blank for none"><span>Modes at cast</span><input type="text" name="system.paraphysics.modes" value="{{system.paraphysics.modes}}" placeholder="None"></label>
+    <label data-tooltip="A line's width in tiles"><span>Line width</span><input type="number" name="system.paraphysics.width" value="{{system.paraphysics.width}}" min="0"></label>
+    <label data-tooltip="A second save on its card, such as a Blinded save for anyone who saw it"><span>Second save on</span><select name="system.paraphysics.extraSave.save">{{selectOptions attributeOptions selected=system.paraphysics.extraSave.save blank="None"}}</select></label>
+    <label data-tooltip="What the second save is for"><span>Second save for</span><input type="text" name="system.paraphysics.extraSave.label" value="{{system.paraphysics.extraSave.label}}" placeholder="Blinded (2)"></label>
   </div>
   <p class="hint">The tracks fill Rank 2 and Rank 4 where the Ranks tab leaves Accuracy or Potency blank. Each rank, the Rank 3 options and the evolution are written on the Ranks tab.</p>
   {{/if}}

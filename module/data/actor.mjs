@@ -373,6 +373,9 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
   getRollData() {
     const data = {};
     for ( const [key, attr] of Object.entries(this.attributes) ) data[key] = { value: attr.value, mod: attr.mod };
+    // The species' casting attribute (2026-10-29): @casting.mod is Charisma's, Intelligence's for a Reticulon.
+    data.casting = { attribute: this.casting?.attribute ?? "cha", mod: this.casting?.mod ?? (this.attributes.cha?.mod ?? 0),
+      value: this.casting?.value ?? (this.attributes.cha?.value ?? 0) };
     data.critical = this.critical;
     data.initiativeBonus = this.initiativeBonus ?? 0;
     // Discipline ranks as held, a species' granted rank included.

@@ -68,7 +68,9 @@ export function migratePrices(source) {
 function changeFields() {
   return {
     accuracy: int(0), potency: int(0), damage: text(""), energy: int(0),
-    range: int(0), duration: int(0), area: int(0), barrier: int(0)
+    range: int(0), duration: int(0), area: int(0), barrier: int(0),
+    // Defense on the caster while it lasts (Penumbra's Overload), and Shred on its damage (2026-10-29).
+    defense: int(0), shred: int(0, { min: 0 })
   };
 }
 
@@ -401,6 +403,18 @@ export class AbilityData extends foundry.abstract.TypeDataModel {
       }
       delete p.choices;
       if ( typeof p.evolution === "string" ) p.evolution = { text: p.evolution };
+      // Rank 5 is a pick of two now, as Rank 3 is (Johnald, 2026-10-29): a power's one evolution
+      // becomes the first on its list, still renaming it, and taken if the power is at Rank 5.
+      if ( p.evolution && (typeof p.evolution === "object") && !Array.isArray(p.evolutions) ) {
+        const e = p.evolution;
+        const any = [e.name, String(e.text ?? "").replace(/<[^>]*>/g, "").trim(), e.damage, e.damageType, e.concentration].some(Boolean)
+          || ["accuracy", "potency", "energy", "range", "duration", "area", "barrier"].some(k => Number(e[k]));
+        if ( any ) {
+          p.evolutions = [{ ...e, id: "evolution", rename: !!e.name }];
+          if ( (Number(p.rank) >= 5) && !p.evolved ) p.evolved = "evolution";
+        }
+      }
+      delete p.evolution;
     }
     return super.migrateData(source);
   }
@@ -448,18 +462,51 @@ export class AbilityData extends foundry.abstract.TypeDataModel {
           label: text(""),
           text: text(""),
           ...changeFields(),
-          anchored: new fields.BooleanField({ initial: false })
+          anchored: new fields.BooleanField({ initial: false }),
+          // Concentration only the caster can drop (Johnald, 2026-10-29: partial Anchored): Disorientated does not break it.
+          steadfast: new fields.BooleanField({ initial: false }),
+          // Its extra Energy is paid or not each time the power is cast (2026-10-29); unpaid, the
+          // power goes off as if it were not taken.
+          optionalEnergy: new fields.BooleanField({ initial: false }),
+          // Adaptive (2026-10-29): when paid, the caster picks the attribute the target saves on.
+          adaptive: new fields.BooleanField({ initial: false })
         })),
         // The option taken, by its id.
         choice: text(""),
-        evolution: new fields.SchemaField({
+        // Rank 5 (Johnald, 2026-10-29): two evolutions, the player picks one for a psycrystal, for good.
+        // `rename` makes its name the power's name from then on.
+        evolutions: new fields.ArrayField(new fields.SchemaField({
+          id: new fields.StringField({ required: true, blank: false, initial: () => foundry.utils.randomID() }),
           name: text(""),
           text: new fields.HTMLField({ required: true, blank: true }),
           ...changeFields(),
           damageType: new fields.StringField({ required: true, blank: true, initial: "",
             choices: () => ({ "": "Unchanged", ...Object.fromEntries(Object.entries(IROP.damageTypes).map(([k, t]) => [k, t.label])) }) }),
           concentration: new fields.StringField({ required: true, blank: true, initial: "",
-            choices: () => ({ "": "Unchanged", remove: "No longer needs it", add: "Now needs it" }) })
+            choices: () => ({ "": "Unchanged", remove: "No longer needs it", add: "Now needs it" }) }),
+          optionalEnergy: new fields.BooleanField({ initial: false }),
+          rename: new fields.BooleanField({ initial: false }),
+          // A line that may turn once, up to a right angle (Pulsar Lance's Bent Light, 2026-10-29).
+          bend: new fields.BooleanField({ initial: false })
+        })),
+        // The evolution taken, by its id.
+        evolved: text(""),
+        // A pick one group (2026-10-29): a character holds one power of a group, such as a
+        // discipline's two Tier 5 powers. Blank for none.
+        exclusive: text(""),
+        // The shape of its area (2026-10-29): a radius, a cone, or a line from the caster, Area long
+        // and this many tiles wide.
+        shape: new fields.StringField({ required: true, blank: false, initial: "radius",
+          choices: () => ({ radius: "Radius", cone: "Cone", line: "Line" }) }),
+        width: int(0, { min: 0 }),
+        // Modes picked at each cast, never both (2026-10-29), such as Sanctuary's "Ward, Calm". Blank for none.
+        modes: text(""),
+        // A second save on its card (2026-10-29), such as Supernova's Blinded save for anyone who
+        // saw it: its attribute and what it is for.
+        extraSave: new fields.SchemaField({
+          save: new fields.StringField({ required: true, blank: true, initial: "",
+            choices: () => Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label])) }),
+          label: text("")
         }),
         concentration: new fields.BooleanField({ initial: false }),
         // Players can learn it (Johnald, 2026-10-20). Untick for a power only NPCs have, such as the

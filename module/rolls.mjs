@@ -5,7 +5,7 @@ import { phasedStats } from "./rules/phases.mjs";
 import { weaponTypeOf } from "./rules/weapon-types.mjs";
 import { perkOptions, perkResult, perkRule, perkUses, abilityAsUpgraded, perkBlast, attackAccuracy, chemPerks, dieUp, weaponPerkSummary, gearCharges, requiredAbility } from "./rules/perks.mjs";
 import { perkKey } from "./rules/skill-trees.mjs";
-import { powerAccuracy, powerSaveDm, needsConcentration, trackText, powerTotals, barrierGrant } from "./rules/paraphysics.mjs";
+import { powerAccuracy, powerSaveDm, needsConcentration, trackText, powerTotals, barrierGrant, optionalNodes, castPower } from "./rules/paraphysics.mjs";
 import { isFocus } from "./rules/concealment.mjs";
 import { startConcentration, concentrationOn } from "./concentration.mjs";
 import { startTimed } from "./durations.mjs";
@@ -15,7 +15,8 @@ import { COVER, MODIFIERS, ENGAGED_BY_HANDLING, SCATTER, collectModifiers } from
 import { DynosrsRoll } from "./dice/dynosrs-roll.mjs";
 import { D100Roll, DamageRoll } from "./dice/d100-roll.mjs";
 import { adjustGmBanks, getSquad, setSquad } from "./settings.mjs";
-import { placeBlast, removeBlast, scatterBlast } from "./canvas/blast.mjs";
+import { placeBlast, removeBlast, scatterBlast, bendLine } from "./canvas/blast.mjs";
+import { makesAura, startAura, removeAura } from "./canvas/aura.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 const { renderTemplate } = foundry.applications.handlebars;
@@ -286,10 +287,12 @@ export function attackProfile(item, { projectile = 0 } = {}) {
       paraphysical: true,
       ranges: null,
       critChance: 0,
-      damage: formula ? { formula, type: t.damageType || p.damage.type, critDamage: 0, shred: 0, penetration: 0 } : null,
+      damage: formula ? { formula, type: t.damageType || p.damage.type, critDamage: 0, shred: t.shred, penetration: 0 } : null,
       scatter: null,
       blast: area,
-      template: "circle"
+      // Its shape (2026-10-29): a line from the caster, Area long and its width wide, or a cone.
+      template: { line: "line", cone: "cone" }[p.shape] ?? "circle",
+      width: Number(p.width) || 0
     };
   }
   return null;
@@ -389,8 +392,12 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
   const blastRadius = profile.blast ? (profile.blast + ((item.type === "weapon") ? perkBlast((actor.items?.filter?.(i => i.type === "ability") ?? []), { name: item.name, system: item.system }) : 0)
     + (Number(abilityAttack?.blast) || 0)) : 0;
   if ( profile.blast ) profile.blast = blastRadius;
-  const marker = profile.blast ? await placeBlast({ name: label, radius: profile.blast, template: profile.template, actor, item }) : undefined;
+  const marker = profile.blast ? await placeBlast({ name: label, radius: profile.blast, template: profile.template, width: profile.width ?? 0, actor, item }) : undefined;
   if ( marker === null ) return null;
+  // Bent Light (Johnald, 2026-10-29): a line power whose evolution lets it turn asks where, once placed.
+  if ( marker && (profile.template === "line") && (item.type === "ability") && powerTotals(item.system.paraphysics).evolution?.bend ) {
+    await bendLine(marker);
+  }
 
   const attr = actor.system.attributes[profile.attribute];
   const statuses = statusesOf(actor);
@@ -904,6 +911,13 @@ export async function rollFreePool(actor = null) {
 export async function useAbility(actor, item) {
   // Telestoian Glamor (2026-10-20): Use raises it, or lets it fall.
   if ( isGlamor(item) ) return toggleGlamor(actor);
+  // Optional Energy (2026-10-29): an option or evolution that costs more is paid or not at each
+  // cast; unpaid, the power goes off as its standard version. The cast works from a copy.
+  if ( item.system.paraphysics?.discipline ) {
+    const cast = await castChoices(item);
+    if ( !cast ) return null;
+    if ( cast !== true ) item = item.clone(foundry.utils.expandObject(cast), { keepId: true });
+  }
   // Role perks (2026-10-18): limited uses from the perk's rule, set the first time it is used.
   const ruled = perkUses(item, perkContext(actor).attributes);
   if ( ruled && (item.system.uses.max !== ruled.max) ) await item.update({ "system.uses.max": ruled.max, "system.uses.value": ruled.max });
@@ -952,9 +966,23 @@ export async function useAbility(actor, item) {
     await telesmaPulse(actor);
     const name = powerTotals(s.paraphysics).evolvedName || item.name;
     const held = needsConcentration(s.paraphysics);
-    if ( held ) await startConcentration(actor, item, name);
+    // Concentrating on a new power lets the old one go, its aura with it (2026-10-29).
+    if ( held ) await removeAura(concentrationOn(actor)?.effect ?? null);
+    if ( held ) await startConcentration(actor, item, name, { steadfast: powerTotals(s.paraphysics).steadfast });
     const rounds = (Number(s.paraphysics.duration) || 0) + powerTotals(s.paraphysics).duration;
-    if ( rounds > 0 ) await startTimed(actor, { name, img: item.img, rounds, effect: held ? (concentrationOn(actor)?.effect ?? null) : null });
+    const timer = (rounds > 0) ? await startTimed(actor, { name, img: item.img, rounds, effect: held ? (concentrationOn(actor)?.effect ?? null) : null }) : null;
+    // Defense while it lasts (Johnald, 2026-10-29: Penumbra's Overload is a flat +5), on its timer.
+    const defense = powerTotals(s.paraphysics).defense;
+    const holder = held ? (concentrationOn(actor)?.effect ?? null) : timer;
+    if ( defense && holder ) await holder.update({ "system.changes": [{ key: "system.bonuses.defense", type: "add", value: String(defense) }] });
+    // An aura on the caster (Johnald, 2026-10-29): Umbral Veil and its like draw their area around the
+    // token, as big as this cast makes it, for as long as the power holds.
+    const area = (Number(s.area) || 0) + powerTotals(s.paraphysics).area;
+    const range = (Number(s.range) || 0) + powerTotals(s.paraphysics).range;
+    if ( makesAura({ attack: s.paraphysics.attack, range, area }) ) {
+      const effect = held ? (concentrationOn(actor)?.effect ?? null) : timer;
+      if ( effect ) await startAura(actor, { name, area, effect, item });
+    }
   };
   if ( s.paraphysics.attack ) {
     const message = await rollAttack(actor, item);
@@ -967,6 +995,36 @@ export async function useAbility(actor, item) {
   await spend();
   await concentrate();
   return postItemCard(actor, item, { spent: cost, upgrades: upgraded.upgrades, ...powerCard(actor, item) });
+}
+
+/**
+ * Before a power with optional Energy is cast (2026-10-29): which of its paid parts to pay for this
+ * time, and an Adaptive option's save attribute. Returns true when there is nothing to ask, the
+ * changes to cast with, or null if the caster backs out.
+ */
+async function castChoices(item) {
+  const p = item.system.paraphysics;
+  const nodes = optionalNodes(p);
+  // A power cast in one of its modes (2026-10-29): the mode rides on the cast's name, so its card,
+  // Concentration and timer all say it.
+  const modes = String(p.modes ?? "").split(",").map(m => m.trim()).filter(Boolean);
+  if ( !nodes.length && !modes.length ) return true;
+  const esc = s => foundry.utils.escapeHTML(String(s ?? ""));
+  const modeRow = modes.length ? `<label class="irop-choose"><span>Mode</span><select name="mode">${modes.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("")}</select></label>` : "";
+  const attrs = Object.entries(IROP.attributes).map(([k, a]) => `<option value="${k}" ${k === p.save ? "selected" : ""}>${esc(a.label)}</option>`).join("");
+  const rows = nodes.map(n => `<label class="check"><input type="checkbox" name="${n.kind}" checked>
+      <span>Pay ${n.energy > 0 ? `+${n.energy}` : n.energy} Energy for <strong>${esc(n.label)}</strong></span></label>
+      ${n.adaptive ? `<label class="irop-choose"><span>If paid, the target saves on</span><select name="save">${attrs}</select></label>` : ""}`).join("");
+  const data = await DialogV2.input({
+    window: { title: `Cast ${item.name}` },
+    classes: ["irop", "irop-roll-dialog"],
+    content: `${modeRow}${nodes.length ? `<p>Unpaid, ${esc(item.name)} goes off as its standard version.</p>` : ""}${rows}`,
+    ok: { label: "Cast", icon: "fa-solid fa-bolt" }
+  });
+  if ( !data ) return null;
+  const out = castPower(p, { option: !!data.option, evolution: !!data.evolution, save: data.save ?? "" });
+  const name = (modes.length && data.mode) ? { name: `${item.name} (${data.mode})` } : {};
+  return { ...name, "system.paraphysics.choice": out.choice ?? "", "system.paraphysics.evolved": out.evolved ?? "", "system.paraphysics.save": out.save ?? "" };
 }
 
 /**
@@ -1076,11 +1134,24 @@ export function powerCard(actor, item) {
     // The Roll save button's numbers (2026-10-20), fixed when the power is used.
     powerSave = { save: p.save, saveLabel: attr?.label ?? p.save, dm, dmText: signed(dm), label: totals.evolvedName || item.name };
   }
+  // A second save (2026-10-29), such as Supernova's Blinded save for anyone who saw it.
+  let powerSave2 = null;
+  const extra = p.extraSave;
+  if ( extra?.save && IROP.attributes[extra.save] ) {
+    const attr = IROP.attributes[extra.save];
+    const dm = powerSaveDm(p, actor?.system?.casting?.mod ?? 0);
+    powerSave2 = { save: extra.save, saveLabel: attr.label, dm, dmText: signed(dm), label: extra.label || totals.evolvedName || item.name };
+    lines.push(`${extra.label || "Second save"}: ${attr.label} at ${signed(dm)}`);
+  }
+  // A save power's damage (2026-10-29): rolled from the card, half on a save as its text says.
+  const formula = !p.attack ? [p.damage?.formula, ...totals.damage].filter(f => String(f ?? "").trim()).join(" + ") : "";
+  const powerDamage = formula ? { formula, type: totals.damageType || p.damage.type, shred: totals.shred, label: totals.evolvedName || item.name } : null;
   if ( totals.concentration ) lines.push("Concentration: Disorientated breaks it");
   // A barrier it grants (2026-10-20): lifted to, never added on.
   const powerBarrier = totals.barrier ? { amount: totals.barrier, label: totals.evolvedName || item.name } : null;
   if ( powerBarrier ) lines.push(`Barrier ${powerBarrier.amount}: lifts a barrier to at least that, never on top`);
-  return { powerLines: lines, ...(powerSave ? { powerSave } : {}), ...(powerBarrier ? { powerBarrier } : {}) };
+  return { powerLines: lines, ...(powerSave ? { powerSave } : {}), ...(powerSave2 ? { powerSave2 } : {}), ...(powerBarrier ? { powerBarrier } : {}),
+    ...(powerDamage ? { powerDamage } : {}) };
 }
 
 export async function postItemCard(actor, item, extra = {}) {
@@ -1101,7 +1172,8 @@ export async function postItemCard(actor, item, extra = {}) {
   });
   // A save power's card carries its save, for the Roll save button (2026-10-20).
   return ChatMessage.implementation.create({ speaker: speakerFor(actor), content,
-    ...((extra.powerSave || extra.powerBarrier) ? { flags: { irop: { powerSave: extra.powerSave ?? null, powerBarrier: extra.powerBarrier ?? null,
+    ...((extra.powerSave || extra.powerBarrier || extra.powerSave2 || extra.powerDamage) ? { flags: { irop: { powerSave: extra.powerSave ?? null,
+      powerSave2: extra.powerSave2 ?? null, powerDamage: extra.powerDamage ?? null, powerBarrier: extra.powerBarrier ?? null,
       casterUuid: actor?.uuid ?? null } } } : {}) });
 }
 
@@ -1143,9 +1215,9 @@ export async function grantPowerBarrier(message) {
  * The Roll save button on a save power's card (2026-10-20): each token the presser has targeted, and
  * owns, rolls under the attribute the power tests, with the caster's D.M. on the roll.
  */
-export async function rollPowerSave(message) {
-  // From a save power's card, or from an attack power's damage card.
-  const ps = message?.flags?.irop?.powerSave ?? message?.rolls?.[0]?.options?.powerSave;
+export async function rollPowerSave(message, { second = false } = {}) {
+  // From a save power's card, or from an attack power's damage card; or its second save (2026-10-29).
+  const ps = second ? message?.flags?.irop?.powerSave2 : (message?.flags?.irop?.powerSave ?? message?.rolls?.[0]?.options?.powerSave);
   if ( !ps ) return null;
   const picked = Array.from(game.user.targets ?? []).map(t => t.actor).filter(Boolean);
   if ( !picked.length ) return ui.notifications.warn("Target the token, or tokens, that must save, then press the button again.");
@@ -1166,6 +1238,13 @@ export async function rollPowerSave(message) {
     rolled.push(save);
   }
   return rolled;
+}
+
+/** The Roll damage button on a save power's card (2026-10-29): its damage, by the caster. */
+export async function rollPowerDamage(message) {
+  const pd = message?.flags?.irop?.powerDamage;
+  if ( !pd?.formula ) return null;
+  return rollDamage({ actorUuid: message.flags.irop.casterUuid ?? null, itemName: pd.label, damage: { formula: pd.formula, type: pd.type, shred: Number(pd.shred) || 0 } });
 }
 
 /* -------------------------------------------- */

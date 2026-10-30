@@ -74,7 +74,9 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       newPerk: IropItemSheet.#onNewPerk,
       // A power's Rank 3 options (2026-10-19).
       addPowerOption: IropItemSheet.#onAddPowerOption,
-      removePowerOption: IropItemSheet.#onRemovePowerOption
+      removePowerOption: IropItemSheet.#onRemovePowerOption,
+      addPowerEvolution: IropItemSheet.#onAddPowerEvolution,
+      removePowerEvolution: IropItemSheet.#onRemovePowerEvolution
     }
   };
 
@@ -150,10 +152,12 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if ( phases && !Array.isArray(phases) ) {
       foundry.utils.setProperty(data, "system.phases", Object.keys(phases).sort((a, b) => Number(a) - Number(b)).map(k => phases[k]));
     }
-    const options = foundry.utils.getProperty(data, "system.paraphysics.options");
-    if ( options && !Array.isArray(options) ) {
-      foundry.utils.setProperty(data, "system.paraphysics.options",
-        Object.keys(options).sort((a, b) => Number(a) - Number(b)).map(k => options[k]));
+    // A power's Rank 3 options and Rank 5 evolutions come back keyed by index; they are lists.
+    for ( const key of ["options", "evolutions"] ) {
+      const list = foundry.utils.getProperty(data, `system.paraphysics.${key}`);
+      if ( list && !Array.isArray(list) ) {
+        foundry.utils.setProperty(data, `system.paraphysics.${key}`, Object.keys(list).sort((a, b) => Number(a) - Number(b)).map(k => list[k]));
+      }
     }
     return data;
   }
@@ -599,6 +603,21 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const id = target.closest("[data-option-id]")?.dataset.optionId;
     const options = (this.item.system._source.paraphysics.options ?? []).filter(o => o.id !== id);
     return this.item.update({ "system.paraphysics.options": options, ...((p.choice === id) ? { "system.paraphysics.choice": "" } : {}) });
+  }
+
+  /** Add a Rank 5 evolution (2026-10-29): a power offers two, the player picks one. */
+  static async #onAddPowerEvolution() {
+    const evolutions = foundry.utils.deepClone(this.item.system._source.paraphysics.evolutions ?? []);
+    evolutions.push({ id: foundry.utils.randomID(), name: "New evolution", text: "" });
+    return this.item.update({ "system.paraphysics.evolutions": evolutions });
+  }
+
+  /** Remove a Rank 5 evolution; if it was the one taken, the pick opens again. */
+  static async #onRemovePowerEvolution(event, target) {
+    const p = this.item.system.paraphysics;
+    const id = target.closest("[data-evolution-id]")?.dataset.evolutionId;
+    const evolutions = (this.item.system._source.paraphysics.evolutions ?? []).filter(e => e.id !== id);
+    return this.item.update({ "system.paraphysics.evolutions": evolutions, ...((p.evolved === id) ? { "system.paraphysics.evolved": "" } : {}) });
   }
 
   static async #onNewPerk() {
@@ -1126,7 +1145,8 @@ export function roleTreesContext(item, active = "", items = game.items) {
 export function powerRanksContext(p) {
   const NUMBERS = [["accuracy", "Accuracy D.M.", "Minus makes it easier to hit"], ["potency", "Potency", "Added to a save power's D.M. on its target"],
     ["energy", "Energy", "Added to its cost"], ["range", "Range", "Tiles added"], ["area", "Area", "Tiles of radius added"],
-    ["duration", "Duration", "Rounds added"], ["barrier", "Barrier", "Barrier points it grants, added to its own: lifts a target's barrier to at least this, never on top"]];
+    ["duration", "Duration", "Rounds added"], ["barrier", "Barrier", "Barrier points it grants, added to its own: lifts a target's barrier to at least this, never on top"],
+    ["defense", "Defense", "Added to the caster's Defense while the power lasts"], ["shred", "Shred", "Shred on its damage: bypasses that much DR and strips it from armor"]];
   const fields = (path, src, defaults = {}) => [
     ...NUMBERS.map(([key, label, tip]) => ({ name: `${path}.${key}`, label, tip, value: src?.[key] ?? "", placeholder: defaults[key] ?? 0, number: true })),
     { name: `${path}.damage`, label: "Damage", tip: "Added to its damage: 1d4, +2", value: src?.damage ?? "", placeholder: "none" }
@@ -1142,11 +1162,13 @@ export function powerRanksContext(p) {
     steps: [step(2), step(4)],
     options: (p.options ?? []).map((o, i) => ({
       i, id: o.id, archetype: o.archetype, label: o.label, text: o.text, anchored: o.anchored, taken: o.id === p.choice,
+      optionalEnergy: o.optionalEnergy, adaptive: o.adaptive, steadfast: o.steadfast,
       from: o.archetype ? `From the library: ${IROP.powerArchetypes[o.archetype]?.label ?? o.archetype}` : "Custom",
       fields: fields(`system.paraphysics.options.${i}`, o)
     })),
     library: Object.entries(IROP.powerArchetypes).filter(([k]) => !taken.has(k)).map(([key, a]) => ({ key, label: a.label })),
-    evolution: { ...(p.evolution ?? {}), fields: fields("system.paraphysics.evolution", p.evolution ?? {}) },
+    // Rank 5: two evolutions, one picked (2026-10-29).
+    evolutions: (p.evolutions ?? []).map((e, i) => ({ ...e, i, taken: e.id === p.evolved, fields: fields(`system.paraphysics.evolutions.${i}`, e) })),
     damageTypes: Object.fromEntries(Object.entries(IROP.damageTypes).map(([k, t]) => [k, t.label])),
     concentrationChoices: { "": "Unchanged", remove: "No longer needs it", add: "Now needs it" }
   };

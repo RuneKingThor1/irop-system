@@ -16,6 +16,7 @@ import { isCountedWeapon, stackFor } from "../rules/stacks.mjs";
 import { isLinked, linkActor, syncActor, unlinkActor } from "../artemis/link.mjs";
 import { askStatusValue, setStatus, statusLabel, statusValue } from "../statuses.mjs";
 import { liveBackground, perkCopy, perkMeta, takenPerk, speciesPerkCopy, isSpeciesPerk } from "../rules/backgrounds.mjs";
+import { simplifyFormula } from "../rules/paraphysics.mjs";
 import { placeCheck } from "../rules/concealment.mjs";
 import { phasedStats, nextPhase } from "../rules/phases.mjs";
 import { psiContext, onEndConcentration, onSelectDiscipline, onBuyDiscipline, onBuyPowerRank, onChoosePower, onAwaken, learnPower, refundPsi, crystalAmount } from "./paraphysics-tab.mjs";
@@ -500,6 +501,12 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       w.expanded = this.#expanded.has(w.id);
       // The damage as this character rolls it: 2d4 + 3, not 2d4 + @cha.mod.
       if ( w.damage && item && globalThis.Roll?.replaceFormulaData ) w.damage = Roll.replaceFormulaData(w.damage, item.getRollData?.() ?? actor.getRollData(), { missing: "0" });
+      // The stat block's damage, gathered up: 3d4 + 7, not 2d4 + 6 + 1 + 1d4 (2026-10-29).
+      const dmg = w.stats?.find(s => s.key === "damage");
+      if ( dmg && item ) {
+        const filled = globalThis.Roll?.replaceFormulaData ? Roll.replaceFormulaData(w.damageFormula, item.getRollData?.() ?? actor.getRollData(), { missing: "0" }) : w.damageFormula;
+        dmg.value = simplifyFormula(filled);
+      }
       w.descriptionHTML = item ? await TextEditor.enrichHTML(item.system.description ?? "", {
         relativeTo: item, rollData: item.getRollData?.(), secrets: actor.isOwner
       }) : "";

@@ -12,7 +12,7 @@
       <label data-tooltip="Radius in tiles; 0 for a single target"><span>Area</span><input type="number" name="system.area" value="{{@root.system.area}}"></label>
       <label data-tooltip="Rounds it lasts; 0 for instant"><span>Duration</span><input type="number" name="system.paraphysics.duration" value="{{@root.system.paraphysics.duration}}"></label>
       <label data-tooltip="Barrier points it grants: lifts a target's barrier to at least this, never on top, armor or none"><span>Barrier</span><input type="number" name="system.paraphysics.barrier" value="{{@root.system.paraphysics.barrier}}"></label>
-      <label><span>Damage</span><input type="text" name="system.paraphysics.damage.formula" value="{{@root.system.paraphysics.damage.formula}}" placeholder="2d4 + @cha.mod"></label>
+      <label><span>Damage</span><input type="text" name="system.paraphysics.damage.formula" value="{{@root.system.paraphysics.damage.formula}}" placeholder="2d4 + @casting.mod"></label>
       <label><span>Damage type</span><select name="system.paraphysics.damage.type">{{selectOptions r.damageTypes selected=@root.system.paraphysics.damage.type}}</select></label>
     </div>
   </div>
@@ -46,6 +46,9 @@
         <label data-tooltip="{{f.tip}}"><span>{{f.label}}</span><input type="{{#if f.number}}number{{else}}text{{/if}}" name="{{f.name}}" value="{{f.value}}" placeholder="{{f.placeholder}}"></label>
         {{/each}}
         <label class="check" data-tooltip="Taking it ends the power's need for Concentration"><input type="checkbox" name="system.paraphysics.options.{{o.i}}.anchored" {{checked o.anchored}}><span>Anchored</span></label>
+        <label class="check" data-tooltip="Its extra Energy is paid or not each time the power is cast; unpaid, the power goes off without it"><input type="checkbox" name="system.paraphysics.options.{{o.i}}.optionalEnergy" {{checked o.optionalEnergy}}><span>Optional Energy</span></label>
+        <label class="check" data-tooltip="Its Concentration can only be dropped by the caster at will: Disorientated does not break it"><input type="checkbox" name="system.paraphysics.options.{{o.i}}.steadfast" {{checked o.steadfast}}><span>Caster drops it only</span></label>
+        <label class="check" data-tooltip="When paid, the caster picks the attribute the target saves on"><input type="checkbox" name="system.paraphysics.options.{{o.i}}.adaptive" {{checked o.adaptive}}><span>Adaptive</span></label>
       </div>
     </div>
     {{else}}
@@ -62,17 +65,35 @@
     {{/if}}
   </div>
 
+  {{!-- Rank 5 (Johnald, 2026-10-29): two evolutions, the player picks one for a psycrystal, for good. --}}
   <div class="rank-card">
-    <h4 class="rank-head">Rank 5 <span class="stat-chip crystal-chip">1 psycrystal</span><span class="stat-chip">Evolution</span></h4>
-    <input type="text" class="rank-text" name="system.paraphysics.evolution.name" value="{{r.evolution.name}}" placeholder="Its evolved name (blank keeps the name)">
-    <prose-mirror name="system.paraphysics.evolution.text" value="{{r.evolution.text}}" toggled>{{{r.evolution.text}}}</prose-mirror>
-    <div class="rank-fields">
-      {{#each r.evolution.fields as |f|}}
-      <label data-tooltip="{{f.tip}}"><span>{{f.label}}</span><input type="{{#if f.number}}number{{else}}text{{/if}}" name="{{f.name}}" value="{{f.value}}" placeholder="{{f.placeholder}}"></label>
-      {{/each}}
-      <label><span>Damage type</span><select name="system.paraphysics.evolution.damageType">{{selectOptions r.damageTypes selected=r.evolution.damageType blank="Unchanged"}}</select></label>
-      <label><span>Concentration</span><select name="system.paraphysics.evolution.concentration">{{selectOptions r.concentrationChoices selected=r.evolution.concentration}}</select></label>
+    <h4 class="rank-head">Rank 5 <span class="stat-chip crystal-chip">1 psycrystal</span><span class="stat-chip">Choose one evolution</span></h4>
+    {{#each r.evolutions as |e|}}
+    <div class="rank-option {{#if e.taken}}taken{{/if}}" data-evolution-id="{{e.id}}">
+      <input type="hidden" name="system.paraphysics.evolutions.{{e.i}}.id" value="{{e.id}}">
+      <div class="rank-option-head">
+        <input type="text" name="system.paraphysics.evolutions.{{e.i}}.name" value="{{e.name}}" placeholder="Evolution name">
+        <span class="hint">{{#if e.taken}}taken on this copy{{/if}}</span>
+        {{#if @root.editable}}<button type="button" class="icon" data-action="removePowerEvolution" data-tooltip="Remove this evolution"><i class="fa-solid fa-trash"></i></button>{{/if}}
+      </div>
+      <input type="text" class="rank-text" name="system.paraphysics.evolutions.{{e.i}}.text" value="{{e.text}}" placeholder="What it does">
+      <div class="rank-fields">
+        {{#each e.fields as |f|}}
+        <label data-tooltip="{{f.tip}}"><span>{{f.label}}</span><input type="{{#if f.number}}number{{else}}text{{/if}}" name="{{f.name}}" value="{{f.value}}" placeholder="{{f.placeholder}}"></label>
+        {{/each}}
+        <label><span>Damage type</span><select name="system.paraphysics.evolutions.{{e.i}}.damageType">{{selectOptions @root.powerRanks.damageTypes selected=e.damageType blank="Unchanged"}}</select></label>
+        <label><span>Concentration</span><select name="system.paraphysics.evolutions.{{e.i}}.concentration">{{selectOptions @root.powerRanks.concentrationChoices selected=e.concentration}}</select></label>
+        <label class="check" data-tooltip="Its extra Energy is paid or not each time the power is cast; unpaid, the power goes off without it"><input type="checkbox" name="system.paraphysics.evolutions.{{e.i}}.optionalEnergy" {{checked e.optionalEnergy}}><span>Optional Energy</span></label>
+        <label class="check" data-tooltip="Taken, its name becomes the power's name"><input type="checkbox" name="system.paraphysics.evolutions.{{e.i}}.rename" {{checked e.rename}}><span>Renames the power</span></label>
+        <label class="check" data-tooltip="A line power: once its marker is placed, the caster may turn it once, up to a right angle"><input type="checkbox" name="system.paraphysics.evolutions.{{e.i}}.bend" {{checked e.bend}}><span>Line may bend</span></label>
+      </div>
     </div>
+    {{else}}
+    <p class="hint">No evolutions yet. Offer two.</p>
+    {{/each}}
+    {{#if @root.editable}}
+    <div class="rank-add"><button type="button" class="ghost" data-action="addPowerEvolution"><i class="fa-solid fa-plus"></i> Add an evolution</button></div>
+    {{/if}}
   </div>
   {{/with}}
 </section>

@@ -1716,6 +1716,33 @@ check("disorientated both ways",
       && psi.powerAccuracy({ rank: 4, rank2: { accuracy: -20 }, rank4: { accuracy: -30 } }, { focus: true }).focus === 0);
   check("psi: Energy adds what the ranks add, still under the floor",
     psi.powerEnergy({ ...custom, energy: 5, tier: 1 }, 1).cost === 7 && psi.powerEnergy({ energy: 6, tier: 1, rank: 2, rank2: { energy: -5 } }, 1).cost === 3);
+  // Rank 5 a pick of two, and optional Energy at cast (Johnald, 2026-10-29).
+  const picked = { energy: 3, tier: 1, rank: 5, save: "agi",
+    options: [{ id: "ad", label: "Adaptive", energy: 1, optionalEnergy: true, adaptive: true }], choice: "ad",
+    evolutions: [{ id: "cb", name: "Crushing Bolt", energy: 1, optionalEnergy: true, text: "Suppressed" }, { id: "gb", name: "Graviton Burst", text: "Splash" }], evolved: "cb" };
+  check("psi: the evolution taken counts; one not taken, or below Rank 5, does not; it renames only when told",
+    psi.powerTotals(picked).energy === 2 && psi.powerTotals(picked).evolution.id === "cb" && !psi.powerTotals(picked).evolvedName
+      && psi.powerTotals({ ...picked, evolved: "" }).energy === 1 && !psi.powerTotals({ ...picked, rank: 4 }).evolution
+      && psi.powerTotals({ ...picked, evolutions: [{ id: "cb", name: "Crushing Bolt", rename: true }] }).evolvedName === "Crushing Bolt"
+      && eq(psi.evolutionChoices(picked).map(c => c.key), ["cb", "gb"]));
+  check("psi: optional Energy parts are listed, the Adaptive one marked",
+    eq(psi.optionalNodes(picked).map(n => [n.kind, n.energy, n.adaptive]), [["option", 1, true], ["evolution", 1, false]])
+      && psi.optionalNodes({ ...picked, choice: "", evolved: "gb" }).length === 0);
+  const unpaid = psi.castPower(picked, { option: false, evolution: false, save: "tgh" });
+  const paid = psi.castPower(picked, { save: "tgh" });
+  check("psi: unpaid, a cast drops the part and costs the standard; paid, Adaptive sets the save",
+    psi.powerEnergy(unpaid, 1).cost === 3 && unpaid.save === "agi" && psi.powerEnergy(paid, 1).cost === 5 && paid.save === "tgh"
+      && psi.castPower(picked, { save: "nope" }).save === "agi" && picked.choice === "ad");
+  // Johnald's rulings, 2026-10-29: Penumbra's Overload is a flat +5 Defense; partial Anchored is
+  // Concentration only the caster drops; Shredding is Shred on the damage.
+  const pen = psi.powerTotals({ rank: 3, choice: "ov", options: [{ id: "ov", defense: 5, energy: 1, optionalEnergy: true }] });
+  const veil = psi.powerTotals({ rank: 3, concentration: true, choice: "an", options: [{ id: "an", steadfast: true }] });
+  const hole = psi.powerTotals({ rank: 5, evolved: "pnr", evolutions: [{ id: "pnr", name: "Point of No Return", shred: 2 }] });
+  check("psi: Defense and Shred add up; a steadfast option keeps Concentration but only the caster drops it",
+    pen.defense === 5 && veil.concentration && veil.steadfast && !pen.steadfast && hole.shred === 2
+      && /Defense \+5/.test(psi.trackText({ rank: 3, choice: "ov", options: [{ id: "ov", defense: 5 }] })));
+  check("psi: a pick one rival refuses the unlock",
+    /pick one: you already hold Supernova/.test(psi.checkPowerUnlock({ name: "Black Hole", tier: 5, discipline: "astrokinesis", state: { rank: 5 }, inDiscipline: 0, crystals: 1, enabled: true, rival: "Supernova" }).reason ?? ""));
 }
 
 // A paraphysical recruit's enlistment (2026-10-20).

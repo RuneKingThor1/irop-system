@@ -22,7 +22,7 @@
     "system.paraphysics.discipline": "astrokinesis",
     "system.paraphysics.attack": true,
     "system.paraphysics.accuracy": 0,
-    "system.paraphysics.damage.formula": "2d4 + @cha.mod",
+    "system.paraphysics.damage.formula": "2d4 + @casting.mod",
     "system.paraphysics.damage.type": "cosmic",
     "system.paraphysics.tier": 1,
     "system.paraphysics.trackA": "accuracy",

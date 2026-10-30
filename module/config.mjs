@@ -668,7 +668,10 @@ IROP.powerArchetypes = {
   wide: { label: "Wide", text: "Single target becomes a small area." },
   // What an archetype does to the numbers when it is copied onto a power; the GM edits it per power.
   efficient: { label: "Efficient", text: "Energy cost 1 less, never below half its base.", changes: { energy: -1 } },
-  anchored: { label: "Anchored", text: "No longer requires Concentration.", changes: { anchored: true } }
+  anchored: { label: "Anchored", text: "No longer requires Concentration.", changes: { anchored: true } },
+  // Save powers only (Johnald, 2026-10-29): +1 Energy, paid or not at each cast.
+  adaptive: { label: "Adaptive", text: "You may for the added cost of +1 energy change the attribute required to save from this power.",
+    changes: { energy: 1, optionalEnergy: true, adaptive: true } }
 };
 
 IROP.mutationPolarity = {
@@ -750,6 +753,10 @@ IROP.statusEffects = [
     text: "Holding a power that needs Concentration. Disorientated breaks it; concentrating on another power lets this one go." },
   { id: "suppressed", name: "Suppressed", img: "icons/svg/down.svg", counter: false,
     text: "+20 D.M. to attacks. Item and ability range capped at two tiles. Paraphysical abilities are unaffected." },
+  // Named by Supernova (2026-10-29), its effect not yet written: a placeholder, X kept. (Shredding is
+  // the damage rule, Shred on a power's damage, not a status.)
+  { id: "blinded", name: "Blinded", img: "icons/svg/blind.svg", counter: true, counterHint: "turns",
+    text: "Placeholder (Supernova): blinded for X turns. Its effect is not yet defined; the GM rules on it." },
   { id: "bleedingOut", name: "Bleeding Out", img: "icons/svg/unconscious.svg", counter: false,
     text: "Downed. See the Bleeding Out rules." },
   { id: "dead", name: "Dead", img: "icons/svg/skull.svg", counter: false,
