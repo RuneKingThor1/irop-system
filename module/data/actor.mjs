@@ -7,6 +7,7 @@ import { attributeModifier, buildPool } from "../rules/dynosrs.mjs";
 import { houseRules } from "../settings.mjs";
 import { concealmentLoad } from "../rules/concealment.mjs";
 import { speciesParaphysics, disciplineStates, schoolsHeld } from "../rules/paraphysics.mjs";
+import { armorHpMax } from "../rules/armor.mjs";
 
 const fields = foundry.data.fields;
 
@@ -93,7 +94,9 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
       vitals: new fields.SchemaField({
         hp: pool(12),
         energy: pool(18),
-        armor: pool(0),
+        // `granted` is additive Armor HP from a power (Crystalline Skin, 2026-10-30): on top of what is
+        // worn, spent first, gone at the end of the fight.
+        armor: new fields.SchemaField({ value: int(0), max: int(0), bonus: int(0), granted: int(0, { min: 0 }) }),
         // One Barrier pool, armor's and paraphysics' alike (Johnald, 2026-10-20). `granted` is the last
         // paraphysical barrier: like temporary HP, it lifts the pool to that much, never adds to it.
         barrier: new fields.SchemaField({ value: int(0), max: int(0), bonus: int(0), granted: int(0, { min: 0 }) }),
@@ -311,7 +314,8 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
 
     v.hp.max = d.health(mods, species) + v.hp.bonus;
     v.energy.max = d.energy(mods, species) + v.energy.bonus;
-    v.armor.max = armor.points + v.armor.bonus;
+    v.armor.worn = armor.points + v.armor.bonus;
+    v.armor.max = armorHpMax(v.armor.worn, v.armor.value, v.armor.granted);
     // A paraphysical barrier needs no armor to hold it: while any of it is left, the pool's top is
     // whichever is higher, armor's or the barrier granted (2026-10-20).
     v.barrier.armor = armor.barrier + v.barrier.bonus;

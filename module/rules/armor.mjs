@@ -45,3 +45,31 @@ export function wornArmorMax(actor, { without = [] } = {}) {
   const worn = (actor?.items ?? []).filter(i => isWorn(i) && !without.includes(i.id));
   return worn.reduce((n, i) => n + armorPoints(i), 0) + (Number(actor?.system?.vitals?.armor?.bonus) || 0);
 }
+
+/**
+ * Additive Armor HP (Johnald, 2026-10-30: Crystalline Skin). It sits on top of what is worn in one
+ * pool and is spent first, so whatever stands above the worn points is what is left of it. It does
+ * not stack with itself, and lasts until the end of the fight or until depleted.
+ */
+
+/** The pool's top: the worn points, plus the grant while any of it is left. */
+export function armorHpMax(worn, value, granted) {
+  const w = Math.max(0, Number(worn) || 0);
+  return ((Number(value) || 0) > w) ? w + Math.max(0, Number(granted) || 0) : w;
+}
+
+/** Granting Armor HP: replaces what is left of an earlier grant. Null if that much or more is left. */
+export function armorHpGrant(pool, amount) {
+  const n = Math.max(0, Number(amount) || 0);
+  const value = Math.max(0, Number(pool?.value) || 0);
+  const worn = Math.max(0, Number(pool?.worn) || 0);
+  if ( !n || ((value - worn) >= n) ) return null;
+  return { value: Math.min(value, worn) + n, granted: n };
+}
+
+/** The end of the fight: what is left of a grant goes. Null if there is nothing to clear. */
+export function armorHpClear(pool) {
+  if ( !(Number(pool?.granted) > 0) ) return null;
+  const value = Math.max(0, Number(pool?.value) || 0);
+  return { value: Math.min(value, Math.max(0, Number(pool?.worn) || 0)), granted: 0 };
+}

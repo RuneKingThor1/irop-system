@@ -70,7 +70,9 @@ function changeFields() {
     accuracy: int(0), potency: int(0), damage: text(""), energy: int(0),
     range: int(0), duration: int(0), area: int(0), barrier: int(0),
     // Defense on the caster while it lasts (Penumbra's Overload), and Shred on its damage (2026-10-29).
-    defense: int(0), shred: int(0, { min: 0 })
+    defense: int(0), shred: int(0, { min: 0 }),
+    // Additive Armor HP it grants (Crystalline Skin, 2026-10-30).
+    armorHp: int(0)
   };
 }
 
@@ -452,6 +454,9 @@ export class AbilityData extends foundry.abstract.TypeDataModel {
         // the Barrier it grants (2026-10-20).
         duration: int(0, { min: 0 }),
         barrier: int(0, { min: 0 }),
+        // Additive Armor HP it grants, and whether its formula heals rather than harms (2026-10-30).
+        armorHp: int(0, { min: 0 }),
+        heal: new fields.BooleanField({ initial: false }),
         // Each rank the GM's to write (Johnald, 2026-10-19): Ranks 2 and 4 are steps, Rank 3 the options
         // the player picks one of (copied from the library or custom), Rank 5 the power's own evolution.
         rank2: powerStep(),

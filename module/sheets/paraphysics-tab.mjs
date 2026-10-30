@@ -146,7 +146,7 @@ function powerRow(item, abilities, { canBuy, edit, castingMod = 0 }) {
   const range = (Number(item.system.range) || 0) + totals.range;
   const optimal = -(IROP.paraphysics.optimalRangeTimes * castingMod);
   const sign = n => (n > 0 ? `+${n}` : `${n}`);
-  const formula = p.attack ? [p.damage?.formula, ...totals.damage].filter(f => String(f ?? "").trim()).join(" + ") : "";
+  const formula = (p.attack || p.heal) ? [p.damage?.formula, ...totals.damage].filter(f => String(f ?? "").trim()).join(" + ") : "";
   const damageType = IROP.damageTypes[totals.damageType || p.damage?.type]?.label ?? "";
   // The stat block (Johnald, 2026-10-29): every number labeled, on its own ribbon under the name.
   const cost = abilityCost(item, abilities);
@@ -157,7 +157,7 @@ function powerRow(item, abilities, { canBuy, edit, castingMod = 0 }) {
     { key: "energy", label: "Energy", value: String(cost.energy), tip: cost.energyTip, changed: cost.energyChanged },
     range ? { key: "range", label: "Range", value: `${range} T`, tip: `Optimal range, ${range} tiles. Within it ${sign(optimal)} D.M. to hit; beyond it ${sign(IROP.paraphysics.outOfRange)}` }
       : { key: "range", label: "Range", value: "Self", tip: "Cast on yourself, or centered on you" },
-    formula ? { key: "damage", label: "Damage", value: formula, type: damageType, tip: "Damage at this rank" } : null,
+    formula ? { key: "damage", label: p.heal ? "Healing" : "Damage", value: formula, type: damageType, tip: p.heal ? "Healing at this rank" : "Damage at this rank" } : null,
     p.attack ? { key: "accuracy", label: "Accuracy", value: sign(powerAccuracy(p).track), tip: "D.M. its ranks put on the attack: minus is easier, -25 at most" } : null,
     p.save ? { key: "save", label: "Save", value: `${IROP.attributes[p.save]?.abbr ?? p.save} ${sign(saveDm)}`,
       tip: `The target saves on ${IROP.attributes[p.save]?.label ?? p.save}, at ${sign(saveDm)} D.M.` } : null,
@@ -166,6 +166,7 @@ function powerRow(item, abilities, { canBuy, edit, castingMod = 0 }) {
       : (p.attack ? { key: "area", label: "Area", value: "Single", tip: "One target" } : null),
     rounds ? { key: "duration", label: "Duration", value: `${rounds} turn${rounds === 1 ? "" : "s"}`, tip: "Turns it lasts" } : null,
     totals.barrier ? { key: "barrier", label: "Barrier", value: String(totals.barrier), tip: "Lifts a barrier to at least this, never on top" } : null,
+    totals.armorHp ? { key: "armorHp", label: "Armor HP", value: String(totals.armorHp), tip: "Additive Armor HP until the end of the fight or until depleted. Does not stack with itself" } : null,
     totals.defense ? { key: "defense", label: "Defense", value: sign(totals.defense), tip: "Added to your Defense while it lasts" } : null,
     totals.shred ? { key: "shred", label: "Shred", value: String(totals.shred), tip: "Bypasses that much DR and strips it from armor until repaired" } : null
   ].filter(Boolean);

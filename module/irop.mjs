@@ -50,6 +50,7 @@ import { CodexPageSheet, registerCodexSync } from "./codex.mjs";
 import { registerConcentration } from "./concentration.mjs";
 import { registerDurations } from "./durations.mjs";
 import { registerAuras } from "./canvas/aura.mjs";
+import { registerArmorHp } from "./rolls.mjs";
 import { registerRulesKey, syncRulesJournal, toggleRules } from "./rules-journal.mjs";
 import { registerGlamor } from "./glamor.mjs";
 import { EventsApp } from "./apps/events.mjs";
@@ -183,6 +184,7 @@ Hooks.once("init", () => {
   // Statuses' X and timed effects count down at the start of each turn (2026-10-20).
   registerDurations();
   registerAuras();
+  registerArmorHp();
   // A Telestoi's Glamor falls when they go down (2026-10-20).
   registerGlamor();
 

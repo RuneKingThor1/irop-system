@@ -266,7 +266,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     id: "irop-enlistment",
     classes: ["irop", "irop-enlistment"],
     window: { title: "ODR enlistment", icon: "fa-solid fa-id-card", resizable: true },
-    position: { width: 1140, height: 740 },
+    position: { width: 1500, height: 800 },
     actions: {
       goStep: EnlistmentApp.#onStep,
       next: EnlistmentApp.#onNext,

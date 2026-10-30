@@ -1146,6 +1146,7 @@ export function powerRanksContext(p) {
   const NUMBERS = [["accuracy", "Accuracy D.M.", "Minus makes it easier to hit"], ["potency", "Potency", "Added to a save power's D.M. on its target"],
     ["energy", "Energy", "Added to its cost"], ["range", "Range", "Tiles added"], ["area", "Area", "Tiles of radius added"],
     ["duration", "Duration", "Rounds added"], ["barrier", "Barrier", "Barrier points it grants, added to its own: lifts a target's barrier to at least this, never on top"],
+    ["armorHp", "Armor HP", "Additive Armor HP it grants, added to its own"],
     ["defense", "Defense", "Added to the caster's Defense while the power lasts"], ["shred", "Shred", "Shred on its damage: bypasses that much DR and strips it from armor"]];
   const fields = (path, src, defaults = {}) => [
     ...NUMBERS.map(([key, label, tip]) => ({ name: `${path}.${key}`, label, tip, value: src?.[key] ?? "", placeholder: defaults[key] ?? 0, number: true })),

@@ -608,7 +608,7 @@ IROP.disciplineInfo = {
   telepathy: { wave: 1, owns: "Mind Control, Panicked, silent communication, memory. Fails on mind immune creatures" },
   pyrokinesis: { wave: 1, owns: "Ignited, area denial, persistent burning ground" },
   astrokinesis: { wave: 1, owns: "Cover in both directions, Cosmic damage" },
-  vitakinesis: { wave: 1, owns: "All healing, augmentation, barriers on allies" },
+  vitakinesis: { wave: 1, owns: "All healing, augmentation, additive Armor HP on allies" },
   optics: { wave: 1, owns: "Disorientated, Concealment, detection, decoys. Works on mind immune creatures" },
   cryokinesis: { wave: 2, owns: "Frostbite, Brittle, static destructible cover" },
   electrokinesis: { wave: 2, owns: "Electrified, crits, chains, machines" },

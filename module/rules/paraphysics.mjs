@@ -109,7 +109,7 @@ export function trackValue(track, rank) {
 }
 
 /** The number fields a rank, a choice or an evolution can change (Johnald, 2026-10-19). */
-export const POWER_FIELDS = ["accuracy", "potency", "energy", "range", "duration", "area", "barrier", "defense", "shred"];
+export const POWER_FIELDS = ["accuracy", "potency", "energy", "range", "duration", "area", "barrier", "defense", "shred", "armorHp"];
 
 /**
  * A Rank 2 or Rank 4 step's value for one field: what the GM typed, or, left blank, the default
@@ -146,7 +146,7 @@ export function chosenEvolution(p) {
  */
 export function powerTotals(p) {
   const rank = Number(p?.rank) || 0;
-  const out = { accuracy: 0, potency: 0, energy: 0, range: 0, duration: 0, area: 0, barrier: Number(p?.barrier) || 0, defense: 0, shred: 0, damage: [], damageType: "",
+  const out = { accuracy: 0, potency: 0, energy: 0, range: 0, duration: 0, area: 0, barrier: Number(p?.barrier) || 0, armorHp: Number(p?.armorHp) || 0, defense: 0, shred: 0, damage: [], damageType: "",
     concentration: !!p?.concentration, steadfast: false, evolvedName: "", option: null, evolution: null, lines: [] };
   const add = (src, label) => {
     for ( const f of POWER_FIELDS ) out[f] += Number(src[f]) || 0;
@@ -270,7 +270,8 @@ export function evolutionChoices(p) {
  * sum of dice and whole numbers is gathered; anything else comes back as it was.
  */
 export function simplifyFormula(formula) {
-  const f = String(formula ?? "").trim();
+  // Half a modifier (Mend, 2026-10-30) reads as its number once the modifier is filled in.
+  const f = String(formula ?? "").trim().replace(/floor\(\s*(-?\d+)\s*\/\s*(\d+)\s*\)/g, (m, a, b) => String(Math.floor(Number(a) / Number(b))));
   if ( !f ) return "";
   const terms = f.split("+").map(t => t.trim());
   if ( !terms.every(t => /^(\d*d\d+|\d+)$/i.test(t)) ) return f;
@@ -365,6 +366,7 @@ export function trackText(p) {
     t.area ? `Area ${sign(t.area)}` : "",
     t.duration ? `Duration ${sign(t.duration)}` : "",
     t.barrier ? `Barrier ${t.barrier}` : "",
+    t.armorHp ? `Armor HP ${t.armorHp}` : "",
     t.defense ? `Defense ${sign(t.defense)}` : "",
     t.shred ? `Shred ${t.shred}` : ""
   ].filter(Boolean).join(", ");

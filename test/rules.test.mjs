@@ -17,6 +17,7 @@ import * as lg from "../module/rules/losing-ground.mjs";
 import * as wx from "../module/rules/weather.mjs";
 import { IROP } from "../module/config.mjs";
 import * as psi from "../module/rules/paraphysics.mjs";
+import * as armorHp from "../module/rules/armor.mjs";
 
 let pass = 0;
 let fail = 0;
@@ -1701,6 +1702,14 @@ check("disorientated both ways",
   check("psi: awakening costs 2 crystals, once",
     psi.checkAwaken({ enabled: false, crystals: 2 }).ok && /takes 2 psycrystals; you have 1/.test(psi.checkAwaken({ enabled: false, crystals: 1 }).reason)
       && /Already/.test(psi.checkAwaken({ enabled: true, crystals: 5 }).reason));
+  check("Additive Armor HP: on top of worn armor, spent first, never stacks with itself, gone at the end of the fight",
+    (armorHp.armorHpMax(5, 10, 5) === 10) && (armorHp.armorHpMax(5, 5, 5) === 5) && (armorHp.armorHpMax(5, 3, 5) === 5)
+      && (armorHp.armorHpGrant({ value: 3, worn: 5 }, 5).value === 8) && (armorHp.armorHpGrant({ value: 3, worn: 5 }, 5).granted === 5)
+      && (armorHp.armorHpGrant({ value: 8, worn: 5 }, 5).value === 10) && (armorHp.armorHpGrant({ value: 10, worn: 5 }, 5) === null)
+      && (armorHp.armorHpClear({ value: 8, worn: 5, granted: 5 }).value === 5) && (armorHp.armorHpClear({ value: 2, worn: 5, granted: 5 }).value === 2)
+      && (armorHp.armorHpClear({ value: 5, worn: 5, granted: 0 }) === null));
+  check("A power's Armor HP adds up by rank, and half a modifier reads as its number",
+    (psi.powerTotals({ rank: 4, armorHp: 5, rank4: { armorHp: 1 } }).armorHp === 6) && (psi.simplifyFormula("1d4 + floor(5 / 2) + 1") === "1d4 + 3"));
   check("A species that can never be paraphysical cannot be awakened, whatever the crystals",
     !psi.checkAwaken({ enabled: false, crystals: 9, barred: true }).ok && /cannot be paraphysically enabled/.test(psi.checkAwaken({ enabled: false, crystals: 9, barred: true }).reason));
   check("psi: a power's choices are its own options; a library archetype comes in as an editable copy",

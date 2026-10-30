@@ -17,6 +17,7 @@ import { D100Roll, DamageRoll } from "./dice/d100-roll.mjs";
 import { adjustGmBanks, getSquad, setSquad } from "./settings.mjs";
 import { placeBlast, removeBlast, scatterBlast, bendLine } from "./canvas/blast.mjs";
 import { makesAura, startAura, removeAura } from "./canvas/aura.mjs";
+import { armorHpGrant, armorHpClear } from "./rules/armor.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 const { renderTemplate } = foundry.applications.handlebars;
@@ -1145,13 +1146,18 @@ export function powerCard(actor, item) {
   }
   // A save power's damage (2026-10-29): rolled from the card, half on a save as its text says.
   const formula = !p.attack ? [p.damage?.formula, ...totals.damage].filter(f => String(f ?? "").trim()).join(" + ") : "";
-  const powerDamage = formula ? { formula, type: totals.damageType || p.damage.type, shred: totals.shred, label: totals.evolvedName || item.name } : null;
+  const powerDamage = (formula && !p.heal) ? { formula, type: totals.damageType || p.damage.type, shred: totals.shred, label: totals.evolvedName || item.name } : null;
+  // A healing power (2026-10-30): rolled from the card, for the targets.
+  const powerHeal = (formula && p.heal) ? { formula, label: totals.evolvedName || item.name } : null;
   if ( totals.concentration ) lines.push("Concentration: Disorientated breaks it");
   // A barrier it grants (2026-10-20): lifted to, never added on.
   const powerBarrier = totals.barrier ? { amount: totals.barrier, label: totals.evolvedName || item.name } : null;
   if ( powerBarrier ) lines.push(`Barrier ${powerBarrier.amount}: lifts a barrier to at least that, never on top`);
+  // Additive Armor HP it grants (2026-10-30).
+  const powerArmor = totals.armorHp ? { amount: totals.armorHp, label: totals.evolvedName || item.name } : null;
+  if ( powerArmor ) lines.push(`Armor HP ${powerArmor.amount}: on top of worn armor, until the end of the fight or until depleted`);
   return { powerLines: lines, ...(powerSave ? { powerSave } : {}), ...(powerSave2 ? { powerSave2 } : {}), ...(powerBarrier ? { powerBarrier } : {}),
-    ...(powerDamage ? { powerDamage } : {}) };
+    ...(powerDamage ? { powerDamage } : {}), ...(powerHeal ? { powerHeal } : {}), ...(powerArmor ? { powerArmor } : {}) };
 }
 
 export async function postItemCard(actor, item, extra = {}) {
@@ -1172,8 +1178,9 @@ export async function postItemCard(actor, item, extra = {}) {
   });
   // A save power's card carries its save, for the Roll save button (2026-10-20).
   return ChatMessage.implementation.create({ speaker: speakerFor(actor), content,
-    ...((extra.powerSave || extra.powerBarrier || extra.powerSave2 || extra.powerDamage) ? { flags: { irop: { powerSave: extra.powerSave ?? null,
+    ...((extra.powerSave || extra.powerBarrier || extra.powerSave2 || extra.powerDamage || extra.powerHeal || extra.powerArmor) ? { flags: { irop: { powerSave: extra.powerSave ?? null,
       powerSave2: extra.powerSave2 ?? null, powerDamage: extra.powerDamage ?? null, powerBarrier: extra.powerBarrier ?? null,
+      powerHeal: extra.powerHeal ?? null, powerArmor: extra.powerArmor ?? null,
       casterUuid: actor?.uuid ?? null } } } : {}) });
 }
 
@@ -1208,6 +1215,85 @@ export async function grantPowerBarrier(message) {
   return ChatMessage.implementation.create({
     speaker: message.speaker ?? {},
     content: `<div class="irop-card barrier-card"><header class="card-head"><h3>${pb.label}</h3><span class="card-sub">Barrier ${pb.amount}</span></header>${lines.map(l => `<p>${l}</p>`).join("")}</div>`
+  });
+}
+
+/** Who a power's card button acts on: the tokens the presser has targeted, or the caster. */
+function powerPicks(message) {
+  const picked = Array.from(game.user.targets ?? []).map(t => t.actor).filter(Boolean);
+  if ( picked.length ) return picked;
+  const caster = message.flags.irop.casterUuid ? foundry.utils.fromUuidSync(message.flags.irop.casterUuid) : null;
+  return caster ? [caster] : [];
+}
+
+/** A short card reporting what a power's button did. */
+function powerReport(message, title, sub, lines) {
+  return ChatMessage.implementation.create({
+    speaker: message.speaker ?? {},
+    content: `<div class="irop-card barrier-card"><header class="card-head"><h3>${title}</h3><span class="card-sub">${sub}</span></header>${lines.map(l => `<p>${l}</p>`).join("")}</div>`
+  });
+}
+
+/**
+ * The Roll healing button on a healing power's card (2026-10-30): rolled once, by the caster, and
+ * given to each targeted token the presser owns, or the caster when none is targeted.
+ */
+export async function rollPowerHeal(message) {
+  const ph = message?.flags?.irop?.powerHeal;
+  if ( !ph?.formula ) return null;
+  const picked = powerPicks(message);
+  if ( !picked.length ) return ui.notifications.warn("Target the token, or tokens, to heal, then press the button again.");
+  const caster = message.flags.irop.casterUuid ? foundry.utils.fromUuidSync(message.flags.irop.casterUuid) : null;
+  const roll = await new Roll(ph.formula, caster?.getRollData?.() ?? {}).evaluate();
+  await roll.toMessage({ speaker: message.speaker ?? {}, flavor: `${ph.label}: healing` });
+  const lines = [];
+  for ( const actor of picked ) {
+    if ( !actor.isOwner ) {
+      ui.notifications.warn(`Only ${actor.name}'s owner or the GM can heal it.`);
+      continue;
+    }
+    const hp = actor.system.vitals?.hp;
+    const value = Math.min(hp.max, hp.value + roll.total);
+    await actor.update({ "system.vitals.hp.value": value });
+    lines.push(`<strong>${actor.name}</strong> heals ${value - hp.value}, to <strong>${value}</strong> of ${hp.max}.`);
+  }
+  return lines.length ? powerReport(message, ph.label, `Healed ${roll.total}`, lines) : null;
+}
+
+/**
+ * The Grant Armor HP button on a power's card (2026-10-30): each targeted token the presser owns, or
+ * the caster when none is targeted, gains it on top of worn armor. It does not stack with itself.
+ */
+export async function grantPowerArmor(message) {
+  const pa = message?.flags?.irop?.powerArmor;
+  if ( !pa?.amount ) return null;
+  const picked = powerPicks(message);
+  if ( !picked.length ) return ui.notifications.warn("Target the token, or tokens, the Armor HP is for, then press the button again.");
+  const lines = [];
+  for ( const actor of picked ) {
+    if ( !actor.isOwner ) {
+      ui.notifications.warn(`Only ${actor.name}'s owner or the GM can give it Armor HP.`);
+      continue;
+    }
+    const grant = armorHpGrant(actor.system.vitals?.armor, pa.amount);
+    if ( !grant ) {
+      lines.push(`<strong>${actor.name}</strong> already holds that much: no change.`);
+      continue;
+    }
+    await actor.update({ "system.vitals.armor.value": grant.value, "system.vitals.armor.granted": grant.granted });
+    lines.push(`<strong>${actor.name}</strong> gains <strong>${pa.amount}</strong> Armor HP.`);
+  }
+  return lines.length ? powerReport(message, pa.label, `Armor HP ${pa.amount}`, lines) : null;
+}
+
+/** The end of the fight takes what is left of granted Armor HP (the active GM's client). */
+export function registerArmorHp() {
+  Hooks.on("deleteCombat", combat => {
+    if ( !game.users?.activeGM?.isSelf ) return;
+    for ( const actor of new Set(combat.combatants.map(c => c.actor).filter(Boolean)) ) {
+      const cleared = armorHpClear(actor.system.vitals?.armor);
+      if ( cleared ) actor.update({ "system.vitals.armor.value": cleared.value, "system.vitals.armor.granted": cleared.granted });
+    }
   });
 }
 

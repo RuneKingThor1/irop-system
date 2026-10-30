@@ -13,7 +13,7 @@ export function isSuit(item) {
 export function updateArmorPool(actor, change, max) {
   const pool = actor?.system?.vitals?.armor;
   if ( !pool || (!change.removed && !change.added) ) return null;
-  const value = nextArmorValue(pool.value, change, max);
+  const value = nextArmorValue(pool.value, change, max + (Number(pool.granted) || 0));
   if ( value === pool.value ) return null;
   return actor.update({ "system.vitals.armor.value": value });
 }

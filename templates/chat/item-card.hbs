@@ -36,6 +36,16 @@
   <div class="card-buttons"><button type="button" data-irop-action="powerDamage" data-tooltip="{{powerDamage.formula}}: the power's text says what a save does to it">
     <i class="fa-solid fa-burst"></i> Roll damage ({{powerDamage.formula}})</button></div>
   {{/if}}
+  {{#if powerHeal}}
+  {{!-- A healing power (2026-10-30): to the targeted tokens, or the caster. --}}
+  <div class="card-buttons"><button type="button" data-irop-action="powerHeal" data-tooltip="Target who it heals, or none for the caster, then press">
+    <i class="fa-solid fa-heart-pulse"></i> Roll healing ({{powerHeal.formula}})</button></div>
+  {{/if}}
+  {{#if powerArmor}}
+  {{!-- Additive Armor HP (2026-10-30): to the targeted tokens, or the caster. --}}
+  <div class="card-buttons"><button type="button" data-irop-action="powerArmor" data-tooltip="Target who gets it, or none for the caster, then press. It sits on top of worn armor and does not stack with itself">
+    <i class="fa-solid fa-gem"></i> Grant Armor HP {{powerArmor.amount}}</button></div>
+  {{/if}}
   {{#if perkLines.length}}<div class="card-upgrades"><p><strong>Perks:</strong> {{#each perkLines}}{{this}}{{#unless @last}}; {{/unless}}{{/each}}</p></div>{{/if}}
   {{#if upgrades.length}}
   {{!-- What the character's upgrade perks add to it (2026-10-18). --}}

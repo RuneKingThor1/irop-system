@@ -1,6 +1,6 @@
 import { BANK_CAP } from "./rules/dynosrs.mjs";
 import { adjustGmBanks } from "./settings.mjs";
-import { rollCritical, rollDamage, rollScatter, rollBurnSave, rollPowerSave, grantPowerBarrier, rollPowerDamage } from "./rolls.mjs";
+import { rollCritical, rollDamage, rollScatter, rollBurnSave, rollPowerSave, grantPowerBarrier, rollPowerDamage, rollPowerHeal, grantPowerArmor } from "./rolls.mjs";
 import { approveSupport, declineSupport, fireMortar, mortarDamage } from "./apps/resources.mjs";
 import { clearBlast } from "./canvas/blast.mjs";
 import { askStatusValue, setStatus, statusDef, statusValue } from "./statuses.mjs";
@@ -91,6 +91,8 @@ async function handle(message, action, button) {
     case "powerSave2": return rollPowerSave(message, { second: true });
     case "powerDamage": return rollPowerDamage(message);
     case "powerBarrier": return grantPowerBarrier(message);
+    case "powerHeal": return rollPowerHeal(message);
+    case "powerArmor": return grantPowerArmor(message);
     case "supportApprove": return approveSupport(message);
     case "supportDecline": return declineSupport(message);
     case "mortarFire": return fireMortar(message);
