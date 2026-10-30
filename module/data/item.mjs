@@ -501,7 +501,7 @@ export class AbilityData extends foundry.abstract.TypeDataModel {
         width: int(0, { min: 0 }),
         // Modes picked at each cast, never both (2026-10-29), such as Sanctuary's "Ward, Calm". Blank for none.
         modes: text(""),
-        // A second save on its card (2026-10-29), such as Supernova's Blinded save for anyone who
+        // A second save on its card (2026-10-29), such as Supernova's Disorientated save for anyone who
         // saw it: its attribute and what it is for.
         extraSave: new fields.SchemaField({
           save: new fields.StringField({ required: true, blank: true, initial: "",
@@ -542,6 +542,8 @@ export class SpeciesData extends foundry.abstract.TypeDataModel {
       boons: new fields.BooleanField({ initial: false }),
       // RULED 2026-10-08: grants the Paraphysical tag, which shows the Paraphysics panel.
       paraphysical: new fields.BooleanField({ initial: false }),
+      // A species that can never be paraphysical, by any means, Awakening included (Khaldar, 2026-10-30).
+      noParaphysics: new fields.BooleanField({ initial: false }),
       // Paraphysics (2026-10-19): the attribute it casts on (Humans and Telestoi Charisma,
       // Reticulons Intelligence), how many disciplines one of them can hold (Humans 5, Reticulons
       // 4, Telestoi 3), and ranks it grants in a discipline, which also raise that discipline's cap.

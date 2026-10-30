@@ -7733,12 +7733,12 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   // A save power with damage and a second save (Supernova, 2026-10-29): Roll damage and both save buttons.
   const nova = Object.assign(new FakeDoc({}), { id: "nv", type: "ability", name: "Supernova", img: "x.svg", actor: caster });
   nova.system = new itemModels.AbilityData({ energyCost: 10, paraphysics: { discipline: "astrokinesis", tier: 5, rank: 4, save: "tgh",
-    damage: { formula: "10d8", type: "cosmic" }, rank4: { damage: "2d8" }, extraSave: { save: "tgh", label: "Blinded (2)" },
+    damage: { formula: "10d8", type: "cosmic" }, rank4: { damage: "2d8" }, extraSave: { save: "tgh", label: "Disorientated (2)" },
     evolutions: [{ id: "cc", name: "Core-Collapse" }, { id: "sc", name: "Stellar Cradle" }] } }, { parent: nova });
   const novaCard = rolls.powerCard(caster, nova);
   check("psi card: a save power's damage is rolled from its card, with its ranks; a second save has its own button",
     novaCard.powerDamage?.formula === "10d8 + 2d8" && novaCard.powerDamage.type === "cosmic" && novaCard.powerSave2?.save === "tgh"
-      && novaCard.powerSave2.label === "Blinded (2)" && novaCard.powerLines.some(l => /^Blinded \(2\): Toughness at/.test(l)), JSON.stringify(novaCard));
+      && novaCard.powerSave2.label === "Disorientated (2)" && novaCard.powerLines.some(l => /^Disorientated \(2\): Toughness at/.test(l)), JSON.stringify(novaCard));
   const novaDoc = new JSDOM(tpl("templates/chat/item-card.hbs")({ item: nova, system: nova.system, ...novaCard })).window.document;
   check("psi card: the Roll damage and second save buttons render",
     !!novaDoc.querySelector('[data-irop-action="powerDamage"]') && !!novaDoc.querySelector('[data-irop-action="powerSave2"]') && !!novaDoc.querySelector('[data-irop-action="powerSave"]')

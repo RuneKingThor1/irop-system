@@ -122,7 +122,7 @@ export function planFor(choices, { species, role, background }, items = game.ite
   const attributes = recruitAttributes(species, boons);
   for ( const [k, n] of Object.entries(adjust.attributes) ) attributes[k] += n;
   // A paraphysical recruit (2026-10-20): species or background, a free rank and a free power.
-  const enabled = !!(species?.system?.paraphysical || background?.system?.paraphysical);
+  const enabled = !species?.system?.noParaphysics && !!(species?.system?.paraphysical || background?.system?.paraphysical);
   const powers = items?.filter?.(i => (i.type === "ability") && i.system?.paraphysics?.discipline) ?? [];
   const psi = psiTraining(choices.training?.psi, { enabled, species: speciesParaphysics(species?.system ?? null), powers });
   return trainingPlan(choices.training, {
@@ -379,7 +379,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const speciesCards = list.species.map(s => ({
       id: s.id, name: s.name, img: s.img, on: s.id === c.species, blurb: blurb(s.system.description),
       health: s.system.health, energy: s.system.energy, attributes: speciesAttributes(s.system),
-      tags: [s.system.boons ? "Takes boons" : "", s.system.mutations ? "Carries mutations" : "", s.system.paraphysical ? "Paraphysical" : ""].filter(Boolean),
+      tags: [s.system.boons ? "Takes boons" : "", s.system.mutations ? "Carries mutations" : "", s.system.paraphysical ? "Paraphysical" : "", s.system.noParaphysics ? "Never paraphysical" : ""].filter(Boolean),
       // Its traits by name, the text on hover (2026-10-20).
       traits: speciesTraits(s)
     }));

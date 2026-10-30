@@ -418,7 +418,7 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // An NPC's is always there for a GM, to make any of them a caster (2026-10-20).
     return !!this.actor.system.isParaphysical || (this.isEditMode && !!game.user?.isGM)
       || ((this.actor.type === "npc") && !!game.user?.isGM)
-      || ((this.actor.system.crystals?.total ?? 0) >= IROP.paraphysics.awakenCost);
+      || (!this.actor.system.paraphysicsBarred && ((this.actor.system.crystals?.total ?? 0) >= IROP.paraphysics.awakenCost));
   }
 
   /** Leave the Effects and Paraphysics tabs out where they are hidden. @inheritDoc */

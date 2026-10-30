@@ -397,6 +397,16 @@ check("disorientated both ways",
   check("projects: intelligence takes Social skills, Stealth, Hacking and Lock Picking, on their own attribute",
     proj.contribution(intel, soldier, "persuasion") === 18 && proj.contribution(intel, soldier, "stealth") === 7
       && proj.contribution(intel, soldier, "tactics") === 0 && proj.skillQualifies(intel, "lockpicking") && proj.skillQualifies(intel, "coercion"));
+  {
+    // A perk that counts a skill on Intelligence Actions lets that skill work them (2026-10-30).
+    const watcher = { attributes: { per: { mod: 4 }, int: { mod: 4 } }, skills: { awareness: { rank: 2 }, investigation: { rank: 1 } },
+      bonuses: { strategy: { perRank: { intelligence: { awareness: 5, investigation: 5 } } } } };
+    const plain = { attributes: watcher.attributes, skills: watcher.skills };
+    check("strategy: a perk's skill works Intelligence Actions, for the soldier who has the perk",
+      (proj.contribution(intel, watcher, "awareness") === 24) && (proj.contribution(intel, watcher, "investigation") === 14)
+        && (proj.bestSkill(intel, watcher)?.skill === "awareness") && (proj.contribution(intel, plain, "awareness") === 0)
+        && (proj.bestSkill(intel, plain) === null), JSON.stringify(proj.bestSkill(intel, watcher)));
+  }
   check("projects: a soldier works with their best skill; labor when they have none for Engineering; nobody without one for Research",
     proj.bestSkill(research, soldier).skill === "tactics" && proj.bestSkill(intel, soldier).skill === "persuasion"
       && proj.bestSkill(eng, soldier).skill === "labor" && proj.bestSkill({ kind: "research", specialization: ["biology"] }, soldier) === null);
@@ -1691,6 +1701,8 @@ check("disorientated both ways",
   check("psi: awakening costs 2 crystals, once",
     psi.checkAwaken({ enabled: false, crystals: 2 }).ok && /takes 2 psycrystals; you have 1/.test(psi.checkAwaken({ enabled: false, crystals: 1 }).reason)
       && /Already/.test(psi.checkAwaken({ enabled: true, crystals: 5 }).reason));
+  check("A species that can never be paraphysical cannot be awakened, whatever the crystals",
+    !psi.checkAwaken({ enabled: false, crystals: 9, barred: true }).ok && /cannot be paraphysically enabled/.test(psi.checkAwaken({ enabled: false, crystals: 9, barred: true }).reason));
   check("psi: a power's choices are its own options; a library archetype comes in as an editable copy",
     eq(psi.powerChoices({ options: [{ id: "x", label: "Crushweight", text: "Pinned" }] }), [{ key: "x", label: "Crushweight", text: "Pinned" }])
       && psi.optionFromArchetype("efficient", "e1").energy === -1 && psi.optionFromArchetype("anchored", "a1").anchored

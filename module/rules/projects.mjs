@@ -14,15 +14,22 @@ export function projectResource(kind) {
   return IROP.projectKinds[kind]?.resource ?? "logistics";
 }
 
-/** Can this skill work this project? Intelligence takes any Social skill, Stealth, Hacking or Lock Picking. */
-export function skillQualifies(project, skill) {
-  if ( project?.kind === "intelligence" ) return (IROP.skills[skill]?.group === "social") || IROP.intelSkills.includes(skill);
+/**
+ * Can this skill work this project? Intelligence takes any Social skill, Stealth, Hacking or Lock
+ * Picking, and any skill a soldier's perk counts on Intelligence Actions (Johnald, 2026-10-30:
+ * Silent Watchers' Investigation and Awareness, Calm Under Pressure's Paraphysics).
+ */
+export function skillQualifies(project, skill, soldier = null) {
+  if ( project?.kind === "intelligence" ) {
+    return (IROP.skills[skill]?.group === "social") || IROP.intelSkills.includes(skill)
+      || ((Number(soldier?.bonuses?.strategy?.perRank?.intelligence?.[skill]) || 0) > 0);
+  }
   return (project?.specialization ?? []).includes(skill);
 }
 
 /** The skills that could work a project, in the skill list's order. */
-export function qualifyingSkills(project) {
-  return Object.keys(IROP.skills).filter(k => skillQualifies(project, k));
+export function qualifyingSkills(project, soldier = null) {
+  return Object.keys(IROP.skills).filter(k => skillQualifies(project, k, soldier));
 }
 
 /**
@@ -46,7 +53,7 @@ export function contribution(project, soldier, skill) {
   // Insider Knowledge: Intel on an Intelligence Action in a Megacity, with or without a skill for it.
   const insider = inMegacity(project) ? Math.max(0, Number(perks.intelMegacity) || 0) : 0;
   if ( skill === INSIDER ) return Math.round(insider);
-  if ( !skillQualifies(project, skill) ) return 0;
+  if ( !skillQualifies(project, skill, soldier) ) return 0;
   const rank = Number(soldier?.skills?.[skill]?.rank) || 0;
   if ( rank < 1 ) return 0;
   const attr = (project.kind === "intelligence") ? IROP.skills[skill]?.attribute : "int";
@@ -76,7 +83,7 @@ export function inMegacity(project) {
  */
 export function bestSkill(project, soldier) {
   let best = null;
-  for ( const skill of qualifyingSkills(project) ) {
+  for ( const skill of qualifyingSkills(project, soldier) ) {
     if ( (Number(soldier?.skills?.[skill]?.rank) || 0) < 1 ) continue;
     const amount = contribution(project, soldier, skill);
     if ( !best || (amount > best.amount) ) best = { skill, amount };

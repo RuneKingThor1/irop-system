@@ -332,7 +332,8 @@ export function checkPowerRank({ name, current, n, unspent, crystals, choice }) 
 }
 
 /** Can this character be awakened? Not if already able, and only with the crystals. */
-export function checkAwaken({ enabled, crystals }) {
+export function checkAwaken({ enabled, crystals, barred = false }) {
+  if ( barred ) return { ok: false, reason: "This species cannot be paraphysically enabled by any means." };
   if ( enabled ) return { ok: false, reason: "Already paraphysical." };
   const cost = P().awakenCost;
   if ( crystals < cost ) return { ok: false, crystals: cost, reason: `Awakening takes ${cost} psycrystals; you have ${crystals}.` };

@@ -197,12 +197,18 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
    * holding a rank in any discipline, so nothing already on a sheet is hidden.
    */
   get isParaphysical() {
+    if ( this.paraphysicsBarred ) return false;
     const items = this.parent?.items ?? [];
     if ( items.some(i => ["species", "background"].includes(i.type) && i.system.paraphysical) ) return true;
     if ( items.some(i => (i.type === "ability") && i.system.isParaphysical) ) return true;
     // Awakened in play with psycrystals (2026-10-19).
     if ( this.psi?.awakened ) return true;
     return Object.values(this.paraphysics ?? {}).some(rank => rank > 0);
+  }
+
+  /** Is this actor of a species that can never be paraphysical (Khaldar, 2026-10-30)? */
+  get paraphysicsBarred() {
+    return (this.parent?.items ?? []).some(i => (i.type === "species") && i.system.noParaphysics);
   }
 
   /** The actor's role item, if any. */

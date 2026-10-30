@@ -339,7 +339,7 @@ export async function onChoosePower(event, target) {
 /** Awaken (2 psycrystals): paraphysical for good, rank 1 in a discipline, and one power free. */
 export async function onAwaken() {
   const actor = this.actor;
-  const check = checkAwaken({ enabled: actor.system.isParaphysical, crystals: crystalsOf(actor) });
+  const check = checkAwaken({ enabled: actor.system.isParaphysical, crystals: crystalsOf(actor), barred: actor.system.paraphysicsBarred });
   if ( !check.ok ) return ui.notifications.warn(check.reason);
   const open = Object.entries(IROP.disciplines).filter(([k]) => disciplineOpen(k));
   const data = await DialogV2().input({

@@ -9,6 +9,7 @@
       <input type="checkbox" name="system.boons" {{checked system.boons}}><span>Grants boons</span></label>
     <label class="check" data-tooltip="Grants the Paraphysical tag: the Abilities tab shows the Paraphysics panel">
       <input type="checkbox" name="system.paraphysical" {{checked system.paraphysical}}><span>Paraphysical</span></label>
+    <label class="check" data-tooltip="Can never be paraphysically enabled by any means, Awakening included. The Paraphysics skill stays open for identification and knowledge"><input type="checkbox" name="system.noParaphysics" {{checked system.noParaphysics}}><span>Never paraphysical</span></label>
   </div>
   {{#if system.paraphysical}}
   {{!-- Paraphysics (2026-10-19): what it casts on, how many disciplines, and granted ranks. --}}

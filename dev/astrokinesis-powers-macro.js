@@ -236,9 +236,9 @@
         evo("Point of No Return", "A creature that fails cannot leave the area on its next turn. They also take Shredding 2.", { shred: 2 })
       ] },
     { name: "Supernova", img: "icons/svg/fire.svg", tier: 5, save: "tgh", tracks: ["damage", "range"], exclusive: "astrokinesis-tier5",
-      extraSave: { save: "tgh", label: "Blinded (2), anyone who saw it unprotected" },
+      extraSave: { save: "tgh", label: "Disorientated (2), anyone who saw it unprotected" },
       flavor: "An extremely powerful ability, it causes a brilliant, supernova-like explosion at a point of your choice. Those that die in its radius are left as nothing but cosmic dust. Use with care and caution.",
-      text: "Creatures inside its radius must make a Toughness save. On a failure they take 10d8 Cosmic damage, or half on a success.</p><p>Any creature that sees the supernova unprotected must also make the save or become Blinded (2), whether friendly or hostile. The caster is exempt from the Blinded save.",
+      text: "Creatures inside its radius must make a Toughness save. On a failure they take 10d8 Cosmic damage, or half on a success.</p><p>Any creature that sees the supernova unprotected must also make the save or become Disorientated (2), whether friendly or hostile. The caster is exempt from the Disorientated save.",
       energy: 10, range: 8, area: 4, damage: "10d8",
       r2: { text: "Range +2.", range: 2 },
       r4: { text: "Damage +2d8.", damage: "2d8" },

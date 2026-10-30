@@ -184,6 +184,9 @@
 .irop-rules .bg p { max-width: none; }
 .irop-rules .readout.telestoi .badge { color: var(--telestoi); border-color: var(--telestoi-dim); }
 .irop-rules .readout.telestoi .vital .v, .irop-rules .readout.telestoi .pick-label, .irop-rules .readout.telestoi .dm { color: var(--telestoi); }
+.irop-rules { --khaldar: #e8642c; --khaldar-dim: #9a4220; }
+.irop-rules .readout.khaldar .badge { color: var(--khaldar); border-color: var(--khaldar-dim); }
+.irop-rules .readout.khaldar .vital .v, .irop-rules .readout.khaldar .pick-label, .irop-rules .readout.khaldar .dm { color: var(--khaldar); }
 .irop-rules .readout.reticulon .badge { color: var(--reticulon); border-color: var(--reticulon-dim); }
 .irop-rules .readout.reticulon .vital .v, .irop-rules .readout.reticulon .pick-label, .irop-rules .readout.reticulon .dm { color: var(--reticulon); }
 .irop-rules .status-head.negative { color: var(--danger); }

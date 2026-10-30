@@ -1134,7 +1134,7 @@ export function powerCard(actor, item) {
     // The Roll save button's numbers (2026-10-20), fixed when the power is used.
     powerSave = { save: p.save, saveLabel: attr?.label ?? p.save, dm, dmText: signed(dm), label: totals.evolvedName || item.name };
   }
-  // A second save (2026-10-29), such as Supernova's Blinded save for anyone who saw it.
+  // A second save (2026-10-29), such as Supernova's Disorientated save for anyone who saw it.
   let powerSave2 = null;
   const extra = p.extraSave;
   if ( extra?.save && IROP.attributes[extra.save] ) {

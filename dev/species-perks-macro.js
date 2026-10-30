@@ -25,7 +25,7 @@
       { name: "Controlled Mutations", img: "icons/magic/life/heart-pink.webp",
         text: p("Roll twice on the Positive Mutation Table and once on the Negative Mutation Table at character creation. Because a Baron's mutations are bestowed under a Monarch's careful guidance, you may reroll the Negative result once and take the second outcome. All results are permanent. If a mutation grants a skill you already have, increase that skill by one rank instead.") },
       { name: "Human Passing", img: "icons/magic/control/silhouette-hold-change-blue.webp",
-        text: p("A Baron reads as an ordinary (if slightly off-putting) human under normal observation. Gain a bonus to Deception and disguise checks to maintain a human cover, and move through human settlements and most GENESIS checkpoints without automatic suspicion. Openly using overt mutations (wings, bared natural weapons, acid spit and the like) immediately blows this cover to any human witnesses.") }
+        text: p("A Baron reads as an ordinary (if slightly off-putting) human under normal observation. Gain an Assistance die on Deception and disguise checks to maintain a human cover, and move through human settlements and most GENESIS checkpoints without automatic suspicion. Openly using overt mutations (wings, bared natural weapons, acid spit and the like) immediately blows this cover to any human witnesses.") }
     ],
     Human: [
       { name: "Adaptable", img: "icons/magic/life/crosses-trio-red.webp",
