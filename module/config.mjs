@@ -396,6 +396,12 @@ IROP.weaponCategories = {
   explosive: { label: "Explosive", attribute: null }
 };
 
+/** A weapon's Attack roll choice (Johnald, 2026-11-01): by category, or any attribute. */
+IROP.weaponAttackAttributes = {
+  "": "By category",
+  ...Object.fromEntries(Object.entries(IROP.attributes).map(([k, a]) => [k, a.label]))
+};
+
 /**
  * RULED 2026-10-08 (Johnald): the Combat tab sorts weapons into Ranged, Melee,
  * Special and Explosives. Special is the launchers (LAW, Rocket Launcher,
@@ -1073,7 +1079,7 @@ IROP.missionOutcomes = {
 IROP.strengthBands = [
   { upTo: 0.3, label: "Low", text: "Patrols of a few troopers." },
   { upTo: 0.7, label: "Moderate", text: "Regular GENESIS squads, with some support." },
-  { upTo: 1, label: "High", text: "Elite Xar'Nath squads with paraphysical specialists and close air support." }
+  { upTo: 1, label: "High", text: "Elite Zar'Nath squads with paraphysical specialists and close air support." }
 ];
 
 /** What Reputation means on a mission (doc: Effects of Reputation). */

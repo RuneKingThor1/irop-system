@@ -91,8 +91,9 @@
       <p class="en-sub">Sets your base attributes, health and energy. Each attribute is shown against the human baseline.</p>
       <div class="en-grid">
         {{#each species as |s|}}
-        <button type="button" class="en-card {{#if s.on}}on{{/if}}" style="--c: var(--irop-sky)" data-action="pick" data-kind="species" data-id="{{s.id}}" aria-pressed="{{#if s.on}}true{{else}}false{{/if}}">
-          <span class="en-card-top"><img class="en-thumb" src="{{s.img}}" alt=""><span><span class="en-name">{{s.name}}</span><span class="en-blurb">{{s.blurb}}</span></span></span>
+        <button type="button" class="en-card en-species-card {{#if s.on}}on{{/if}}" style="--c: var(--irop-sky)" data-action="pick" data-kind="species" data-id="{{s.id}}" aria-pressed="{{#if s.on}}true{{else}}false{{/if}}">
+          <span class="en-card-top"><img class="en-thumb" src="{{s.img}}" alt=""><span><span class="en-name">{{s.name}}</span></span></span>
+          <span class="en-blurb">{{s.blurb}}</span>
           <span class="en-row"><span class="k">Health / energy</span>{{s.health}} / {{s.energy}}</span>
           <span class="en-stats">{{#each s.attributes as |a|}}<span class="{{#if (gt a.diff 0)}}hi{{/if}}{{#if (lt a.diff 0)}}lo{{/if}}">{{a.abbr}}<b>{{a.value}}</b></span>{{/each}}</span>
           {{#if s.traits.length}}<span class="en-perks en-traits">{{#each s.traits as |t|}}<span data-tooltip="{{t.tip}}">{{t.name}}</span>{{/each}}</span>{{/if}}
@@ -106,7 +107,7 @@
         <div class="en-perk-list">
           {{#each speciesTraits as |t|}}
           <div class="en-trait"><img src="{{t.img}}" alt=""><span class="en-perk-body"><span class="en-perk-name">{{t.name}}</span>
-            <span class="en-perk-meta">{{t.meta}}</span><span class="en-tperk-text">{{t.text}}</span></span></div>
+            <span class="en-perk-meta">{{t.meta}}</span><div class="en-perk-text">{{{t.description}}}</div></span></div>
           {{/each}}
         </div>
       </div>
@@ -254,6 +255,7 @@
           {{/each}}
         </div>
         <div class="en-block"><span class="en-label">Skills</span>
+          {{#unless @root.training.skillsReady}}<p class="hint warn">Pick your role and background skills first, on the Skills and perk step.</p>{{/unless}}
           <div class="en-train-skills">
           {{#each skills as |s|}}
           <div class="en-train-row {{#if s.bought}}bought{{/if}} {{#unless s.has}}untrained{{/unless}}">
@@ -290,7 +292,7 @@
             <img src="{{w.img}}" alt="">
             <span class="en-perk-body"><span class="en-perk-name">{{w.name}}</span>
               <span class="en-perk-meta">{{w.discipline}}, tier {{w.tier}}{{#if w.energy}}, {{w.energy}} EN{{/if}}</span>
-              {{#if w.blurb}}<span class="en-tperk-text">{{w.blurb}}</span>{{/if}}</span>
+              {{#if w.description}}<div class="en-perk-text">{{{w.description}}}</div>{{/if}}</span>
           </div>
           {{else}}
           <p class="en-empty">No powers for this discipline in this world yet. The GM can add one later.</p>
@@ -316,7 +318,7 @@
               <img src="{{p.img}}" alt="">
               <span class="en-perk-body"><span class="en-perk-name">{{p.name}}</span>
                 <span class="en-perk-meta">{{p.cost}} XP{{#if p.meta}}, {{p.meta}}{{/if}}</span>
-                {{#if p.blurb}}<span class="en-tperk-text">{{p.blurb}}</span>{{/if}}
+                {{#if p.description}}<div class="en-perk-text">{{{p.description}}}</div>{{/if}}
                 {{#unless p.on}}{{#unless p.canBuy}}<span class="en-tperk-why">{{p.reason}}</span>{{/unless}}{{/unless}}</span>
             </div>
             {{/each}}

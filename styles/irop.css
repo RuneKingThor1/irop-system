@@ -1534,7 +1534,8 @@
 
 /* The long Biography, printed in the record's voice. */
 .irop .irop-record prose-mirror.record-biography {
-  min-height: 60px;
+  /* Larger on the page and while editing (Johnald, 2026-11-01). */
+  min-height: 240px;
   padding: 2px 0;
   background: transparent;
   border: none;
@@ -1547,7 +1548,7 @@
 }
 .irop .irop-record prose-mirror.record-biography .editor-content { color: var(--rec-value); padding-left: 10px; }
 .irop .irop-record prose-mirror.record-biography p { margin: 0 0 6px; }
-.irop .irop-record prose-mirror.record-biography.active { background: rgba(0, 0, 0, 0.22); border-left-color: var(--rec-line); min-height: 220px; }
+.irop .irop-record prose-mirror.record-biography.active { background: rgba(0, 0, 0, 0.22); border-left-color: var(--rec-line); min-height: 420px; }
 
 /* Section sits under Profession, as in the reference record. */
 .irop .record-line.indent dt { padding-left: 18px; }
@@ -1873,6 +1874,9 @@
 .irop-territory-card .window-content { padding: 0; overflow-y: auto; }
 /* Never taller than the screen; the card scrolls, and its buttons stay in view at the bottom (2026-10-16). */
 .application.irop-territory-card { max-height: calc(100vh - 120px); min-height: 260px; }
+/* The scrollbar always shows, full width on a visible track (Johnald, 2026-11-01): core's thin one on a
+   transparent track was easy to miss. */
+.application.irop-territory-card .window-content { overflow-y: scroll; scrollbar-width: auto; scrollbar-color: var(--irop-accent) var(--irop-sunk); }
 .irop .territory-card { display: flex; flex-direction: column; font-size: 20px; line-height: 1.35; }
 .irop .territory-card .tc-header {
   position: relative; display: flex; align-items: flex-end; min-height: 104px; padding: 12px 14px 10px; overflow: hidden;
@@ -2906,13 +2910,16 @@
 .irop .en-sub { margin: 0 0 14px; color: var(--irop-label-ink); }
 .irop .en-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .irop .en-empty { color: var(--irop-muted); font-style: italic; }
-.irop :where(.window-content) .en-card { --c: var(--irop-sky); position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: left; width: auto; height: auto; min-height: 0;
+.irop :where(.window-content) .en-card { --c: var(--irop-sky); position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 6px; text-align: left; width: auto; height: auto; min-height: 0;
   background: var(--irop-panel-2); border: 1px solid var(--irop-line); border-radius: 4px; padding: 16px 14px 14px; color: var(--irop-ink); overflow: hidden; box-shadow: none;
   font-family: inherit; font-size: 16px; line-height: 1.4; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease; }
 .irop .en-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--c); }
 .irop :where(.window-content) .en-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--c) 55%, var(--irop-line)); box-shadow: none; }
 .irop :where(.window-content) .en-card.on { border-color: var(--c);
   box-shadow: 0 0 0 1px var(--c), 0 10px 30px -12px color-mix(in srgb, var(--c) 80%, transparent), inset 0 0 50px -24px var(--c); }
+/* Species cards share their rows across the shelf, so the numbers line up however long the text runs
+   (Johnald, 2026-11-01). The last row holds the traits, empty on a species without any. */
+.irop :where(.window-content) .en-card.en-species-card { display: grid; grid-row: span 5; grid-template-rows: subgrid; row-gap: 6px; }
 .irop .en-card-top { display: flex; align-items: center; gap: 10px; }
 .irop .en-card-top > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .irop .en-thumb { width: 40px; height: 40px; flex: none; border: 1px solid var(--irop-line-bright); border-radius: 3px; object-fit: cover; background: var(--irop-sunk); }
@@ -3092,7 +3099,6 @@
 .irop .en-tperk.on { border-color: var(--irop-good); box-shadow: inset 0 0 30px -18px var(--irop-good); }
 .irop .en-tperk:is(.locked, .excluded):not(.can) { opacity: 0.55; }
 .irop .en-tperk:not(.on):not(.can) { cursor: help; }
-.irop .en-tperk-text { display: block; font-size: 14px; color: var(--irop-label-ink); margin-top: 3px; }
 .irop .en-tperk-why { display: block; font-size: 14px; color: var(--irop-warn, #e0a03c); margin-top: 3px; }
 /* Requisition (2026-10-16): the stores the GM opened, and the recruit's purse and kit. */
 .irop :where(.window-content) .en-step.en-step-req { margin-top: 8px; border-top: 1px solid var(--irop-line); }

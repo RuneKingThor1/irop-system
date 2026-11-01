@@ -1486,6 +1486,8 @@ check("disorientated both ways",
   check("enlistment: mockup A's steps, with Mutations only for a species that carries them (2026-10-16)",
     en.stepsFor({ system: { mutations: false } }).map(s => s.key).join() === "species,role,background,skills,training,identity,review"
       && en.stepsFor(species).map(s => s.key).join() === "species,role,background,skills,mutations,training,identity,review" && en.stepsFor(null).length === 7);
+  check("enlistment: an uncut tip keeps all of a long description", en.blurb(`<p>${"Every word stays. ".repeat(60)}</p>`, Infinity).length === 1079);
+  check("enlistment: skills are not picked with no role or background", !en.startingSkillsPicked({}, null, null));
   check("enlistment: a card's blurb is plain text, cut at a sentence",
     en.blurb("<p>Short one.</p>") === "Short one." && en.blurb("<p>First sentence here. Second sentence is much longer than the room left for it.</p>", 30) === "First sentence here."
       && en.blurb("") === "");

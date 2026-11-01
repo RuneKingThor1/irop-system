@@ -1,6 +1,6 @@
 import { IROP } from "../config.mjs";
 import {
-  STEPS, DEFAULT_IMG, blurb, speciesAttributes, rolePlan, backgroundPlan, skillsTaken, startingRanks, operativeName, stepIssues, operativeData,
+  STEPS, DEFAULT_IMG, blurb, speciesAttributes, rolePlan, backgroundPlan, skillsTaken, startingRanks, startingSkillsPicked, operativeName, stepIssues, operativeData,
   stepsFor, rollMutations, rerollNegative, mutationsRolled, mutationIds, BOON_PICKS, boonPicks,
   emptyTraining, trainingPlan, cleanTraining, recruitAttributes, mutationNeeds, mutationAdjust, withMutationRanks, CREATION_SKILL_CAP,
   psiTraining, emptyPsi, backgroundFits
@@ -165,6 +165,11 @@ function perkAbility(entry) {
   return (doc?.type === "ability") ? doc : null;
 }
 
+/** An item's whole description, as a sheet shows it (Johnald, 2026-11-01: cut short, it was confusing). */
+function fullDescription(item) {
+  return item ? foundry.applications.ux.TextEditor.implementation.enrichHTML(item.system.description ?? "", { relativeTo: item }) : "";
+}
+
 /**
  * A species' traits, its perks (Johnald, 2026-10-20: the terminal did not show them): each with its
  * ability's name, picture and text as they are in this world. One missing from the world is left out.
@@ -174,7 +179,7 @@ export function speciesTraits(species) {
     const ability = fromUuidQuiet(p.uuid);
     if ( ability?.type !== "ability" ) return null;
     return { name: ability.name, img: ability.img || p.img || "icons/svg/book.svg", meta: perkMeta(ability.system),
-      tip: blurb(ability.system.description, 300), text: blurb(ability.system.description, 600) };
+      tip: blurb(ability.system.description, Infinity), ability };
   }).filter(Boolean);
 }
 
@@ -426,7 +431,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       })
     } : null;
 
-    const training = (key === "training") ? await trainingContext(plan, this.perkTab) : null;
+    const training = (key === "training") ? await trainingContext(plan, this.perkTab, startingSkillsPicked(c, role, background)) : null;
     if ( training ) this.perkTab = training.tab;
 
     // Mutations, for a species that carries them.
@@ -463,7 +468,7 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
       issue: issues[key], first: this.step === 0, last: key === "review",
       species: speciesCards,
       // The picked species' traits in full (2026-10-20).
-      speciesTraits: species ? speciesTraits(species) : [], roles: roleCards, backgrounds: backgroundCards, skills,
+      speciesTraits: species ? await Promise.all(speciesTraits(species).map(async t => ({ ...t, description: await fullDescription(t.ability) }))) : [], roles: roleCards, backgrounds: backgroundCards, skills,
       identity: {
         firstName: c.firstName, lastName: c.lastName, callsign: c.callsign, img: c.img,
         owners: isGM ? [{ id: "", name: `${game.user.name} (you)`, on: !c.owner },
@@ -679,6 +684,9 @@ export class EnlistmentApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const before = [...plan.perks];
     const have = Number(t[group][key]) || 0;
     if ( up ) {
+      if ( (group === "skills") && !startingSkillsPicked(this.choices, this.picked.role, this.picked.background) ) {
+        return ui.notifications.info("Pick your role and background skills first, on the Skills and perk step.");
+      }
       const next = (group === "attributes") ? plan.nextAttribute(key) : plan.nextSkill(key);
       const label = (group === "attributes") ? IROP.attributes[key]?.label : IROP.skills[key]?.label;
       if ( !next ) return ui.notifications.info((group === "attributes") && plan.attributes.find(a => a.key === key)?.locked ? `${label} cannot be raised.` : `${label} is at its top rank.`);
@@ -936,7 +944,7 @@ function trainingText(plan) {
 }
 
 /** The Training step: the XP meter, attribute and skill pips, and the trees' perks. */
-async function trainingContext(plan, tab = "") {
+async function trainingContext(plan, tab = "", skillsReady = true) {
   const pips = (max, start, bought) => Array.from({ length: max }, (_, i) => ({ start: i < start, bought: (i >= start) && (i < start + bought) }));
   const attributes = plan.attributes.map(a => {
     const next = plan.nextAttribute(a.key);
@@ -946,7 +954,7 @@ async function trainingContext(plan, tab = "") {
   const skills = plan.skills.map(s => {
     const next = plan.nextSkill(s.key);
     return { key: s.key, label: skillLabel(s.key), rank: s.rank, pips: pips(IROP.skillRanks.max, s.start, s.pips),
-      next: next?.cost ?? null, canAdd: !!next?.affordable, canDrop: s.pips > 0, bought: s.pips > 0, has: s.rank > 0 };
+      next: next?.cost ?? null, canAdd: skillsReady && !!next?.affordable, canDrop: s.pips > 0, bought: s.pips > 0, has: s.rank > 0 };
   });
   const trees = [];
   for ( const { tree, states } of plan.perkTrees ) {
@@ -960,7 +968,7 @@ async function trainingContext(plan, tab = "") {
         nodes.push({
           id: node.id, name: nodeName(node), img: source?.img || node.img || "icons/svg/item-bag.svg", cost: st.cost,
           on: st.state === "owned", state: st.state, canBuy: st.canBuy, reason: st.reason,
-          meta: source ? perkMeta(source.system) : "", blurb: blurb(source?.system?.description, 140)
+          meta: source ? perkMeta(source.system) : "", description: await fullDescription(source)
         });
       }
       tiers.push({ number: index + 1, exclusive: tier.exclusive && (tier.nodes.length > 1), gated: !!tree.system.gated, nodes });
@@ -983,15 +991,15 @@ async function trainingContext(plan, tab = "") {
     chosen: p.discipline ? IROP.disciplines[p.discipline] : "",
     rank: p.rank, extra: p.extra,
     canAdd: (p.nextCost !== null) && (p.nextCost <= plan.left), canDrop: p.extra > 0, next: p.nextCost,
-    powers: p.offered.map(w => ({ id: w.id, name: w.name, img: w.img || "icons/svg/aura.svg", on: p.power?.id === w.id,
+    powers: await Promise.all(p.offered.map(async w => ({ id: w.id, name: w.name, img: w.img || "icons/svg/aura.svg", on: p.power?.id === w.id,
       discipline: IROP.disciplines[w.system.paraphysics.discipline], tier: w.system.paraphysics.tier,
-      tracks: trackText({ ...w.system.paraphysics, rank: 1 }), energy: Number(w.system.energyCost) || 0, blurb: blurb(w.system.description, 120) })),
+      tracks: trackText({ ...w.system.paraphysics, rank: 1 }), energy: Number(w.system.energyCost) || 0, description: await fullDescription(w) }))),
     picked: p.power?.name ?? ""
   } : null;
   return {
     psi,
     budget: plan.budget, spent: plan.spent, left: plan.left, pct: plan.budget ? Math.round((plan.spent / plan.budget) * 100) : 0,
-    attributes, skills, trees, active, tab: active?.id ?? "", roleTiers: ENLIST_ROLE_TIERS, perRank: IROP.attributeAdvance.perRank, any: plan.spent > 0
+    attributes, skills, skillsReady, trees, active, tab: active?.id ?? "", roleTiers: ENLIST_ROLE_TIERS, perRank: IROP.attributeAdvance.perRank, any: plan.spent > 0
   };
 }
 

@@ -240,6 +240,9 @@ check("NPC caste", npc.details.caste === "monarch");
 
 const w = new items.WeaponData({ category: "melee", accuracy: 30, damage: { formula: "1d6 + @str.mod", type: "physical" } });
 check("melee rolls STR", w.attackAttribute === "str");
+check("Attack roll overrides the category", new items.WeaponData({ category: "melee", attackAttr: "agi" }).attackAttribute === "agi"
+  && new items.WeaponData({ category: "ranged", attackAttr: "agi" }).attackAttribute === "agi");
+check("Attack roll by category follows the category", new items.WeaponData({ category: "ranged", attackAttr: "" }).attackAttribute === "per");
 check("melee default 2 slots", w.slots === 2);
 check("ranged default 3 slots", new items.WeaponData({}).slots === 3);
 // RULED 2026-10-08: Combat tab sections. By category unless the weapon names one; launchers are Special.

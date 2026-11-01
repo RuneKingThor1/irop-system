@@ -111,6 +111,8 @@ export class WeaponData extends foundry.abstract.TypeDataModel {
       weaponClass: choice(() => IROP.weaponClasses, "smallArms"),
       // What it is, for the role perks (Johnald, 2026-10-18): an SMG, a Pistol, a SAW. Blank is untyped.
       weaponType: new fields.StringField({ required: true, blank: true, initial: "", choices: () => IROP.weaponTypes }),
+      // The attribute its attacks roll against (Johnald, 2026-11-01). Blank follows the category.
+      attackAttr: new fields.StringField({ required: true, blank: true, initial: "", choices: () => IROP.weaponAttackAttributes }),
       // Which Combat tab section it sits in; "auto" follows the category (see IROP.weaponGroups).
       sheetSection: choice(() => IROP.weaponGroupChoices, "auto"),
       tier: int(1, { min: 0, max: 9 }),
@@ -183,7 +185,7 @@ export class WeaponData extends foundry.abstract.TypeDataModel {
 
   /** The attribute an attack with this weapon rolls against, or null. */
   get attackAttribute() {
-    return IROP.weaponCategories[this.category]?.attribute ?? null;
+    return this.attackAttr || (IROP.weaponCategories[this.category]?.attribute ?? null);
   }
 
   get usesAmmo() {

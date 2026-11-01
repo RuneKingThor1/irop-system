@@ -5214,7 +5214,7 @@ check("tabs: Attributes, Abilities, Paraphysics (when shown, 2026-10-16), Combat
   check("editor css: its pencil always shows, an empty one says to press it, and the small ones grow when opened",
     /display:\s*block/.test(rule(".irop :where(.window-content) prose-mirror.inactive button.toggle:enabled"))
       && /Press the pencil to write/.test(css) && /min-height:\s*180px/.test(rule(".irop prose-mirror.store-description.active"))
-      && /min-height:\s*220px/.test(rule(".irop .irop-record prose-mirror.record-biography.active")));
+      && /min-height:\s*420px/.test(rule(".irop .irop-record prose-mirror.record-biography.active")));
   const portraitRule = rule(".irop .record-portrait");
   check("record css: the portrait is large, full width",
     /width:\s*100%/.test(portraitRule) && Number(portraitRule.match(/height:\s*(\d+)px/)?.[1]) >= 280, portraitRule);
@@ -7302,6 +7302,18 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   check("enlistment: Luck is locked in Training, saying so", !app.choices.training.attributes?.lck && /Luck cannot be raised/.test(said.at(-1) ?? "")
     && /Locked/.test(d.querySelector('[data-action="trainAttribute"][data-key="lck"]')?.closest(".en-train-row")?.textContent ?? "")
     && !!d.querySelector('[data-action="trainAttribute"][data-key="lck"][data-delta="1"]')?.disabled);
+  const roleSkill = app.choices.roleSkill;
+  app.choices.roleSkill = "";
+  d = await show(app, "training");
+  await act(app, "trainSkill", { key: "athletics", delta: "1" });
+  check("enlistment: no skill rank is bought until the role and background skills are picked, and it says why",
+    !app.choices.training.skills?.athletics && /Pick your role and background skills first/.test(said.at(-1) ?? "")
+      && /Pick your role and background skills first/.test(d.querySelector(".en-train-cols")?.textContent ?? "")
+      && !!d.querySelector('[data-action="trainSkill"][data-key="athletics"][data-delta="1"]')?.disabled
+      && !d.querySelector('[data-action="trainAttribute"][data-key="str"][data-delta="1"]')?.disabled);
+  app.choices.roleSkill = roleSkill;
+  d = await show(app, "training");
+  check("enlistment: once they are picked the hint goes", !/Pick your role and background skills first/.test(d.querySelector(".en-train-cols")?.textContent ?? ""));
   await act(app, "trainPerk", { node: "nt4" });
   check("enlistment: a perk below the first three tiers cannot be planned", !app.choices.training.perks.includes("nt4"));
   await act(app, "trainAttribute", { key: "tgh", delta: "1" });
@@ -7484,7 +7496,7 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
     check("enlistment: a species card names its traits, with the text on hover; one missing from the world is left out",
       texts(rtCard, ".en-traits > span").join() === "Freshwater Gills" && /Breathe fresh water/.test(rtCard.querySelector(".en-traits > span")?.dataset.tooltip ?? ""));
     check("enlistment: the picked species' traits in full under the cards, and on the record",
-      texts(sd, ".en-trait .en-perk-name").join() === "Freshwater Gills" && /Breathe fresh water/.test(sd.querySelector(".en-trait .en-tperk-text")?.textContent ?? "")
+      texts(sd, ".en-trait .en-perk-name").join() === "Freshwater Gills" && /Breathe fresh water/.test(sd.querySelector(".en-trait .en-perk-text")?.textContent ?? "")
         && /Traits\s*Freshwater Gills/.test(sd.querySelector(".en-dossier").textContent));
     caster.step = 4;
     let cd = await show(caster, "psi training");

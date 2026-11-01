@@ -182,6 +182,15 @@ export function backgroundFits(background, species) {
   return list.includes(String(species.name ?? "").trim().toLowerCase());
 }
 
+/** Has the recruit picked their role and background skills? Training's skill pips wait on it (Johnald, 2026-11-01). */
+export function startingSkillsPicked(choices, role, background) {
+  if ( !role || !background ) return false;
+  const rp = rolePlan(role);
+  const bp = backgroundPlan(background);
+  if ( rp.pick && !rp.options.includes(choices.roleSkill) ) return false;
+  return (choices.backgroundSkills ?? []).filter(k => bp.options.includes(k)).length === bp.pick;
+}
+
 export function stepIssues(choices, { species = null, role = null, background = null, mutationsReady = true, mutationChoices = [] } = {}) {
   const rp = rolePlan(role);
   const bp = backgroundPlan(background);

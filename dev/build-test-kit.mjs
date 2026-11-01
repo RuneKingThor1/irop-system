@@ -392,7 +392,7 @@ const folders = {
 
 // HANDOFF Section 9: Telestoi, not in the old world's species list.
 folders.Species.push({ name: "Telestoi", type: "species", system: {
-  description: "<p>A proud, refined, magnetic species from Elysthae in the Eridani System. (Block from the handoff.)</p>",
+  description: "<p>A proud, refined, magnetic species from Elysthae in the Eridani System.</p>",
   health: 6, energy: 10, attributes: { str: 30, agi: 30, tgh: 40, cha: 50, lck: 30, int: 40, per: 40 }, playable: true } });
 
 const MODELS = { weapon: models.WeaponData, armor: models.ArmorData, gear: models.GearData, mod: models.ModData,
