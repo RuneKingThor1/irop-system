@@ -13,6 +13,9 @@
  *
  * Damage uses @casting.mod, the caster's species casting modifier (Charisma, Intelligence for a
  * Reticulon). Areas are radii in tiles unless a power says line; Pulsar Lance is a line 2 wide.
+ *
+ * Tier 1 here matches dev/tier1-powers-macro.js (2026-11-04: Energy +1, the damage ladder). Tiers 2 to 4
+ * still carry their old Energy; the 2026-11-04 raise of +1 is not in this file yet.
  */
 (async () => {
   if ( !game.user.isGM ) return ui.notifications.warn("Run this as the GM.");
@@ -35,9 +38,9 @@
     { name: "Gravbolt", img: "icons/svg/target.svg", tier: 1, attack: true, tracks: ["accuracy", "damage"],
       flavor: "Harnessing the forces of gravity and weaponizing it a little bit gets you the gravbolt. It's scarily effective with crushing cosmic forces despite being one of the first things that an Astrokinetic learns.",
       text: "Single target. Skips Armor HP.",
-      energy: 3, range: 10, damage: "2d4 + @casting.mod",
-      r2: { text: "Damage +1.", damage: "1" },
-      r4: { text: "Damage +1d4.", damage: "1d4" },
+      energy: 4, range: 10, damage: "2d4 + floor(@casting.mod / 2)",
+      r2: { text: "Damage +1d4.", damage: "1d4" },
+      r4: { text: "Damage adds your full casting mod instead of half.", damage: "ceil(@casting.mod / 2)" },
       options: [
         opt("chain", "Chain", "chain", "A second target within 4 tiles for half damage."),
         opt("piercing", "Piercing", "piercing", "Ignores 2 Cosmic DR."),
@@ -50,7 +53,7 @@
     { name: "Gravitic Rip", img: "icons/svg/falling.svg", tier: 1, save: "agi", tracks: ["potency", "range"],
       flavor: "Utilizing and manipulating the gravity close to a foe, you effectively make them fall out of cover towards you should their agility fail them.",
       text: "On a failed save the target is dragged 2 tiles straight toward you, losing any cover it leaves.",
-      energy: 2, range: 6,
+      energy: 3, range: 6,
       r2: { text: "Range +2.", range: 2 },
       r4: { text: "Range +2.", range: 2 },
       options: [
@@ -65,13 +68,13 @@
     { name: "Penumbra", img: "icons/svg/aura.svg", tier: 1, tracks: ["duration"],
       flavor: "Harnessing the dark matter that makes up the vacuum of space to create a personal twilight around you. It makes it harder to hit you and possibly your allies. It dispels when the protected creature moves.",
       text: "Range Self. You count as half cover against ranged attacks wherever you stand. Does not add to real cover; take the better. Dispels when moved.",
-      energy: 2, range: 0, duration: 1,
+      energy: 3, range: 0, duration: 1,
       r2: { text: "Duration +1.", duration: 1 },
       r4: { text: "Duration +1.", duration: 1 },
       options: [
         opt("reflexive", "Reflexive", "reflexive", "Trigger: you are targeted by a ranged attack."),
         opt("overload", "Overload", "overload", "+1 Energy: an additional +5 to your defense.", { energy: 1, defense: 5, ...PAY }),
-        opt("wide", "Wide", "wide", "Covers allies within 1 tile of the target as well. Energy 3 (+1).", { energy: 1, ...PAY })
+        opt("wide", "Wide", "wide", "Covers allies within 1 tile of the target as well. Energy 4 (+1).", { energy: 1, ...PAY })
       ],
       evolutions: [
         evo("Protective Dark", "You may instead cast this directly onto an ally."),

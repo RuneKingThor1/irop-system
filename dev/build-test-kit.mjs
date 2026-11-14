@@ -274,7 +274,7 @@ function convertSpecies(i) {
     name: i.name,
     type: "species",
     system: {
-      description: i.system.description ?? "",
+      description: (i.system.description ?? "").replaceAll("Rigel", "Reti"),
       health,
       energy,
       attributes: { ...IROP.attributeDefaults, ...startingAttributes(i.system.description) },

@@ -1,4 +1,5 @@
 import { xpSpent } from "../rules/xp.mjs";
+import { DODGE } from "../rules/combat.mjs";
 import { serviceRank, migrateRankKey } from "../rules/ranks.mjs";
 import { BANK_CAP } from "../rules/dynosrs.mjs";
 import { armorPerks, armorDrAll, actorPerks } from "../rules/perks.mjs";
@@ -111,6 +112,8 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
         carry: int(0),
         // Defense outside worn armor, from effects or perks: the live sheet's Defense Mod.
         defense: int(0),
+        // More taken off a hit by a successful dodge than the base 3 (2026-11-14), from perks or effects.
+        dodgeReduction: int(0),
         // More or less Edge and Victory an operative may bank (2026-10-17): Overclocked Cortex +1 Edge,
         // Frayed Focus -1 Edge, Squandered Insight -1 Victory (none at all).
         edgeCap: int(0),
@@ -289,7 +292,7 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     const v = this.vitals;
 
     // Equipped armor feeds armor points, defense, barrier, damage reduction, mobility and dodges.
-    const armor = { points: 0, defense: 0, barrier: 0, dodges: 0, dr: {}, move: Object.fromEntries(Object.keys(IROP.speeds).map(k => [k, 0])) };
+    const armor = { points: 0, defense: 0, barrier: 0, dodges: 0, dodge: 0, dr: {}, move: Object.fromEntries(Object.keys(IROP.speeds).map(k => [k, 0])) };
     // Role perks on worn armor (2026-10-18): Medium Armor Mastery's extra armor HP, Full Regalia's DR.
     const perks = armorPerks(this.parent.items.filter(i => i.type === "ability"));
     for ( const item of this.parent.items ) {
@@ -306,6 +309,7 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
       armor.barrier += item.system.barrier ?? 0;
       for ( const k of Object.keys(armor.move) ) armor.move[k] += item.system.mobility[k] ?? 0;
       armor.dodges += item.system.dodges;
+      armor.dodge += Number(item.system.dodge) || 0;
       for ( const [type, n] of Object.entries(item.system.dr) ) armor.dr[type] = (armor.dr[type] ?? 0) + n;
       // Heavy Armor Mastery II and Heavy Armor Paragon: DR to every type in worn heavy armor.
       const allDr = armorDrAll(perks, item.system);
@@ -328,7 +332,11 @@ export class CombatantData extends foundry.abstract.TypeDataModel {
     for ( const key of this._perked?.critical ?? [] ) this.critical += Number(mods[key]) || 0;
     // Added to every attack roll against this character (RULED 2026-10-07).
     this.defense = armor.defense + this.bonuses.defense;
+    // Worn armor's D.M. on dodge rolls (Johnald, 2026-11-14): Light -10, Medium -5 unless the item says.
+    this.armorDodge = armor.dodge;
     this.initiativeBonus = this.bonuses.initiative;
+    // What a successful dodge takes off a hit (Johnald, 2026-11-14): 3, minimum 1 damage left.
+    this.dodgeReduction = Math.max(0, DODGE.reduction + (Number(this.bonuses.dodgeReduction) || 0));
     this.throwRange = d.throwRange(mods);
 
     // Sprint comes from the unarmored Run; armor and effect bonuses add flat per speed.

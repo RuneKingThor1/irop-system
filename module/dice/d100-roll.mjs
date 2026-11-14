@@ -1,4 +1,5 @@
-import { formula, totalModifier } from "../rules/combat.mjs";
+import { formula, totalModifier, naturalEdge, NATURAL_EDGE, luckRerollOffer } from "../rules/combat.mjs";
+import { BANK_CAP } from "../rules/dynosrs.mjs";
 import { IROP } from "../config.mjs";
 
 /**
@@ -8,6 +9,7 @@ import { IROP } from "../config.mjs";
  * options:
  *   label, subtitle   card heading
  *   kind              "check" | "attack" | "critical" | "dodge"
+ *   save              a check that is a save (no natural Edge)
  *   target            the number to meet or roll under
  *   targetLabel       for example "Perception 45"
  *   modifiers         [{label, value}] as collected by the combat rules core
@@ -68,9 +70,39 @@ export class D100Roll extends foundry.dice.Roll {
       buttons.push({ action: "damage", label: "Critical damage", icon: "fa-solid fa-burst", critical: true });
     }
 
+    // Doubles or a natural roll of the unit number on a check or attack (Johnald, 2026-11-14): the
+    // die lights up, and an operative roller may bank the Edge from the card, once.
+    let unit = NATURAL_EDGE.unit;
+    try { unit = game.settings.get("irop", "unitNumber"); } catch { /* the default */ }
+    const natural = naturalEdge(this.natural, { kind, save: !!o.save, unit });
+    const roller = o.actorUuid ? foundry.utils.fromUuidSync(o.actorUuid) : null;
+    let edge = null;
+    if ( natural ) {
+      const operative = roller?.type === "operative";
+      edge = {
+        ...natural,
+        label: { unit: `Unit number ${natural.unit}`, unitDoubles: `Unit number ${natural.unit}, doubles` }[natural.reason] ?? "Doubles",
+        cap: operative ? (roller.system.banks?.edgeMax ?? BANK_CAP.EDGE) : BANK_CAP.EDGE,
+        operative,
+        done: !!message?.flags?.irop?.banked?.EDGE
+      };
+    }
+
+    // Soldier's Luck (Johnald, 2026-11-14): a failed attack, check, save or dodge may be rerolled for a
+    // point, once: a reroll's own card offers none.
+    const luckRerolled = !!message?.flags?.irop?.luckReroll;
+    const luck = luckRerollOffer({ kind, failed: !success, rerolled: luckRerolled, reroll: !!o.luckReroll,
+      luck: roller?.system?.vitals?.luck?.value });
+    if ( luck ) buttons.push({ action: "luckReroll", label: `Reroll with Luck (${luck.left} left)`, icon: "fa-solid fa-clover" });
+
     return {
       ...context,
       isPrivate,
+      edge,
+      luckRerolled,
+      luckReroll: !!o.luckReroll,
+      // A successful dodge's effect on the hit (2026-11-14).
+      dodgeReduction: ((kind === "dodge") && success) ? (Number(o.reduction ?? 3)) : null,
       label: o.label ?? "Check",
       subtitle: o.subtitle ?? "",
       kind,
@@ -83,7 +115,6 @@ export class D100Roll extends foundry.dice.Roll {
       success,
       resultLabel: success ? words[0] : words[1],
       margin: Math.abs(o.target - this.total),
-      outOfBand: (this.total < 1) || (this.total > 100),
       buttons,
       messageId: message?.id ?? ""
     };

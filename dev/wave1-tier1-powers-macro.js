@@ -13,6 +13,9 @@
  * Healing uses half the caster's casting modifier, rounded down: Charisma, Intelligence for a
  * Reticulon. Mend's card has a Roll healing button and Crystalline Skin's a Grant Armor HP button,
  * both for the tokens the presser has targeted, or the caster when none are.
+ *
+ * Superseded 2026-11-04 by dev/tier1-powers-macro.js, which carries the new Energy costs and Mend's
+ * ladder. Do not run this one again: it would put the old numbers back.
  */
 (async () => {
   if ( !game.user.isGM ) return ui.notifications.warn("Run this as the GM.");

@@ -1,5 +1,6 @@
 import { HOUSE_RULE_DEFAULTS, BANK_CAP } from "./rules/dynosrs.mjs";
 import { SPECIALIZATION_RULES, parseUnlocks } from "./rules/skill-trees.mjs";
+import { NATURAL_EDGE } from "./rules/combat.mjs";
 import { SQUAD_SIGHT, refreshSquadSight } from "./canvas/squad-sight.mjs";
 import { IROP } from "./config.mjs";
 import { strategyRules, warRoomState } from "./rules/strategy.mjs";
@@ -56,6 +57,17 @@ export function registerSettings() {
     type: Boolean,
     default: SPECIALIZATION_RULES.crossRole,
     onChange: treeRules
+  });
+
+  // The unit number (Johnald, 2026-11-14): a natural d100 roll of it on a check or attack offers 2 Edge.
+  game.settings.register(SYSTEM, "unitNumber", {
+    name: "Unit number",
+    hint: "The squad's unit number, 75 for the 75th Eclipse. A natural d100 roll of it on a check or attack offers 2 Edge to bank; doubles offer 1. Change it for a custom unit (1 to 100); a unit number that is a double, such as 77, offers 3.",
+    scope: "world",
+    config: true,
+    type: Number,
+    range: { min: 1, max: 100, step: 1 },
+    default: NATURAL_EDGE.unit
   });
 
   // Squad sight (Johnald, 2026-10-08): players see what every friendly token sees.

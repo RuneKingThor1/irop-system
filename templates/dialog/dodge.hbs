@@ -1,14 +1,19 @@
 <div class="irop-dialog">
   <p class="lede">Dodge: d100, meet or roll under <strong>{{targetLabel}}</strong>. Dodges left this round: {{dodgesLeft}} of {{dodgesMax}}.</p>
+  <p class="lede">A successful dodge takes <strong>{{reduction}}</strong> off the hit's damage, critical hits included; it always does at least 1.</p>
+  <fieldset class="toggle-list single">
+    <label data-tooltip="Cover does not count against melee, in or out of it"><input type="checkbox" name="melee" {{checked melee}}><span>Against a melee attack</span><em>ignores cover</em></label>
+  </fieldset>
   <fieldset class="choice-row">
-    <legend>Your cover (dodge column)</legend>
+    <legend>Your cover (dodge column, ranged attacks only)</legend>
     {{#each covers as |c|}}
     <label class="pill"><input type="radio" name="cover" value="{{c.key}}" {{checked c.checked}}><span>{{c.label}}</span></label>
     {{/each}}
   </fieldset>
-  <fieldset class="toggle-list">
-    <label><input type="checkbox" name="unaware"><span>Unaware</span><em>you dodge as if in the open (+30)</em></label>
+  <fieldset class="toggle-list single">
+    <label data-tooltip="You dodge as if in the open, whatever cover you are behind"><input type="checkbox" name="unaware"><span>Unaware</span><em>+30, as if in the open</em></label>
     <label><input type="checkbox" name="disorientated" {{checked disorientated}}><span>Disorientated</span><em>+20</em></label>
+    <label data-tooltip="Adds to your cover; nothing in the open or against melee"><input type="checkbox" name="hunkered"><span>Hunkered down</span><em>a further -30, in cover</em></label>
   </fieldset>
   {{#if perks.any}}
   {{!-- Role perks (2026-10-18): applied on their own, ticked for what the system cannot see, counted. --}}

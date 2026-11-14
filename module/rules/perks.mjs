@@ -110,6 +110,18 @@ export function modText(mod) {
   return `${amount}${sep}${what}${from}${bands}`;
 }
 
+/**
+ * The battlefield modifiers a character's perks waive, each with the perks that do it:
+ * {overwatch: ["Anger Management"]} (2026-11-14).
+ */
+export function perkWaivers(abilities = []) {
+  const out = {};
+  for ( const { item, rule } of perksOf(abilities) ) {
+    for ( const key of rule.waives ?? [] ) (out[key] ??= []).push(item.name);
+  }
+  return out;
+}
+
 /** The stats each roll takes. */
 const ATTACK_STATS = new Set(["attack", "critical", "damage", "critDamage", "shred", "penetration", "enemyDodge", "damagePct", "blast", "drBypass"]);
 
@@ -395,6 +407,7 @@ export function automationText(name) {
       + `${a.noCrit ? ", no critical" : ""}${a.halfDamage ? ", half damage" : ""}${a.damagePct ? `, ${signed(a.damagePct)}% damage` : ""}${a.noDefense ? ", ignoring Defense and armor DR" : ""}`
       + `${(a.ammo ?? 1) !== 1 ? `, ${a.ammo} ammo` : ""}${a.blast ? `, ${signed(a.blast)} blast radius` : ""}`);
   }
+  if ( rule.waives?.includes("overwatch") ) parts.push("no +15 on overwatch and reaction fire");
   if ( rule.ammoOnly ) parts.push(`Use spends ${rule.ammoOnly} ammo from the weapon in hand`);
   if ( rule.uses ) parts.push(`${rule.uses.maxFrom ? `half your ${rule.uses.maxFrom.attrs[0].toUpperCase()} mod in` : rule.uses.max} use${rule.uses.max === 1 ? "" : "s"} per ${rule.uses.per}, refilled at Session start`);
   if ( rule.upgrades ) parts.push(`changes ${Object.keys(rule.upgrades).join(" and ")}`);

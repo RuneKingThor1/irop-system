@@ -360,6 +360,7 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       toggleSummary: IropActorSheet.#onToggleSummary,
       switchPhase: IropActorSheet.#onSwitchPhase,
       cleave: IropActorSheet.#onCleave,
+      rollItemDamage: IropActorSheet.#onRollItemDamage,
       toggleLedger: IropActorSheet.#onToggleLedger,
       resetTree: IropActorSheet.#onResetTree,
       chooseProjectile: IropActorSheet.#onChooseProjectile,
@@ -921,6 +922,8 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           const ph = phasedStats(s);
           const sv = ph.phase ? Object.assign(Object.create(s), { damage: ph.damage, accuracy: ph.accuracy, critical: ph.critical }) : s;
           const dmgBox = damageStat(sv, rollData);
+          // Its range bands with fitted mods and its phase (2026-11-14): each band's reach and D.M.
+          const rangeBands = weaponRangeBands(rolls.attackProfile(item)?.ranges);
           if ( perk.damage && (dmgBox.value !== "none") ) {
             dmgBox.value = `${dmgBox.value} + ${perk.damage}`;
             dmgBox.tip = `${dmgBox.tip}, + ${perk.damage} from perks`;
@@ -961,9 +964,12 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
               quantity: s.specialAmmo.system.quantity,
               tip: `${s.specialAmmo.name}: ${s.specialAmmo.system.quantity} ${s.specialAmmo.system.quantity === 1 ? "magazine" : "magazines"}, one loaded. ${
                 ammoSummary(s.specialAmmo.system.ammo) || "No special effects set."}` } : null,
-            showTray: !!s.slots || s.takesSpecialAmmo || !!s.projectileSlots,
+            showTray: !!s.slots || s.takesSpecialAmmo || !!s.projectileSlots || !!rangeBands.length,
+            rangeBands,
             // Rockets are ammunition for a rocket launcher, not fired on their own (2026-10-08).
             canAttack: (s.weaponClass !== "rocket") && (!!s.attackAttribute || !!s.damage.formula || (s.feed === "fuel")),
+            // Damage with no attack roll (2026-11-14): any weapon with damage, a launcher by what it has loaded.
+            canDamage: (s.weaponClass !== "rocket") && (s.projectileSlots ? !!s.loaded?.length : !!sv.damage?.formula),
             feed: s.feed,
             isFuel: s.feed === "fuel",
             isSingleUse: s.feed === "singleUse",
@@ -1477,6 +1483,12 @@ export class IropActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   static #onUseItem(event, target) {
     return IropActorSheet.#itemFrom.call(this, target)?.use();
+  }
+
+  /** Roll a weapon's damage with no attack (2026-11-14); Shift rolls a critical. */
+  static #onRollItemDamage(event, target) {
+    const item = IropActorSheet.#itemFrom.call(this, target);
+    if ( item ) return rolls.rollItemDamage(this.actor, item, { critical: !!event.shiftKey });
   }
 
   static #onPostItem(event, target) {
@@ -2765,4 +2777,20 @@ export function abilityCost(item, abilities) {
     energyChanged: changed,
     ammoCost: (ammo > 1) ? ammo : 0
   };
+}
+
+/**
+ * A ranged weapon's bands for its row (2026-11-14): Short always, the others when they reach any
+ * tiles. The D.M. reads as the attack takes it: minus is easier.
+ */
+export function weaponRangeBands(ranges) {
+  if ( !ranges ) return [];
+  return Object.entries(IROP.rangeBands).filter(([k]) => (Number(ranges[k]?.tiles) || 0) || (k === "short")).map(([k, label]) => {
+    const r = ranges[k] ?? {};
+    const dm = Number(r.dm) || 0;
+    const tiles = Number(r.tiles) || 0;
+    const mods = r.mods?.length ? `, with ${r.mods.map(m => m.name).join(" and ")}` : "";
+    return { key: k, label, tiles, dm: dm ? signed(dm) : "0", harder: dm > 0, easier: dm < 0,
+      tip: `${label} range${tiles ? `, ${tiles} tiles` : ""}: ${dm ? signed(dm) : "no"} D.M. to hit${mods}` };
+  });
 }

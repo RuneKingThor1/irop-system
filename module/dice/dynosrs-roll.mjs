@@ -1,5 +1,6 @@
 import { DICE, DICE_ORDER, BANK_CAP, SYMBOL_LABEL, symbolsFor, resolve, poolSize } from "../rules/dynosrs.mjs";
 import { houseRules } from "../settings.mjs";
+import { luckRerollOffer } from "../rules/combat.mjs";
 
 /** Font Awesome glyph per symbol, matching the bot's check, X, triangles, star and skull. */
 export const SYMBOL_ICON = {
@@ -126,6 +127,11 @@ export class DynosrsRoll extends foundry.dice.Roll {
       banking,
       canBank: !!this.options.actorUuid,
       showDefeat: res.defeatIsGmOption && (res.outcome === "pass") && !defeatApplied,
+      // Soldier's Luck (Johnald, 2026-11-14): a failed skill check may be rerolled for a point.
+      luck: this.options.skill ? luckRerollOffer({ kind: "skill", failed: outcome === "fail", rerolled: !!flags.luckReroll,
+        reroll: !!this.options.luckReroll, luck: foundry.utils.fromUuidSync(this.options.actorUuid ?? "")?.system?.vitals?.luck?.value }) : null,
+      luckRerolled: !!flags.luckReroll,
+      luckReroll: !!this.options.luckReroll,
       messageId: message?.id ?? ""
     };
   }

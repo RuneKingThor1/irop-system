@@ -232,7 +232,9 @@ IROP.derived = {
 /**
  * RULED 2026-10-06: three speeds, as the Field Manual's movement actions name
  * them and the live sheet showed them: Shift (a quick action, 2 tiles), Run
- * (the Move action, 4 + AGI mod) and Sprint (two actions, turn ending, 2 x Run).
+ * (the Move action, 4 + AGI mod) and Sprint (2 x Run). RULED 2026-11-14 (Johnald): Move costs no
+ * action, up to the Run range in total each turn, split freely; Sprint is one action, turn ending, and
+ * may follow a Move.
  * The live sheet also computed a fourth, 4 x Run, that it never displayed; it
  * is not a speed and is not carried over.
  *
@@ -550,6 +552,12 @@ IROP.modSlots = {
   weapon: { ranged: 3, melee: 2, thrown: 0, explosive: 0 },
   armor: { light: 3, medium: 4, heavy: 3, shield: 3, other: 3 }
 };
+
+/**
+ * Armor's D.M. on the wearer's dodge rolls by class (Johnald, 2026-11-14): Light -10, Medium -5, an
+ * easier dodge. Each armor item may set its own (system.dodgeMod); left blank it takes its class's.
+ */
+IROP.armorDodge = { light: -10, medium: -5, heavy: 0, shield: 0, other: 0 };
 
 /** Which kind of item a mod fits. */
 IROP.modTargets = {

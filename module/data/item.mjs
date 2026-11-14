@@ -290,9 +290,17 @@ export class ArmorData extends foundry.abstract.TypeDataModel {
       // Flat bonus per speed, which varies from armor to armor. Usually +1 Run and +1 Sprint.
       mobility: new fields.SchemaField(Object.fromEntries(Object.keys(IROP.speeds).map(k => [k, int(0)]))),
       dodges: int(0),
+      // D.M. on the wearer's dodge rolls (Johnald, 2026-11-14): negative is easier. Blank takes the
+      // class default (IROP.armorDodge: Light -10, Medium -5), so armor made before it needs no migration.
+      dodgeMod: new fields.NumberField({ required: true, nullable: true, integer: true, initial: null }),
       modSlots: new fields.NumberField({ required: true, nullable: true, integer: true, min: 0, initial: null }),
       ...physical()
     };
+  }
+
+  /** The D.M. this armor puts on its wearer's dodge rolls: its own, or its class's. */
+  get dodge() {
+    return this.dodgeMod ?? IROP.armorDodge[this.armorClass] ?? 0;
   }
 
   get slots() {

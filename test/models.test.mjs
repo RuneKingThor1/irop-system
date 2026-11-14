@@ -195,6 +195,17 @@ check("species health 6 + TGH 4", m.vitals.hp.max === 10, m.vitals.hp.max);
     (m.banks.edgeMax === 3) && (m.banks.victoryMax === 1) && (cortex.banks.edgeMax === 4) && (cortex.banks.victoryMax === 0));
 }
 check("worn armor points only", m.vitals.armor.max === 4, m.vitals.armor.max);
+check("dodge takes 3 off a hit by default, more with a bonus", (m.dodgeReduction === 3)
+  && (prepare(OperativeData, { bonuses: { dodgeReduction: 2 } }, []).dodgeReduction === 5), m.dodgeReduction);
+// Armor's dodge D.M. (Johnald, 2026-11-14): Light -10, Medium -5 by default, the item's own when set, worn only.
+{
+  const at = (system) => prepare(OperativeData, {}, [{ type: "armor", system: { equipped: true, ...system } }]).armorDodge;
+  check("armor dodge: light -10, medium -5, heavy 0 by default",
+    (at({ armorClass: "light" }) === -10) && (at({ armorClass: "medium" }) === -5) && (at({ armorClass: "heavy" }) === 0));
+  check("armor dodge: the item's own D.M. wins, 0 included", (at({ armorClass: "light", dodgeMod: -15 }) === -15) && (at({ armorClass: "light", dodgeMod: 0 }) === 0));
+  const off = prepare(OperativeData, {}, [{ type: "armor", system: { equipped: false, armorClass: "light" } }]).armorDodge;
+  check("armor dodge: armor not worn adds nothing", off === 0, off);
+}
 // RULED 2026-10-07: Defense (the live Armor Bonus) is its own number, from worn armor only, separate from armor HP.
 check("worn armor Defense only, apart from armor HP", m.defense === 6 && m.vitals.armor.max === 4, m.defense);
 check("no armor, no Defense", prepare(OperativeData, {}).defense === 0);

@@ -310,6 +310,7 @@ export class IropItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       // The project sheet (step 5, 2026-10-08).
       project: item.type === "project" ? projectContext(item) : null,
       defaultSlots: system.slots ?? null,
+      defaultDodge: (item.type === "armor") ? (IROP.armorDodge[system.armorClass] ?? 0) : null,
       fitted: (system.mods ?? []).map(m => m.name).join(", "),
       effects: item.effects.map(e => ({
         id: e.id, name: e.name, img: e.img, disabled: e.disabled,

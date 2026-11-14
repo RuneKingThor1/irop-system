@@ -58,6 +58,7 @@
           {{#if w.perkLines.length}}<span class="stat-chip perk-chip" data-tooltip="{{w.perkTip}}"><i class="fa-solid fa-gears"></i> {{w.perkLines.length}}</span>{{/if}}
           <div class="row-controls">
             {{#if w.canAttack}}<button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-crosshairs"></i> Attack</button>{{/if}}
+            {{#if w.canDamage}}<button type="button" class="icon" data-action="rollItemDamage" data-tooltip="Roll damage, no attack roll. Shift click for a critical"><i class="fa-solid fa-burst"></i></button>{{/if}}
             {{#if w.phase.cleave}}<button type="button" class="attack" data-action="cleave" data-tooltip="An arc {{w.phase.cleave}} tiles deep in front of you: every target in it"><i class="fa-solid fa-wind"></i> Cleave</button>{{/if}}
             <button type="button" class="icon {{#if w.system.equipped}}on{{/if}}" data-action="toggleEquip" data-tooltip="Equipped"><i class="fa-solid fa-hand-fist"></i></button>
             <button type="button" class="icon" data-action="toggleStow" data-tooltip="Stow"><i class="fa-solid fa-box-archive"></i></button>
@@ -93,6 +94,12 @@
             <i class="fa-solid fa-plus"></i> {{p.noun}}</button>
           {{/if}}
           {{/each}}
+          {{!-- Range bands, on the side opposite the slots (Johnald, 2026-11-14). --}}
+          {{#if w.rangeBands.length}}
+          <div class="range-bands">
+            {{#each w.rangeBands as |rb|}}<span class="range-band" data-tooltip="{{rb.tip}}"><span class="rb-label">{{rb.label}}</span>{{#if rb.tiles}}<span class="rb-tiles">{{rb.tiles}}T</span>{{/if}}<span class="rb-dm {{#if rb.harder}}harder{{else if rb.easier}}easier{{/if}}">{{rb.dm}}</span></span>{{/each}}
+          </div>
+          {{/if}}
         </div>
         {{/if}}
       </li>

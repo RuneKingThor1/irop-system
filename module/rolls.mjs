@@ -3,7 +3,8 @@ import { DICE, DICE_ORDER, DIFFICULTY, BANK_CAP } from "./rules/dynosrs.mjs";
 import { rangesWithMods } from "./rules/mods.mjs";
 import { phasedStats } from "./rules/phases.mjs";
 import { weaponTypeOf } from "./rules/weapon-types.mjs";
-import { perkOptions, perkResult, perkRule, perkUses, abilityAsUpgraded, perkBlast, attackAccuracy, chemPerks, dieUp, weaponPerkSummary, gearCharges, requiredAbility } from "./rules/perks.mjs";
+import { OUT_OF_TURN } from "./rules/perk-rules.mjs";
+import { perkOptions, perkResult, perkWaivers, perkRule, perkUses, abilityAsUpgraded, perkBlast, attackAccuracy, chemPerks, dieUp, weaponPerkSummary, gearCharges, requiredAbility } from "./rules/perks.mjs";
 import { perkKey } from "./rules/skill-trees.mjs";
 import { powerAccuracy, powerSaveDm, needsConcentration, trackText, powerTotals, barrierGrant, optionalNodes, castPower } from "./rules/paraphysics.mjs";
 import { isFocus } from "./rules/concealment.mjs";
@@ -68,6 +69,50 @@ async function formDialog(title, template, data, render) {
     ok: { label: "Roll", icon: "fa-solid fa-dice" },
     render: render ? (event, dialog) => render(dialog.element) : undefined
   });
+}
+
+/** The visibility a posted message was given, so a follow up roll can be posted the same way. */
+function modeOf(message) {
+  const whisper = message?.whisper ?? [];
+  if ( message?.blind ) return "blind";
+  if ( !whisper.length ) return "public";
+  if ( (whisper.length === 1) && (whisper[0] === (message.author?.id ?? message.user?.id)) ) return "self";
+  return "gm";
+}
+
+/**
+ * Soldier's Luck (Johnald, 2026-11-14): reroll a failed attack, attribute check or skill check for
+ * 1 Luck point. The new card is the same roll made again (same target, modifiers and pool; nothing
+ * spent a second time), posted as the first was; the old card says it was rerolled.
+ */
+export async function rerollWithLuck(message) {
+  const old = message?.rolls?.[0];
+  if ( !old ) return null;
+  if ( message.getFlag("irop", "luckReroll") ) return ui.notifications.info("This roll was rerolled with Luck already.");
+  if ( old.options?.luckReroll ) return ui.notifications.info("A Luck reroll cannot be rerolled again.");
+  const actor = old.options?.actorUuid ? foundry.utils.fromUuidSync(old.options.actorUuid) : null;
+  if ( !actor ) return ui.notifications.warn("The roller of this card no longer exists.");
+  if ( !actor.isOwner ) return ui.notifications.warn(`Only ${actor.name}'s owner or the GM can spend their Luck.`);
+  const luck = Number(actor.system.vitals?.luck?.value) || 0;
+  if ( luck < 1 ) return ui.notifications.warn(`${actor.name} has no Luck points left.`);
+  let roll;
+  if ( old instanceof DynosrsRoll ) {
+    const { pool, houseRules: _rules, ...rest } = foundry.utils.deepClone(old.options);
+    roll = DynosrsRoll.fromPool(pool, { ...rest, luckReroll: true });
+  }
+  else if ( old instanceof D100Roll ) roll = D100Roll.create({ ...foundry.utils.deepClone(old.options), luckReroll: true });
+  else return null;
+  // Marked before the spend, so a second click cannot spend twice.
+  await message.setFlag("irop", "luckReroll", true);
+  await actor.update({ "system.vitals.luck.value": luck - 1 });
+  const posted = await toChat(roll, actor, modeOf(message));
+  // A burn save's outcome follows the reroll (2026-11-14): the old outcome card is struck, a new one posted.
+  if ( roll.options.burnOutcome ) {
+    const before = game.messages.get(message.getFlag("irop", "burnOutcomeId") ?? "");
+    if ( before?.isOwner ) await before.update({ content: `<div class="irop-card"><p class="summary"><i class="fa-solid fa-clover"></i> Struck: ${actor.name} rerolled the save with Luck. See the outcome after the reroll.</p></div>`, "flags.irop.status": null });
+    await postBurnOutcome(posted, roll, actor);
+  }
+  return posted;
 }
 
 /** Evaluate a roll and post it, with the visibility chosen in the dialog. */
@@ -183,23 +228,35 @@ export async function rollDodge(actor) {
     targetLabel: `Agility ${agi.value}`,
     covers: Object.entries(COVER).map(([k, c]) => ({ key: k, label: `${c.name} (${signed(c.dodge)})`, checked: k === "none" })),
     disorientated: statuses.has("disorientated"),
+    // Ticked for the last attack on this character when it was a melee one (2026-11-14).
+    melee: !!against?.melee,
+    reduction: Number(s.dodgeReduction ?? 3),
     dodgesLeft: s.vitals.dodges.value,
     dodgesMax: s.vitals.dodges.max
   });
   if ( !data ) return null;
   // Spent elsewhere while the window was open.
   if ( noneLeft() ) return null;
+  // Against a melee attack cover means nothing (Johnald, 2026-11-14): no cover column at all, so
+  // neither the open +30 nor cover's help, and Hunker Down and Unaware's "as if in the open" go with it.
+  const melee = !!data.melee;
   const keys = [];
-  if ( data.unaware ) keys.push("unaware");
+  if ( data.unaware && !melee ) keys.push("unaware");
   if ( data.disorientated ) keys.push("disorientated");
-  const modifiers = collectModifiers({ keys, cover: data.cover, role: "dodge", extra: Number(data.dm) || 0 });
+  if ( data.hunkered && !melee ) keys.push("hunkered");
+  const modifiers = collectModifiers({ keys, cover: melee ? null : data.cover, role: "dodge", extra: Number(data.dm) || 0 });
+  // Worn armor (Johnald, 2026-11-14): Light -10, Medium -5, or what the item sets.
+  const armorDodge = Number(s.armorDodge) || 0;
+  if ( armorDodge ) modifiers.push({ label: "Worn armor", value: armorDodge });
   const pick = (group, key) => data[`${group}.${key}`] ?? data[group]?.[key];
   modifiers.push(...perkResult(perks, {
     ticked: perks.situations.filter(t => pick("perk", t.key)).map(t => t.key),
     counts: Object.fromEntries(perks.scales.map(t => [t.key, Number(pick("perkCount", t.key)) || 0]))
   }).dodge);
   const roll = D100Roll.create({
-    kind: "dodge", label: "Dodge", target: agi.value, targetLabel: `AGI ${agi.value}`, modifiers, actorUuid: actor.uuid
+    kind: "dodge", label: "Dodge", target: agi.value, targetLabel: `AGI ${agi.value}`, modifiers, actorUuid: actor.uuid,
+    // What a success takes off the hit (2026-11-14), shown on the card.
+    reduction: Number(s.dodgeReduction ?? 3)
   });
   const msg = await toChat(roll, actor, data.mode);
   const left = Number(actor.system.vitals.dodges.value) || 0;
@@ -405,6 +462,7 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
   const engagedKey = ENGAGED_BY_HANDLING[profile.handling] ?? "engaged";
 
   const toggles = [
+    { key: "overwatch", hint: "Reaction fire: an overwatch shot or other out of turn attack" },
     { key: "high_ground", hint: "Target below you" },
     { key: "low_ground", hint: "Target above you" },
     { key: "smoke_fog", hint: "Shooting into or through smoke" },
@@ -412,6 +470,8 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
     { key: "exposed", hint: "Flanked or ambushed: easier to crit, not to hit" }
   ];
   if ( profile.ranged || profile.thrown ) toggles.push({ key: engagedKey, hint: "You are engaged in melee" });
+  // Hunker Down (2026-11-14): ranged attacks on a hunkered target in cover take a further +30.
+  if ( profile.ranged || profile.thrown ) toggles.push({ key: "hunkered", hint: "Target hunkered down in cover: adds to its cover" });
   if ( !profile.paraphysical ) toggles.push({ key: "suppressed", hint: "You are suppressed", checked: statuses.has("suppressed") });
   toggles.push({ key: "disorientated", hint: "You are disorientated", checked: statuses.has("disorientated") });
 
@@ -466,9 +526,12 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
   }
 
   const keys = toggles.map(t => t.key).filter(k => data[`mod.${k}`] ?? data.mod?.[k]);
+  const overwatch = keys.includes("overwatch");
+  // A perk that waives reaction fire's +15 (Anger Management, Opportunist) drops it (2026-11-14).
+  const waived = perkWaivers(actor.items?.filter?.(i => i.type === "ability") ?? []);
   const band = ranges ? (data.range || "short") : null;
   const modifiers = collectModifiers({
-    keys: keys.filter(k => k !== "exposed"),
+    keys: keys.filter(k => (k !== "exposed") && !waived[k]),
     cover: data.cover,
     role: "accuracy",
     range: band ? profile.ranges[band].dm : null,
@@ -483,6 +546,8 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
   if ( profile.ammo?.accuracy ) modifiers.push({ label: profile.ammo.name, value: profile.ammo.accuracy });
   // The perks chosen, and the active it was made through.
   const pick = (group, key) => data[`${group}.${key}`] ?? data[group]?.[key];
+  // Ticking Overwatch also ticks the perks that ask "Overwatch or out of turn attack" (2026-11-14).
+  const ticks = t => pick("perk", t.key) || (overwatch && (t.label === OUT_OF_TURN));
   // A power's own lines (2026-10-19): its rank, the focus, optimal range. Its damage skips the Armor
   // HP pool: barrier first, then HP (Framework PSI-07).
   if ( power ) {
@@ -494,7 +559,7 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
   }
   const perk = perkResult(perks, {
     band, melee: s.category === "melee",
-    ticked: perks.situations.filter(t => pick("perk", t.key)).map(t => t.key),
+    ticked: perks.situations.filter(ticks).map(t => t.key),
     counts: Object.fromEntries(perks.scales.map(t => [t.key, Number(pick("perkCount", t.key)) || 0]))
   });
   modifiers.push(...perk.attack);
@@ -519,6 +584,8 @@ export async function rollAttack(actor, item, { projectile = 0, ability = null, 
     ammo: profile.ammo ? { name: profile.ammo.name, critical: profile.ammo.critical } : null,
     itemUuid: item.uuid,
     itemName: label,
+    // A melee attack: the target's dodge ignores cover (Johnald, 2026-11-14).
+    melee: profile.category === "melee",
     cover: data.cover,
     exposed: keys.includes("exposed"),
     critChance: profile.critChance,
@@ -659,17 +726,27 @@ export async function rollBurnSave(message, roll) {
   if ( !target.isOwner ) return ui.notifications.warn(`Only ${target.name}'s owner or the GM can roll its save.`);
   const attr = target.system.attributes[burn.save];
   const saveRoll = D100Roll.create({
-    kind: "check", label: `${burn.saveLabel} save`, subtitle: `against ${o.label}`,
+    kind: "check", save: true, label: `${burn.saveLabel} save`, subtitle: `against ${o.label}`,
     target: attr.value, targetLabel: `${attr.abbr} ${attr.value}`,
-    modifiers: burn.dm ? [{ label: `${burn.bandLabel} range`, value: burn.dm }] : [], actorUuid: target.uuid
+    modifiers: burn.dm ? [{ label: `${burn.bandLabel} range`, value: burn.dm }] : [], actorUuid: target.uuid,
+    // What the outcome card needs, so a Luck reroll of the save can post a new one (2026-11-14).
+    burnOutcome: { label: o.label, typeLabel: o.damageTypeLabel ?? "", full: roll.total, status: burn.status ?? null, targetUuid }
   });
-  await toChat(saveRoll, target);
-  return ChatMessage.implementation.create({
+  const saveMsg = await toChat(saveRoll, target);
+  return postBurnOutcome(saveMsg, saveRoll, target);
+}
+
+/** The outcome of a burn save, posted after the save; its id is kept on the save's card. */
+async function postBurnOutcome(saveMsg, saveRoll, target) {
+  const b = saveRoll.options.burnOutcome;
+  const outcome = await ChatMessage.implementation.create({
     speaker: speakerFor(target),
-    content: burnOutcome({ label: o.label, typeLabel: o.damageTypeLabel ?? "", target: target.name,
-      full: roll.total, failed: !saveRoll.success, status: burn.status }),
-    flags: { irop: { status: saveRoll.success ? null : burn.status, targetUuid } }
+    content: burnOutcome({ label: b.label, typeLabel: b.typeLabel, target: target.name,
+      full: b.full, failed: !saveRoll.success, status: b.status }),
+    flags: { irop: { status: saveRoll.success ? null : b.status, targetUuid: b.targetUuid } }
   });
+  if ( saveMsg?.isOwner && outcome ) await saveMsg.setFlag("irop", "burnOutcomeId", outcome.id);
+  return outcome;
 }
 
 /** The burn's outcome card: half on a save; on a failure, all of it and the status with an Apply button. */
@@ -780,6 +857,43 @@ export async function rollDamage(attack, { critical = false } = {}) {
     powerSave: attack.powerSave ?? null
   });
   return toChat(roll, actor);
+}
+
+/**
+ * Roll a weapon's damage with no attack roll (Johnald, 2026-11-14): for a hit settled at the table, an
+ * automatic hit, or damage the GM calls for. Shift click rolls it as a critical. The perks that always
+ * apply are added (Weapon Expert's +1); situational ones are not asked for. One targeted token is
+ * named on the card, so its status and burn buttons work.
+ */
+export async function rollItemDamage(actor, item, { critical = false } = {}) {
+  const profile = attackProfile(item) ?? powerDamageProfile(item);
+  if ( !profile?.damage?.formula ) {
+    const why = item.system?.projectileSlots ? "Load a grenade or rocket first." : "It has no damage formula.";
+    return ui.notifications.warn(`${item.name} has no damage to roll. ${why}`);
+  }
+  const abilities = actor.items?.filter?.(i => i.type === "ability") ?? [];
+  const perk = (item.type === "weapon")
+    ? perkResult(perkOptions(abilities, { roll: "attack", weapon: { name: item.name, system: item.system, special: !!profile.ammo }, ...perkContext(actor) }),
+      { melee: item.system.category === "melee", ticked: [], counts: {} })
+    : {};
+  const targets = Array.from(game.user.targets ?? []);
+  const target = (targets.length === 1) ? targets[0].actor : null;
+  return rollDamage({
+    actorUuid: actor.uuid, itemUuid: item.uuid, itemName: item.name, damage: profile.damage, perk,
+    targetUuid: target?.uuid ?? null, targetName: target?.name ?? null
+  }, { critical });
+}
+
+/**
+ * A save power's damage as an attack profile would carry it (2026-11-14): its formula at its ranks and
+ * picks, its type and shred. Healing powers have none. Attack powers come from attackProfile.
+ */
+function powerDamageProfile(item) {
+  const p = item?.system?.paraphysics;
+  if ( (item?.type !== "ability") || !p || p.heal ) return null;
+  const t = powerTotals(p);
+  const formula = [p.damage?.formula, ...t.damage].filter(f => String(f ?? "").trim()).join(" + ");
+  return formula ? { damage: { formula, type: t.damageType || p.damage.type, critDamage: 0, shred: t.shred, penetration: 0 } } : null;
 }
 
 /** What a scatter card says about the blast marker. */
@@ -1079,7 +1193,7 @@ function lastAttackOn(actor) {
     const target = foundry.utils.fromUuidSync(attack.targetUuid);
     if ( (target?.id !== actor.id) && (target?.actor?.id !== actor.id) ) continue;
     const lines = attack.perk?.enemyDodge ?? [];
-    return { from: `${foundry.utils.fromUuidSync(attack.actorUuid)?.name ?? "the attacker"}'s ${attack.itemName}`, lines };
+    return { from: `${foundry.utils.fromUuidSync(attack.actorUuid)?.name ?? "the attacker"}'s ${attack.itemName}`, lines, melee: !!attack.melee };
   }
   return null;
 }
@@ -1316,7 +1430,7 @@ export async function rollPowerSave(message, { second = false } = {}) {
     const attr = target.system.attributes?.[ps.save];
     if ( !attr ) continue;
     const save = D100Roll.create({
-      kind: "check", label: `${ps.saveLabel} save`, subtitle: `against ${ps.label}`,
+      kind: "check", save: true, label: `${ps.saveLabel} save`, subtitle: `against ${ps.label}`,
       target: attr.value, targetLabel: `${attr.abbr} ${attr.value}`,
       modifiers: ps.dm ? [{ label: `${ps.label}, the caster's D.M.`, value: ps.dm }] : [], actorUuid: target.uuid
     });

@@ -1,6 +1,6 @@
 import { BANK_CAP } from "./rules/dynosrs.mjs";
 import { adjustGmBanks } from "./settings.mjs";
-import { rollCritical, rollDamage, rollScatter, rollBurnSave, rollPowerSave, grantPowerBarrier, rollPowerDamage, rollPowerHeal, grantPowerArmor } from "./rolls.mjs";
+import { rollCritical, rollDamage, rollScatter, rollBurnSave, rollPowerSave, grantPowerBarrier, rollPowerDamage, rollPowerHeal, grantPowerArmor, rerollWithLuck } from "./rolls.mjs";
 import { approveSupport, declineSupport, fireMortar, mortarDamage } from "./apps/resources.mjs";
 import { clearBlast } from "./canvas/blast.mjs";
 import { askStatusValue, setStatus, statusDef, statusValue } from "./statuses.mjs";
@@ -84,6 +84,7 @@ async function handle(message, action, button) {
     case "critical": return rollCritical(attack);
     case "scatter": return rollScatter(attack?.scatter, foundry.utils.fromUuidSync(attack?.actorUuid), { blast: attack?.blast });
     case "bank": return bank(message, roll, button.dataset.symbol, Number(button.dataset.amount) || 0);
+    case "luckReroll": return rerollWithLuck(message);
     case "applyDefeat": return applyDefeat(message);
     case "applyStatus": return applyStatus(message, roll);
     case "burnSave": return rollBurnSave(message, roll);

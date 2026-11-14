@@ -8194,5 +8194,83 @@ const ACTIONS_BANKS = new Set(Object.keys(BanksApp.DEFAULT_OPTIONS.actions));
   check("bend: a 2 wide line is drawn 2 tiles wide", blastM.blastShape("line", 6, 100, 2).width === 200 && blastM.blastShape("line", 6, 100).width === 100);
 }
 
+// The operative census macro (Johnald, 2026-11-01), run against real sheets.
+{
+  const source = fs.readFileSync(path.join(ROOT, "dev", "operative-census-macro.js"), "utf8");
+  const saved = { game: { ...game }, ui: globalThis.ui, chat: globalThis.ChatMessage, utils: foundry.utils, document: globalThis.document };
+  const files = [], cards = [], said = [];
+  const eclipse = { name: "Marauder", folder: { name: "Eclipse", folder: null } };
+  const named = (name, folder, system) => {
+    const a = makeActor("operative", OperativeData, { details: { callsign: name, record: { firstName: "Ada", medals: [] }, notes: "<p>Handler only.</p>" } },
+      [{ type: "role", name: "Marauder", system: { role: "marauder" } }, { type: "species", name: "Human", system: { boons: true } },
+        { type: "weapon", name: "T1 Pistol", system: { equipped: true } }, { type: "ability", name: "Charge", system: { source: "marauder" } }]);
+    Object.assign(a, { id: name, name, folder, testUserPermission: () => true });
+    if ( system !== undefined ) a.system = system;
+    return a;
+  };
+  const shop = { type: "store", name: "Shop", folder: null };
+  const npc = { type: "npc", name: "A Trooper", folder: null };
+  Object.assign(game, {
+    system: { id: "irop", version: "t" }, world: { title: "Reboot" }, irop: { config: IROP }, user: { isGM: true, id: "gm" },
+    users: [{ isGM: false, name: "Player One" }, { isGM: true, name: "GM" }],
+    actors: [named("Wraith", eclipse), named("Test Dummy", { name: "Insurrection Test Kit", folder: null }), named("Broken", null, null), shop, npc]
+  });
+  globalThis.ui = { notifications: { info: m => said.push(m), warn: m => said.push(m), error: m => said.push(m) } };
+  globalThis.ChatMessage = { create: c => cards.push(c) };
+  globalThis.document = new JSDOM("").window.document;
+  foundry.utils = { ...foundry.utils, escapeHTML: t => String(t), saveDataToFile: (text, type, name) => files.push({ text, type, name }) };
+  await new Function(`return ${source.slice(source.indexOf("(async"))}`)();
+  const file = JSON.parse(files[0]?.text ?? "{}");
+  const wraith = file.operatives?.[0];
+  check("census: operatives only, test sheets skipped, a broken sheet warned of and the rest saved",
+    (file.operatives?.length === 1) && (file.skippedTestSheets === 1) && (file.warnings?.length === 1) && /^Broken/.test(file.warnings[0])
+      && /^irop-operatives-\d{4}-\d\d-\d\d\.json$/.test(files[0]?.name ?? ""), JSON.stringify(file.warnings));
+  check("census: a sheet comes out whole: who, folder, player, role, species, stats, kit, perks and record",
+    (wraith?.callsign === "Wraith") && (wraith.folder.join("/") === "Eclipse/Marauder") && (wraith.players.join() === "Player One")
+      && (wraith.role === "Marauder") && (wraith.species === "Human") && (wraith.attributes.str.value === wraith.attributes.str.base)
+      && (wraith.weapons[0].name === "T1 Pistol") && (wraith.perks[0].name === "Charge") && (wraith.record.firstName === "Ada")
+      && (wraith.gmNotes === "Handler only.") && (typeof wraith.xp.earned === "number") && !!wraith.rank, JSON.stringify(wraith).slice(0, 600));
+  check("census: the whisper lists who was saved, and nothing in the world is written", cards.length === 1 && /Wraith/.test(cards[0].content) && cards[0].whisper.join() === "gm");
+  Object.assign(game, saved.game);
+  delete game.world;
+  globalThis.ui = saved.ui;
+  globalThis.ChatMessage = saved.chat;
+  globalThis.document = saved.document;
+  foundry.utils = saved.utils;
+}
+
+// The faction census macro (Johnald, 2026-11-01), run against the real faction shapes.
+{
+  const { normalizeFaction, normalizeTask } = await import("../module/rules/factions.mjs");
+  const source = fs.readFileSync(path.join(ROOT, "dev", "factions-census-macro.js"), "utf8");
+  const saved = { game: { ...game }, ui: globalThis.ui, chat: globalThis.ChatMessage, utils: foundry.utils };
+  const files = [], cards = [];
+  const list = [normalizeFaction({ id: "f1", name: "Zaibatsu", tier: "major", standing: 0, stance: "Business only", home: "t1" }),
+    normalizeFaction({ id: "f2", name: "Copperhides", tier: "minor", standing: -3, hidden: true, home: "gone" }),
+    normalizeFaction({ id: "f3", name: "GIA", tier: "major", standing: 2, notes: "Pro alien." })];
+  Object.assign(game, {
+    system: { id: "irop", version: "t" }, world: { title: "Reboot" }, user: { isGM: true, id: "gm" },
+    irop: { config: IROP, strategy: { factions: { list: () => list, tasks: () => [normalizeTask({ id: "t", faction: "f1", rival: "f2", title: "A job" })],
+      log: () => [{ faction: "f3", delta: 2, reason: "Set by the GM" }] } } },
+    items: { get: id => (id === "t1" ? { name: "Neo Seattle" } : undefined) }
+  });
+  globalThis.ui = { notifications: { info() {}, warn() {}, error() {} } };
+  globalThis.ChatMessage = { create: c => cards.push(c) };
+  foundry.utils = { ...foundry.utils, escapeHTML: t => String(t), saveDataToFile: (text, type, name) => files.push({ text, name }) };
+  await new Function(`return ${source.slice(source.indexOf("(async"))}`)();
+  const file = JSON.parse(files[0]?.text ?? "{}");
+  check("faction census: every faction by tier then name, hidden ones too, with its level named and its home a name",
+    (file.factions?.map(f => f.name).join() === "GIA,Zaibatsu,Copperhides") && (file.factions[0].standingLabel === "Friendly")
+      && (file.factions[1].home === "Neo Seattle") && (file.factions[2].hidden === true) && /missing territory/.test(file.factions[2].home)
+      && /^irop-factions-\d{4}-\d\d-\d\d\.json$/.test(files[0]?.name ?? ""), JSON.stringify(file.factions));
+  check("faction census: tasks and the log name their factions, and the whisper says what was saved",
+    (file.tasks[0].faction === "Zaibatsu") && (file.tasks[0].rival === "Copperhides") && (file.log[0].faction === "GIA") && /3 saved/.test(cards[0]?.content ?? ""));
+  Object.assign(game, saved.game);
+  delete game.world;
+  globalThis.ui = saved.ui;
+  globalThis.ChatMessage = saved.chat;
+  foundry.utils = saved.utils;
+}
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

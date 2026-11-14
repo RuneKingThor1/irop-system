@@ -1,7 +1,7 @@
 /**
  * Two Telestoi backgrounds (Johnald, 2026-10-20), from the Telestoi xenology file: the House Scion,
  * born to a city-state's noble family, and the Door Warden, raised in the service that keeps the
- * Stellar Doors and the drones that watched Earth. (An Altered Telestoi cannot defect by normal
+ * Stellar Doors and the drones, and reads the agents' reports. (An Altered Telestoi cannot defect by normal
  * standards, so there is no Altered background.) Run once as the GM, as a script macro. It makes (or
  * rewrites) both backgrounds, open to Telestoi only, and their three perks each as Background
  * abilities in the Background Perks folder, with Envoy's and Silent Watchers' numbers as effects
@@ -28,7 +28,7 @@
     },
     {
       name: "Door Warden", img: "icons/environment/wilderness/portal.webp",
-      description: p("Raised on the temporary homeworld after the Exodus, in the service that keeps the Stellar Doors and the drones that watched Earth for a quarter century. You came through the Earth Door knowing this planet's last twenty five years better than most of the people living on it."),
+      description: p("Raised on the temporary homeworld after the Exodus, in the service that keeps the Stellar Doors and the drones, and has read the reports of the agents on Earth for a quarter century. You came through the Earth Door knowing this planet's last twenty five years better than most of the people living on it."),
       skills: "Technology, Xenotechnology, History, Investigation, Awareness, Survivalism",
       perks: [
         { name: "The Watchers' Record", img: "icons/sundries/scrolls/scroll-bound-blue-tan.webp",

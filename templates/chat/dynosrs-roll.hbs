@@ -29,11 +29,19 @@
   <div class="banking">
     {{#each banking as |b|}}
     <div class="bank-row sym-{{b.symbol}}">
-      <span><i class="{{b.icon}}"></i> {{b.amount}} {{b.label}} {{#if b.gm}}for the GM{{/if}}, bank holds {{b.cap}}</span>
+      <span data-tooltip="The {{#if b.gm}}GM's {{/if}}{{b.label}} bank holds {{b.cap}}"><i class="{{b.icon}}"></i> {{b.amount}} {{b.label}}{{#if b.gm}} for the GM{{/if}}</span>
       {{#if b.done}}<span class="banked">Banked</span>
       {{else}}{{#if (or b.gm @root.canBank)}}<button type="button" data-irop-action="bank" data-symbol="{{b.symbol}}" data-amount="{{b.amount}}">Bank</button>{{/if}}{{/if}}
     </div>
     {{/each}}
+  </div>
+  {{/if}}
+
+  {{#if luckReroll}}<p class="summary luck-note"><i class="fa-solid fa-clover"></i> A Luck reroll.</p>{{/if}}
+  {{#if luckRerolled}}<p class="summary luck-note"><i class="fa-solid fa-clover"></i> Rerolled with Luck: see the next card.</p>
+  {{else if luck}}
+  <div class="card-buttons">
+    <button type="button" data-irop-action="luckReroll"><i class="fa-solid fa-clover"></i> Reroll with Luck ({{luck.left}} left)</button>
   </div>
   {{/if}}
 

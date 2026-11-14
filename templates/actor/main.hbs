@@ -40,13 +40,13 @@
       <span class="mono-label">Movement</span>
       <div class="speeds">
         <div class="speed" data-tooltip="Shift: 2 tiles plus armor bonuses. A quick action; forfeits Run and Sprint this turn">
-          <span class="abbr">Shift</span><span class="score">{{movement.shift}}</span><span class="cost">quick</span>
+          <span class="abbr">Shift</span><span class="score">{{movement.shift}}</span>
         </div>
-        <div class="speed" data-tooltip="Run: 4 + AGI mod. The Move action">
-          <span class="abbr">Run</span><span class="score">{{movement.run}}</span><span class="cost">1 action</span>
+        <div class="speed" data-tooltip="Run: 4 + AGI mod. The Move action: no action, up to this far in total each turn">
+          <span class="abbr">Run</span><span class="score">{{movement.run}}</span>
         </div>
-        <div class="speed" data-tooltip="Sprint: 2 x Run. Two actions, turn ending">
-          <span class="abbr">Sprint</span><span class="score">{{movement.sprint}}</span><span class="cost">2 actions</span>
+        <div class="speed" data-tooltip="Sprint: 2 x Run. One action, turn ending; you may Move first">
+          <span class="abbr">Sprint</span><span class="score">{{movement.sprint}}</span>
         </div>
       </div>
     </div>

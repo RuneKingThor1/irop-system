@@ -67,6 +67,7 @@
             </span>
             <div class="row-controls">
               <button type="button" class="attack" data-action="useItem"><i class="fa-solid fa-{{#if w.attack}}crosshairs{{else}}bolt{{/if}}"></i> {{#if w.attack}}Cast{{else}}Use{{/if}}</button>
+              {{#if w.canDamage}}<button type="button" class="icon" data-action="rollItemDamage" data-tooltip="Roll damage, no cast or attack roll, no Energy spent"><i class="fa-solid fa-burst"></i></button>{{/if}}
               {{#if @root.editable}}<button type="button" class="icon" data-action="deleteItem" data-tooltip="Delete"><i class="fa-solid fa-trash"></i></button>{{/if}}
             </div>
           </div>
@@ -77,6 +78,12 @@
             </div>
             {{/each}}
           </dl>
+          {{!-- Range bands, on the side opposite the slots (Johnald, 2026-11-14). --}}
+          {{#if w.rangeBands.length}}
+          <div class="range-bands">
+            {{#each w.rangeBands as |rb|}}<span class="range-band" data-tooltip="{{rb.tip}}"><span class="rb-label">{{rb.label}}</span>{{#if rb.tiles}}<span class="rb-tiles">{{rb.tiles}}T</span>{{/if}}<span class="rb-dm {{#if rb.harder}}harder{{else if rb.easier}}easier{{/if}}">{{rb.dm}}</span></span>{{/each}}
+          </div>
+          {{/if}}
           {{!-- A rank held without its pick: one button opens the pick popup (2026-10-29). --}}
           {{#if (or w.choosing w.evolving)}}
           <div class="power-choice">

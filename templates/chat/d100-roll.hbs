@@ -9,7 +9,7 @@
   </header>
 
   <div class="d100-line">
-    <span class="d100-natural" data-tooltip="The d100">{{natural}}</span>
+    <span class="d100-natural{{#if edge}} edge-natural{{/if}}" data-tooltip="{{#if edge}}{{edge.label}}: {{edge.amount}} Edge{{else}}The d100{{/if}}">{{natural}}</span>
     {{#each modifiers as |m|}}<span class="d100-mod {{#if m.harder}}harder{{else}}easier{{/if}}" data-tooltip="{{m.label}}">{{m.text}}</span>{{/each}}
     <span class="d100-eq">=</span>
     <span class="d100-total">{{total}}</span>
@@ -27,7 +27,18 @@
     <span class="result-word">{{resultLabel}}</span>
     <span class="margin">by {{margin}}</span>
   </div>
-  {{#if outOfBand}}<p class="summary">The modified total is outside 1 to 100. No clamp is applied; the GM may rule.</p>{{/if}}
+  {{#if edge}}
+  <div class="banking natural-edge">
+    <div class="bank-row sym-EDGE">
+      <span{{#if edge.operative}} data-tooltip="The Edge bank holds {{edge.cap}}"{{/if}}><i class="fa-solid fa-caret-up"></i> {{edge.label}}: {{edge.amount}} Edge</span>
+      {{#if edge.done}}<span class="banked">Banked</span>
+      {{else if edge.operative}}<button type="button" data-irop-action="bank" data-symbol="EDGE" data-amount="{{edge.amount}}">Bank</button>{{/if}}
+    </div>
+  </div>
+  {{/if}}
+  {{#if dodgeReduction}}<p class="summary dodge-note"><i class="fa-solid fa-person-running"></i> Take {{dodgeReduction}} off the hit's damage, critical hits included (at least 1 still lands).</p>{{/if}}
+  {{#if luckReroll}}<p class="summary luck-note"><i class="fa-solid fa-clover"></i> A Luck reroll.</p>{{/if}}
+  {{#if luckRerolled}}<p class="summary luck-note"><i class="fa-solid fa-clover"></i> Rerolled with Luck: see the next card.</p>{{/if}}
 
   {{#if buttons.length}}
   <div class="card-buttons">

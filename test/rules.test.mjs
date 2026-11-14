@@ -125,10 +125,19 @@ check("target Defense adds to the attack roll", combat.totalModifier(shot) === 3
   && shot.some(m => (m.label === "Trooper's Defense") && (m.value === 6)), JSON.stringify(shot));
 check("no Defense, no line", !combat.collectModifiers({ defense: 0 }).some(m => /Defense/.test(m.label)));
 
-// Unaware forces open cover on dodge: full cover dodge -30 becomes +30.
+// Unaware forces open cover on dodge: full cover dodge -45 (2026-11-14) becomes +30.
 const dodge = combat.collectModifiers({ cover: "full", role: "dodge", keys: ["unaware"] });
 check("unaware dodge in the open", combat.totalModifier(dodge) === 30, JSON.stringify(dodge));
-check("full cover dodge", combat.totalModifier(combat.collectModifiers({ cover: "full", role: "dodge" })) === -30);
+check("full cover dodge", combat.totalModifier(combat.collectModifiers({ cover: "full", role: "dodge" })) === -45);
+check("half cover dodge", combat.totalModifier(combat.collectModifiers({ cover: "half", role: "dodge" })) === -30);
+// Hunker Down stacks on cover (2026-11-14), and does nothing in the open or on an unaware dodge.
+{
+  const t = (o) => combat.totalModifier(combat.collectModifiers({ keys: ["hunkered"], ...o }));
+  check("hunkered: full cover dodge -75, half -60", (t({ cover: "full", role: "dodge" }) === -75) && (t({ cover: "half", role: "dodge" }) === -60));
+  check("hunkered: shots on it +75 full, +60 half", (t({ cover: "full", role: "accuracy" }) === 75) && (t({ cover: "half", role: "accuracy" }) === 60));
+  check("hunkered: nothing in the open", (t({ cover: "none", role: "dodge" }) === 30) && (t({ cover: null, role: "accuracy" }) === 0));
+  check("hunkered: an unaware dodge is in the open", combat.totalModifier(combat.collectModifiers({ keys: ["hunkered", "unaware"], cover: "full", role: "dodge" })) === 30);
+}
 check("exposed only touches crits",
   combat.totalModifier(combat.collectModifiers({ keys: ["exposed"], role: "accuracy" })) === 0
   && combat.totalModifier(combat.collectModifiers({ keys: ["exposed"], role: "critical" })) === -15);
@@ -1832,6 +1841,56 @@ check("disorientated both ways",
   const shock = ph.phasedStats({ ...sword, phase: "shock" });
   check("phases: electrified turns the damage Electric and a hit saves on Toughness or Stunned (2)",
     shock.damage.type === "electric" && shock.save.attribute === "tgh" && shock.save.status === "stunned" && shock.save.statusValue === 2 && !shock.cleave);
+}
+
+// Natural Edge on the d100 (Johnald, 2026-11-14): 75 offers 2, doubles 1, 100 is 00; checks and attacks only.
+{
+  const ne = combat.naturalEdge;
+  check("natural 75 offers 2 Edge", eq(ne(75), { amount: 2, reason: "unit", unit: 75 }));
+  check("a custom unit number offers 2 Edge", eq(ne(42, { unit: 42 }), { amount: 2, reason: "unit", unit: 42 }));
+  check("75 is plain under a custom unit", ne(75, { unit: 42 }) === null);
+  check("a doubles unit number stacks to 3", eq(ne(77, { unit: 77 }), { amount: 3, reason: "unitDoubles", unit: 77 }));
+  check("unit 100 reads as 00, doubles, 3", eq(ne(100, { unit: 100 }), { amount: 3, reason: "unitDoubles", unit: 100 }));
+  check("other doubles still 1 under a doubles unit", eq(ne(33, { unit: 77 }), { amount: 1, reason: "doubles", unit: 77 }));
+  check("a bad unit number falls back to 75", (combat.unitNumber(0) === 75) && (combat.unitNumber("x") === 75) && (combat.unitNumber(101) === 75) && (combat.unitNumber(12) === 12));
+  for ( const n of [11, 22, 33, 44, 55, 66, 77, 88, 99, 100] ) check(`natural ${n} is doubles`, eq(ne(n, { kind: "attack" }), { amount: 1, reason: "doubles", unit: 75 }));
+  for ( const n of [1, 5, 9, 10, 12, 50, 74, 76, 90, 98] ) check(`natural ${n} offers nothing`, ne(n) === null);
+  check("a save never offers Edge", ne(75, { kind: "check", save: true }) === null);
+  check("a dodge never offers Edge", ne(33, { kind: "dodge" }) === null);
+  check("a critical roll never offers Edge", ne(33, { kind: "critical" }) === null);
+  check("out of range offers nothing", (ne(0) === null) && (ne(101) === null) && (ne(null) === null));
+}
+
+// Soldier's Luck reroll on a card (Johnald, 2026-11-14): failed attacks, attribute and skill checks, with a point left.
+{
+  const lr = combat.luckRerollOffer;
+  check("luck: a failed attack, check, save, dodge or skill check offers it", ["attack", "check", "skill", "dodge"].every(kind => eq(lr({ kind, failed: true, luck: 2 }), { left: 2 })));
+  check("luck: not on a pass", lr({ kind: "attack", failed: false, luck: 2 }) === null);
+  check("luck: not with no points left", lr({ kind: "attack", failed: true, luck: 0 }) === null);
+  check("luck: not twice on one card", lr({ kind: "check", failed: true, rerolled: true, luck: 3 }) === null);
+  check("luck: never critical rolls", lr({ kind: "critical", failed: true, luck: 3 }) === null);
+  check("luck: one reroll per roll, a reroll's card offers none", lr({ kind: "attack", failed: true, reroll: true, luck: 3 }) === null);
+}
+
+// Overwatch, reaction fire (Johnald, 2026-11-14): +15 to the shot, none on an unaware target.
+{
+  const t = keys => combat.totalModifier(combat.collectModifiers({ keys, role: "accuracy" }));
+  check("overwatch: +15 to the shot", t(["overwatch"]) === 15);
+  check("overwatch: an unaware target waives it (only Unaware's -20 left)", t(["overwatch", "unaware"]) === -20);
+  const pk = await import("../module/rules/perks.mjs");
+  const w = pk.perkWaivers([{ name: "Anger Management", system: {} }, { name: "Opportunist", system: {} }, { name: "Weapon Expert", system: {} }]);
+  check("overwatch: Anger Management and Opportunist waive it, as perks, not tick boxes", eq(w, { overwatch: ["Anger Management", "Opportunist"] })
+    && !pk.perkOptions([{ name: "Anger Management", system: {} }], { roll: "attack" }).situations.length);
+  check("overwatch: nothing on a dodge", combat.totalModifier(combat.collectModifiers({ keys: ["overwatch"], role: "dodge" })) === 0);
+}
+
+// A successful dodge (Johnald, 2026-11-14): 3 off the hit, minimum 1, replacing the halving.
+{
+  const dd = combat.dodgedDamage;
+  check("dodge: 10 damage becomes 7", dd(10) === 7);
+  check("dodge: never below 1", (dd(3) === 1) && (dd(2) === 1) && (dd(1) === 1));
+  check("dodge: no damage stays none", dd(0) === 0);
+  check("dodge: a bigger reduction from perks", dd(10, 5) === 5);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

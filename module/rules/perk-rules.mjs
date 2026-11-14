@@ -41,7 +41,7 @@
  *   (a mod's byWeaponTier: [values by the weapon's Tier] is read off the weapon attacking)
  */
 
-const OUT_OF_TURN = "Overwatch or out of turn attack";
+export const OUT_OF_TURN = "Overwatch or out of turn attack";
 const IN_A_DUEL = "In a duel with the target";
 const ONE_HAND_FREE = "One handed weapon, other hand free";
 const WITHIN_4 = "Attacker within 4 tiles";
@@ -89,8 +89,8 @@ export const PERK_RULES = {
   "Watch my Six": { mods: [{ stat: "dodge", value: -15, situation: "Reaction fire, an ally stacked up with you" }] },
   "Weapon Expert": { mods: [{ stat: "damage", value: 1 }, { stat: "critDamage", value: 1 }] },
   /* ---- Punisher ---- */
-  // ASSUMPTION: reaction fire's +15 D.M. is added by hand (or the Situational D.M.); this ticks it back off.
-  "Anger Management": { mods: [{ stat: "attack", value: -15, situation: "Reaction fire (no +15 penalty)" }] },
+  // Reaction fire takes no +15 (2026-11-14: the attack's Overwatch box is waived, not a tick box any more).
+  "Anger Management": { waives: ["overwatch"] },
   "Drop'em fast!": { mods: [{ stat: "critDamage", value: 3, situation: OUT_OF_TURN }] },
   "Judge and Jury": { mods: [{ stat: "damage", value: 1, situation: OUT_OF_TURN }] },
   "Interdiction": { attack: { noCrit: true } },
@@ -145,7 +145,7 @@ export const PERK_RULES = {
   // Medical gear is one use (Johnald, 2026-10-18), the Doctor's Bag aside; Field Medic gives each medikit two more.
   "Field Medic": { gear: { charges: 2, match: "medi-?kit|med ?kit" } },
   "Focus": { mods: [{ stat: "enemyDodge", value: 20, situation: OUT_OF_TURN }, { stat: "attack", value: -20, situation: "Focus: 5 Energy spent on this reaction shot" }] },
-  "Opportunist": { mods: [{ stat: "attack", value: -15, situation: "Reaction fire (no +15 penalty)" }] },
+  "Opportunist": { waives: ["overwatch"] },
   "Pistol Specialist I": { mods: [{ stat: "attack", value: -5, types: ["pistol"], bands: ["short", "medium"] }, { stat: "critDamage", value: 1, types: ["pistol"] }] },
   "Pistol Specialist II": { mods: [{ stat: "attack", value: -5, types: ["pistol"], bands: ["short", "medium"] }, { stat: "critDamage", value: 1, types: ["pistol"] }] },
   "Rifle Specialist I": { mods: [{ stat: "attack", value: -3, types: ["rifle"], bands: ["medium", "long"] }] },

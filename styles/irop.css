@@ -572,6 +572,15 @@
 .irop :where(.window-content) .ammo-slot .fire:hover { color: var(--irop-warn); box-shadow: none; }
 .irop :where(.window-content) .ammo-slot:hover button.icon,
 .irop :where(.window-content) .ammo-slot:focus-within button.icon { opacity: 1; }
+/* Range bands (2026-11-14): at the right of a weapon's tray, under a power's stats. */
+.irop .range-bands { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: auto; }
+.irop .power-card > .range-bands { justify-content: flex-end; margin-top: 6px; }
+.irop .range-band { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 7px; border: 1px solid var(--irop-line); border-radius: 3px; background: var(--irop-sunk); font-family: var(--irop-mono); font-size: var(--irop-small-size); white-space: nowrap; }
+.irop .range-band .rb-label { text-transform: uppercase; letter-spacing: 0.06em; color: var(--irop-label-ink); }
+.irop .range-band .rb-tiles { color: var(--irop-ink-bright); }
+.irop .range-band .rb-dm { color: var(--irop-muted); }
+.irop .range-band .rb-dm.easier { color: var(--irop-good); }
+.irop .range-band .rb-dm.harder { color: var(--irop-bad); }
 .irop .mod-tray.drag-over, .irop .mod-tray:has(.mod-slot):hover { border-top-color: var(--irop-orange); }
 
 /* --------------------------------------------------------------------------
@@ -940,6 +949,11 @@
 .irop-roll-dialog .toggle-list { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
 .irop-roll-dialog .toggle-list label { display: flex; align-items: center; gap: 6px; }
 .irop-roll-dialog .toggle-list label span { flex: 1; }
+/* One per line, the name left and its D.M. right on the same line (Dodge, 2026-11-14: in two columns
+   the longer hints wrapped into a stack of short lines). */
+.irop-roll-dialog .toggle-list.single { grid-template-columns: 1fr; }
+.irop-roll-dialog .toggle-list.single label span { white-space: nowrap; }
+.irop-roll-dialog .toggle-list.single label em { flex: none; white-space: nowrap; }
 .irop-roll-dialog .attack-head { display: flex; gap: 10px; align-items: center; }
 .irop-roll-dialog .attack-head img { width: 44px; height: 44px; border: 1px solid var(--irop-line-bright); border-radius: 3px; }
 .irop-roll-dialog .attack-head div { display: flex; flex-direction: column; }
@@ -1050,11 +1064,16 @@
   flex: 0 0 auto;
 }
 .irop-card button:hover:not(:disabled) { border-color: var(--card-accent); color: var(--irop-ink-bright); }
-.irop-card .banked { font-family: var(--irop-mono); font-size: 16px; color: var(--irop-good); }
+.irop-card .banked { flex: none; white-space: nowrap; font-family: var(--irop-mono); font-size: 16px; color: var(--irop-good); }
+/* The word and the button keep one line; the text beside them wraps instead (2026-11-14: "Banke d"). */
+.irop-card .bank-row > span:first-child { flex: 1; min-width: 0; }
 .irop-card .card-buttons { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 
 .irop-card .d100-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; font-family: var(--irop-mono); }
 .irop-card .d100-natural { font-size: 26px; color: var(--irop-ink-bright); padding: 0 6px; border: 1px solid var(--irop-line-bright); border-radius: 3px; background: var(--irop-sunk); }
+/* Doubles or a natural 75 (Johnald, 2026-11-14): the die glows Edge blue, and the card offers the Edge. */
+.irop-card .d100-natural.edge-natural { color: var(--sym-edge); border-color: var(--sym-edge); background: color-mix(in srgb, var(--sym-edge) 16%, var(--irop-sunk)); box-shadow: 0 0 8px color-mix(in srgb, var(--sym-edge) 60%, transparent); }
+.irop-card .natural-edge .bank-row { padding: 3px 6px; border: 1px solid color-mix(in srgb, var(--sym-edge) 45%, transparent); border-radius: 3px; background: color-mix(in srgb, var(--sym-edge) 8%, transparent); }
 .irop-card .d100-mod { font-size: 18px; }
 .irop-card .harder { color: var(--irop-bad); }
 .irop-card .easier { color: var(--irop-good); }
@@ -2637,36 +2656,50 @@
   --rb-h: 146px;
   --rb-slant: 12px;
   flex: none;
+  /* Bug 2026-11-14: the strip's natural width (every card's minimum) counted toward #interface's
+     (a flex item at min-width auto), so a long fight widened it past the window; #ui-right is placed
+     against its right edge, so the sidebar and chat went off a normal screen and the hotbar slid right.
+     Containing the inline size makes the ribbon take the width it is given, and the line scrolls. */
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
+  contain: inline-size;
   margin: 10px 0 0;
   padding: 0;
   pointer-events: none;
   font-family: var(--irop-display);
   color: var(--irop-ink);
 }
+/* Belt and braces for the same bug: the interface never grows past the window, whatever sits in it. */
+body.game #interface { min-width: 0; }
 .irop-turn-ribbon .rb-strip { display: flex; align-items: stretch; max-width: 100%; pointer-events: auto; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6)); }
 .irop-turn-ribbon .rb-card { clip-path: polygon(var(--rb-slant) 0, 100% 0, calc(100% - var(--rb-slant)) 100%, 0 100%); }
 
 /* The round, at the left end. */
 .irop-turn-ribbon .rb-round {
   flex: none;
-  width: 112px;
+  width: 128px;
   height: var(--rb-h);
   box-sizing: border-box;
-  padding: 8px 16px 8px 6px;
+  padding: 6px 16px 6px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  /* Bug 2026-11-14: "In the fight" and "End combat" each wrapped to two lines, the stack outgrew the
+     card, and centering clipped it top and bottom. Each line now stays one line, and safe centering
+     keeps the top in view if a font ever runs taller. */
+  justify-content: safe center;
+  gap: 1px;
+  overflow: hidden;
   background: color-mix(in srgb, var(--odr-navy) 96%, transparent);
   border-top: 3px solid var(--irop-sky);
   clip-path: polygon(0 0, 100% 0, calc(100% - var(--rb-slant)) 100%, 0 100%);
 }
-.irop-turn-ribbon .rb-round-label, .irop-turn-ribbon .rb-count { font-family: var(--irop-mono); font-size: var(--irop-small-size); letter-spacing: 0.08em; text-transform: uppercase; color: var(--irop-label-ink); }
-.irop-turn-ribbon .rb-round-n { font-family: var(--irop-mono); font-size: 36px; font-weight: 400; line-height: 1; color: var(--irop-sky); }
+.irop-turn-ribbon .rb-round-label, .irop-turn-ribbon .rb-count { font-family: var(--irop-mono); font-size: var(--irop-small-size); line-height: 1; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; color: var(--irop-label-ink); }
+.irop-turn-ribbon .rb-round .rb-count { font-size: 14px; letter-spacing: 0.04em; }
+.irop-turn-ribbon .rb-round-n { font-family: var(--irop-mono); font-size: 32px; font-weight: 400; line-height: 1; color: var(--irop-sky); }
 .irop-turn-ribbon .rb-gm { display: flex; gap: 4px; margin-top: 4px; }
-.irop-turn-ribbon .rb-round .rb-end-combat { margin-top: 4px; padding: 3px 6px; letter-spacing: 0.03em; --rb-edge: var(--irop-bad); }
+.irop-turn-ribbon .rb-round .rb-end-combat { margin-top: 4px; padding: 3px 6px; font-size: 13px; letter-spacing: 0.03em; white-space: nowrap; --rb-edge: var(--irop-bad); }
 
 /* The line of cards scrolls sideways when the fight outgrows the screen. */
 .irop-turn-ribbon .rb-line { position: relative; display: flex; align-items: stretch; min-width: 0; margin-left: calc(var(--rb-slant) / -2); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
@@ -2676,8 +2709,14 @@
 /* A waiting card. */
 .irop-turn-ribbon .rb-card {
   position: relative;
-  flex: 0 1 170px;
-  min-width: 124px;
+  /* Johnald, 2026-11-14: a waiting card keeps its full width rather than shrinking to fit the screen,
+     so its name and Roll button are not cut off; a long fight shows fewer cards and scrolls sooner.
+     Sized against "GENESIS Trooper" (Johnald, 2026-11-14): the name gets 91px beside the portrait, and
+     each word fits its own line with room to spare (at 18px semibold, "GENESIS" measures 70px even in
+     the Segoe UI fallback, which runs wider than Rajdhani). Change the width only after rechecking that. */
+  flex: none;
+  width: 188px;
+  min-width: 0;
   height: var(--rb-h);
   box-sizing: border-box;
   padding: 10px calc(var(--rb-slant) + 8px) 9px calc(var(--rb-slant) + 8px);

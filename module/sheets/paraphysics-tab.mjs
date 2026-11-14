@@ -185,6 +185,15 @@ function powerRow(item, abilities, { canBuy, edit, castingMod = 0 }) {
     // Its evolved name, once it has evolved (2026-10-19), with the old one under it.
     name: totals.evolvedName || item.name, formerly: totals.evolvedName ? item.name : "",
     attack: !!p.attack,
+    // Its two range bands (2026-11-14): within its optimal range, and beyond it.
+    rangeBands: (p.attack && range) ? [
+      { key: "optimal", label: "Optimal", tiles: range, dm: sign(optimal), easier: optimal < 0, harder: optimal > 0,
+        tip: `Within ${range} tiles: ${sign(optimal)} D.M. to hit (twice the casting mod)` },
+      { key: "beyond", label: "Beyond", tiles: 0, dm: sign(IROP.paraphysics.outOfRange), harder: IROP.paraphysics.outOfRange > 0, easier: IROP.paraphysics.outOfRange < 0,
+        tip: `Past ${range} tiles: ${sign(IROP.paraphysics.outOfRange)} D.M. to hit` }
+    ] : [],
+    // Damage with no cast or attack roll (2026-11-14): attack and save powers, never healing.
+    canDamage: !p.heal && !![p.damage?.formula, ...totals.damage].some(f => String(f ?? "").trim()),
     pips: Array.from({ length: IROP.paraphysics.powerMax }, (_, i) => {
       const n = i + 1;
       const cost = powerRankCost(n);
